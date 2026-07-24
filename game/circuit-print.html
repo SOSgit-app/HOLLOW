@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>HOLLOW — Jack-In Circuit Sheet (Unsolved)</title>
+<title>HOLLOW — Jack-In Circuit Sheets (Unsolved)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   @page { size: landscape; margin: 10mm; }
@@ -14,7 +14,7 @@
   }
   h1 { font-size: 18px; letter-spacing: .18em; margin: 0 0 4px; }
   .sub { font-size: 11px; color: #444; margin-bottom: 10px; }
-  .grid-wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
+  .grid-wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 22px; }
   canvas { border: 1px solid #222; }
   .panel { max-width: 320px; font-size: 11px; line-height: 1.55; }
   .panel h2 { font-size: 12px; letter-spacing: .12em; margin: 10px 0 4px; }
@@ -23,57 +23,38 @@
     font: inherit; font-size: 12px; padding: 8px 12px; margin-right: 8px;
     border: 1px solid #111; background: #f4f4f4; color: #111; cursor: pointer; text-decoration: none;
   }
+  .stage-title { font-size: 13px; letter-spacing: .14em; margin: 0 0 8px; }
   @media print {
     .actions { display: none; }
     body { padding: 0; }
+    .grid-wrap { page-break-inside: avoid; }
   }
 </style>
 </head>
 <body>
-  <h1>HOLLOW — JACK-IN ROUTING MATRIX (UNSOLVED)</h1>
-  <div class="sub">MISSION DIRECTOR PACKET · SAME BOARD AS IN-HEADSET · SOLVE BEFORE OPERATOR REACHES CORE</div>
+  <h1>HOLLOW — JACK-IN ROUTING MATRICES (UNSOLVED)</h1>
+  <div class="sub">MISSION DIRECTOR PACKET · TWO BOARDS · 20s LOCKOUT EACH · SAME AS IN-HEADSET</div>
   <div class="actions">
     <button type="button" onclick="window.print()">PRINT / SAVE AS PDF</button>
     <a href="map-print.html">MAP SHEET</a>
     <a href="index.html">BACK TO GAME</a>
   </div>
-  <div class="grid-wrap">
-    <canvas id="circuit" width="700" height="700"></canvas>
-    <div class="panel">
-      <h2>PURPOSE</h2>
-      Pre-solve this sheet offline. When the VR operator reaches the AI
-      console, call out tile IDs and rotations over voice.
-
-      <h2>BOARD</h2>
-      6×6 fixed matrix. Columns <b>A–F</b>, rows <b>1–6</b>.<br>
-      <b>ENTRY</b> feeds west into <b>A1</b>.<br>
-      <b>CORE</b> exits east from <b>F6</b>.
-
-      <h2>GOAL</h2>
-      Rotate tiles so a continuous pipe runs ENTRY → CORE.
-      Each click / A-button in-headset rotates a tile 90° clockwise.
-
-      <h2>CALLOUT FORMAT</h2>
-      “Rotate C3 twice.” · “Select F5, rotate once.”<br>
-      Operator can also use stick to move selection and trigger to step tiles.
-
-      <h2>NOTES</h2>
-      This print matches the unsolved in-game board exactly.
-      Do not mark the solution on a sheet the adversary could see.
-      Time pressure applies once jack-in starts (lockout timer).
-    </div>
+  <div class="panel" style="max-width:720px;margin-bottom:16px">
+    <h2>PURPOSE</h2>
+    Pre-solve both sheets offline. Operator must clear <b>stage 1</b> then <b>stage 2</b>
+    (each has its own 20s lockout). Call out tile IDs and rotations over voice.
+    <b>ENTRY</b> feeds west into <b>A1</b>. <b>CORE</b> exits east from <b>F6</b>.
+    Rotate 90° clockwise per step.
   </div>
-<script src="src/circuit.js?v=42"></script>
+  <div id="boards"></div>
+<script src="src/circuit.js?v=56"></script>
 <script>
 (function () {
   var data = window.HOLLOW.circuit.getSheetData();
   var size = data.size;
-  var tiles = data.tiles;
-  var start = data.start;
   var cols = data.colLabels;
-  var canvas = document.getElementById('circuit');
-  var ctx = canvas.getContext('2d');
-  var pad = 56, top = 56, cell = 96;
+  var stages = data.stages || [{ index: 1, tiles: data.tiles, start: data.start }];
+  var host = document.getElementById('boards');
 
   function rotateMask(mask, turns) {
     turns = ((turns % 4) + 4) % 4;
@@ -89,73 +70,101 @@
     return m;
   }
 
-  function maskAt(c, r) {
-    var i = r * size + c;
-    return rotateMask(tiles[i], start[i]);
-  }
+  function drawBoard(stage) {
+    var wrap = document.createElement('div');
+    wrap.className = 'grid-wrap';
+    var title = document.createElement('div');
+    title.className = 'stage-title';
+    title.textContent = 'STAGE ' + stage.index + ' OF ' + stages.length + ' — UNSOLVED';
+    wrap.appendChild(title);
 
-  function drawPipe(cx, cy, mask) {
-    var a = cell * 0.38;
+    var canvas = document.createElement('canvas');
+    canvas.width = 700;
+    canvas.height = 700;
+    wrap.appendChild(canvas);
+
+    var note = document.createElement('div');
+    note.className = 'panel';
+    note.innerHTML = '<h2>CALLOUT</h2>“Rotate C3 twice.” · “Select F5, rotate once.”<br>' +
+      'Do not mark the solution on a sheet the adversary could see.';
+    wrap.appendChild(note);
+    host.appendChild(wrap);
+
+    var tiles = stage.tiles;
+    var start = stage.start;
+    var ctx = canvas.getContext('2d');
+    var pad = 56, top = 56, cell = 96;
+
+    function maskAt(c, r) {
+      var i = r * size + c;
+      return rotateMask(tiles[i], start[i]);
+    }
+
+    function drawPipe(cx, cy, mask) {
+      var a = cell * 0.38;
+      ctx.strokeStyle = '#111';
+      ctx.lineWidth = 7;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      if (mask & 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - a); }
+      if (mask & 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx + a, cy); }
+      if (mask & 4) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + a); }
+      if (mask & 8) { ctx.moveTo(cx, cy); ctx.lineTo(cx - a, cy); }
+      ctx.stroke();
+      ctx.fillStyle = '#111';
+      ctx.beginPath();
+      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, canvas.width, canvas.height);
+
     ctx.strokeStyle = '#111';
-    ctx.lineWidth = 7;
+    ctx.lineWidth = 5;
     ctx.lineCap = 'round';
     ctx.beginPath();
-    if (mask & 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - a); }
-    if (mask & 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx + a, cy); }
-    if (mask & 4) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + a); }
-    if (mask & 8) { ctx.moveTo(cx, cy); ctx.lineTo(cx - a, cy); }
+    ctx.moveTo(pad - 28, top + cell * 0.5);
+    ctx.lineTo(pad + 4, top + cell * 0.5);
     ctx.stroke();
-    ctx.fillStyle = '#111';
     ctx.beginPath();
-    ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
+    ctx.moveTo(pad + size * cell - 4, top + cell * (size - 0.5));
+    ctx.lineTo(pad + size * cell + 28, top + cell * (size - 0.5));
+    ctx.stroke();
 
-  ctx.fillStyle = '#fff';
-  ctx.fillRect(0, 0, canvas.width, canvas.height);
+    ctx.fillStyle = '#111';
+    ctx.font = 'bold 13px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('ENTRY', 28, top + cell * 0.5 + 18);
+    ctx.fillText('CORE', canvas.width - 28, top + cell * (size - 0.5) + 18);
 
-  ctx.strokeStyle = '#111';
-  ctx.lineWidth = 5;
-  ctx.lineCap = 'round';
-  ctx.beginPath();
-  ctx.moveTo(pad - 28, top + cell * 0.5);
-  ctx.lineTo(pad + 4, top + cell * 0.5);
-  ctx.stroke();
-  ctx.beginPath();
-  ctx.moveTo(pad + size * cell - 4, top + cell * (size - 0.5));
-  ctx.lineTo(pad + size * cell + 28, top + cell * (size - 0.5));
-  ctx.stroke();
-
-  ctx.fillStyle = '#111';
-  ctx.font = 'bold 13px Consolas, monospace';
-  ctx.textAlign = 'center';
-  ctx.fillText('ENTRY', 28, top + cell * 0.5 + 18);
-  ctx.fillText('CORE', canvas.width - 28, top + cell * (size - 0.5) + 18);
-
-  ctx.font = '12px Consolas, monospace';
-  for (var c = 0; c < size; c++) {
-    ctx.fillText(cols.charAt(c), pad + c * cell + cell * 0.5, top - 12);
-  }
-
-  for (var r = 0; r < size; r++) {
-    ctx.fillText(String(r + 1), pad - 18, top + r * cell + cell * 0.55);
-    for (c = 0; c < size; c++) {
-      var x = pad + c * cell, y = top + r * cell;
-      ctx.strokeStyle = '#111';
-      ctx.lineWidth = 1.5;
-      ctx.strokeRect(x + 4, y + 4, cell - 8, cell - 8);
-      drawPipe(x + cell / 2, y + cell / 2, maskAt(c, r));
-      ctx.fillStyle = '#555';
-      ctx.font = '11px Consolas, monospace';
-      ctx.textAlign = 'left';
-      ctx.fillText(cols.charAt(c) + (r + 1), x + 8, y + 18);
-      ctx.textAlign = 'center';
-      ctx.fillStyle = '#111';
+    ctx.font = '12px Consolas, monospace';
+    for (var c = 0; c < size; c++) {
+      ctx.fillText(cols.charAt(c), pad + c * cell + cell * 0.5, top - 12);
     }
+
+    for (var r = 0; r < size; r++) {
+      ctx.fillText(String(r + 1), pad - 18, top + r * cell + cell * 0.55);
+      for (c = 0; c < size; c++) {
+        var x = pad + c * cell, y = top + r * cell;
+        ctx.strokeStyle = '#111';
+        ctx.lineWidth = 1.5;
+        ctx.strokeRect(x + 4, y + 4, cell - 8, cell - 8);
+        drawPipe(x + cell / 2, y + cell / 2, maskAt(c, r));
+        ctx.fillStyle = '#555';
+        ctx.font = '11px Consolas, monospace';
+        ctx.textAlign = 'left';
+        ctx.fillText(cols.charAt(c) + (r + 1), x + 8, y + 18);
+        ctx.textAlign = 'center';
+        ctx.fillStyle = '#111';
+      }
+    }
+
+    ctx.font = '11px Consolas, monospace';
+    ctx.fillText('UNSOLVED — MATCHES IN-HEADSET START · 20s LOCKOUT', canvas.width / 2, canvas.height - 16);
   }
 
-  ctx.font = '11px Consolas, monospace';
-  ctx.fillText('UNSOLVED — MATCHES IN-HEADSET START STATE · ROTATE 90° CLOCKWISE PER STEP', canvas.width / 2, canvas.height - 16);
+  for (var i = 0; i < stages.length; i++) drawBoard(stages[i]);
 })();
 </script>
 </body>

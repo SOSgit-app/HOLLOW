@@ -670,8 +670,9 @@
     for (var i = 0; i < views.length; i++) {
       var v = views[i];
       gl.viewport(v.viewport.x, v.viewport.y, v.viewport.width, v.viewport.height);
-      drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
+      // Circuit panel first so world laser points stay visible in front of it
       drawCircuitPanel(v.projection, v.view);
+      drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
       drawVRHud(v.projection, v.view);
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);

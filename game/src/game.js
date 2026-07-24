@@ -776,6 +776,10 @@
     }
   }
 
+  function onCircuitStageClear(clearedStage, total) {
+    queueMsg('MATRIX STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT BOARD', 'amber', 3);
+  }
+
   function onCircuitTimeout() {
     queueMsg('ROUTING LOCKOUT — SECURITY RUSHING CONSOLE', 'red', 4);
     A.securityAlarm();
@@ -1151,9 +1155,9 @@
     }
     if (CIR && CIR.isActive()) return;
     pushMsg(inVR()
-      ? 'JACK-IN — RIGHT STICK MOVE TILE · A/X ROTATE'
-      : 'JACK-IN SEQUENCE — ROUTE THE MATRIX', 'amber');
-    CIR.open(onJackInSuccess, onCircuitTimeout);
+      ? 'JACK-IN — 2 BOARDS · 20s EACH · POINT LASER / A ROTATE'
+      : 'JACK-IN SEQUENCE — TWO ROUTING MATRICES', 'amber');
+    CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear);
   }
 
   function powSpheres() {
@@ -1346,28 +1350,38 @@
     var dx = hx - ox, dy = hy - oy, dz = hz - oz;
     var len = Math.sqrt(dx * dx + dy * dy + dz * dz);
     if (len < 0.01) return;
-    var n = Math.max(10, Math.min(48, Math.floor(len * 28)));
-    var life = 0.07;
+    // Slightly short of the panel so the beam isn't buried under the quad
+    var pull = hit ? 0.97 : 1;
+    var n = Math.max(14, Math.min(56, Math.floor(len * 36)));
+    var life = 0.12;
     for (var i = 0; i <= n; i++) {
-      var f = i / n;
+      var f = (i / n) * pull;
       R.addPoint(
         ox + dx * f, oy + dy * f, oz + dz * f,
-        1.0, hit ? 0.12 : 0.35, hit ? 0.12 : 0.35, now, life
+        1.0, hit ? 0.08 : 0.4, hit ? 0.08 : 0.4, now, life
       );
     }
-    R.addPoint(hx, hy, hz, 1.0, hit ? 0.05 : 0.4, hit ? 0.05 : 0.4, now, 0.1);
+    if (!hit) {
+      R.addPoint(hx, hy, hz, 1.0, 0.35, 0.35, now, 0.14);
+    }
   }
 
   function handleCircuitLaser(vrInput) {
     var aim = worldAimFromVr(vrInput);
-    if (!aim || !circuitPanelModel) return;
+    if (!aim || !circuitPanelModel) {
+      if (CIR && CIR.clearPointer) CIR.clearPointer();
+      return;
+    }
     var hit = rayCircuitPanel(aim.x, aim.y, aim.z, aim.dx, aim.dy, aim.dz, circuitPanelModel);
     var endX = aim.x + aim.dx * 1.6;
     var endY = aim.y + aim.dy * 1.6;
     var endZ = aim.z + aim.dz * 1.6;
     if (hit) {
       endX = hit.hx; endY = hit.hy; endZ = hit.hz;
+      if (CIR.setPointer) CIR.setPointer(hit.u, hit.v);
       if (CIR.pickUv) CIR.pickUv(hit.u, hit.v);
+    } else if (CIR.clearPointer) {
+      CIR.clearPointer();
     }
     paintControllerLaser(aim.x, aim.y, aim.z, endX, endY, endZ, !!hit);
   }
@@ -1865,7 +1879,7 @@
         updateExfil(dt);
         updateMsg(dt);
         updateHUD(dt);
-        vrHudHint = 'POINT LASER AT TILE · A/X OR TRIGGER: ROTATE · STICK ALSO WORKS';
+        vrHudHint = 'STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/2 · POINT LASER · A/X OR TRIGGER: ROTATE';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));

@@ -1,4 +1,4 @@
-/* HOLLOW — circuit.js : jack-in routing puzzle (fixed hard board). */
+/* HOLLOW — circuit.js : jack-in routing puzzles (two fixed hard boards). */
 (function (NS) {
   'use strict';
 
@@ -11,48 +11,67 @@
   var TIMEOUT = 20;
   var COL_LABELS = 'ABCDEF';
 
-  // Fixed 6×6 — hard, always the same.
-  // Solution path:
-  // ENTRY→A1→B1→B2→C2→D2→D3→D4→E4→E5→F5→F6→CORE
-  // (E,S,E,E,S,S,E,S,E,S then east out)
-  var FIXED_TILES = [
-  // A      B      C      D      E      F
-    STRAIGHT, BEND,   TEE,     BEND,   STRAIGHT, BEND,     // 1
-    BEND,     BEND,   STRAIGHT, BEND,   TEE,     STRAIGHT, // 2
-    TEE,      STRAIGHT, BEND,   STRAIGHT, BEND,   BEND,     // 3
-    BEND,     TEE,    STRAIGHT, BEND,   BEND,    TEE,      // 4
-    STRAIGHT, BEND,   TEE,     BEND,   BEND,    BEND,     // 5
-    BEND,     STRAIGHT, BEND,   TEE,    STRAIGHT, BEND      // 6
-  ];
-
-  // Solved orientations for the path tiles (distractors keep fixed angles)
   // STRAIGHT: 0=NS 1=EW · BEND: 0=NE 1=ES 2=SW 3=WN · TEE: 0=NES 1=ESW 2=SWN 3=WNE
-  var FIXED_SOLUTION = [
-  // A1=EW  B1=WS  C1     D1     E1     F1
-    1,      2,     0,     1,     0,     0,
-  // A2     B2=NE  C2=EW  D2=WS  E2     F2
-    1,      0,     1,     2,     2,     1,
-  // A3     B3     C3     D3=NS  E3     F3
-    0,      0,     3,     0,     1,     2,
-  // A4     B4     C4     D4=NE  E4=WS  F4
-    2,      1,     0,     0,     2,     0,
-  // A5     B5     C5     D5     E5=NE  F5=WS
-    0,      3,     2,     1,     0,     2,
-  // A6     B6     C6     D6     E6     F6=NE
-    1,      0,     0,     3,     1,     0
-  ];
+  // Stage 1 path: ENTRY→A1→B1→B2→C2→D2→D3→D4→E4→E5→F5→F6→CORE
+  var STAGE1 = {
+    tiles: [
+      STRAIGHT, BEND,   TEE,     BEND,   STRAIGHT, BEND,
+      BEND,     BEND,   STRAIGHT, BEND,   TEE,     STRAIGHT,
+      TEE,      STRAIGHT, BEND,   STRAIGHT, BEND,   BEND,
+      BEND,     TEE,    STRAIGHT, BEND,   BEND,    TEE,
+      STRAIGHT, BEND,   TEE,     BEND,   BEND,    BEND,
+      BEND,     STRAIGHT, BEND,   TEE,    STRAIGHT, BEND
+    ],
+    solution: [
+      1, 2, 0, 1, 0, 0,
+      1, 0, 1, 2, 2, 1,
+      0, 0, 3, 0, 1, 2,
+      2, 1, 0, 0, 2, 0,
+      0, 3, 2, 1, 0, 2,
+      1, 0, 0, 3, 1, 0
+    ],
+    start: [
+      0, 0, 1, 0, 1, 2,
+      0, 2, 0, 0, 0, 0,
+      2, 1, 1, 1, 0, 0,
+      0, 0, 2, 2, 0, 1,
+      1, 1, 0, 0, 3, 0,
+      0, 1, 2, 1, 0, 2
+    ]
+  };
 
-  // Unsolved start — most tiles wrong; same sheet the Mission Director prints
-  var FIXED_START = [
-    0, 0, 1, 0, 1, 2,
-    0, 2, 0, 0, 0, 0,
-    2, 1, 1, 1, 0, 0,
-    0, 0, 2, 2, 0, 1,
-    1, 1, 0, 0, 3, 0,
-    0, 1, 2, 1, 0, 2
-  ];
+  // Stage 2 path: ENTRY→A1→B1→C1→D1→D2→D3→E3→F3→F4→F5→F6→CORE
+  var STAGE2 = {
+    tiles: [
+      STRAIGHT, STRAIGHT, STRAIGHT, BEND,   STRAIGHT, BEND,
+      BEND,     TEE,      BEND,     STRAIGHT, TEE,     BEND,
+      TEE,      STRAIGHT, BEND,     BEND,   STRAIGHT, BEND,
+      BEND,     BEND,     TEE,      STRAIGHT, BEND,    STRAIGHT,
+      STRAIGHT, TEE,      BEND,     BEND,   STRAIGHT, STRAIGHT,
+      BEND,     STRAIGHT, TEE,      BEND,   STRAIGHT, BEND
+    ],
+    solution: [
+      1, 1, 1, 2, 0, 0,
+      0, 0, 1, 0, 1, 2,
+      2, 1, 0, 0, 1, 2,
+      1, 3, 0, 1, 0, 0,
+      0, 2, 1, 3, 0, 0,
+      2, 0, 1, 0, 1, 0
+    ],
+    start: [
+      0, 0, 0, 0, 1, 2,
+      2, 1, 0, 2, 0, 0,
+      0, 0, 2, 1, 0, 1,
+      0, 1, 2, 0, 3, 1,
+      1, 0, 0, 1, 1, 2,
+      0, 2, 0, 2, 0, 3
+    ]
+  };
+
+  var STAGES = [STAGE1, STAGE2];
 
   var active = false;
+  var stageIndex = 0;
   var tiles = [];
   var rot = [];
   var solutionRot = [];
@@ -60,12 +79,16 @@
   var timeLeft = TIMEOUT;
   var onSuccess = null;
   var onTimeout = null;
+  var onStageClear = null;
   var canvas = null, ctx = null;
   var confirmHold = 0;
   var dirty = true;
   var CELL = 58;
   var PAD = 52;
   var TOP = 72;
+  var pointerU = -1;
+  var pointerV = -1;
+  var pointerFresh = 0;
 
   function rotateMask(mask, turns) {
     turns = ((turns % 4) + 4) % 4;
@@ -87,14 +110,22 @@
     return COL_LABELS.charAt(c) + (r + 1);
   }
 
-  function resetPuzzle() {
-    tiles = FIXED_TILES.slice();
-    solutionRot = FIXED_SOLUTION.slice();
-    rot = FIXED_START.slice();
+  function loadStage(i) {
+    var s = STAGES[i];
+    tiles = s.tiles.slice();
+    solutionRot = s.solution.slice();
+    rot = s.start.slice();
     selected = 0;
     timeLeft = TIMEOUT;
     confirmHold = 0;
+    pointerU = -1;
+    pointerV = -1;
     dirty = true;
+  }
+
+  function resetPuzzle() {
+    stageIndex = 0;
+    loadStage(0);
   }
 
   function applySolution() {
@@ -191,6 +222,35 @@
     ctx.fill();
   }
 
+  function drawPointer() {
+    if (pointerU < 0 || pointerV < 0 || pointerFresh <= 0) return;
+    var x = pointerU * canvas.width;
+    var y = pointerV * canvas.height;
+    var pulse = 0.65 + 0.35 * Math.sin(pointerFresh * 18);
+    ctx.save();
+    ctx.globalAlpha = Math.min(1, pulse);
+    ctx.strokeStyle = '#ff2a2a';
+    ctx.fillStyle = 'rgba(255,40,40,0.35)';
+    ctx.lineWidth = 2.5;
+    ctx.beginPath();
+    ctx.arc(x, y, 14, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.stroke();
+    ctx.beginPath();
+    ctx.arc(x, y, 4, 0, Math.PI * 2);
+    ctx.fillStyle = '#ffeeee';
+    ctx.fill();
+    ctx.beginPath();
+    ctx.moveTo(x - 18, y); ctx.lineTo(x - 7, y);
+    ctx.moveTo(x + 7, y); ctx.lineTo(x + 18, y);
+    ctx.moveTo(x, y - 18); ctx.lineTo(x, y - 7);
+    ctx.moveTo(x, y + 7); ctx.lineTo(x, y + 18);
+    ctx.strokeStyle = '#ff4444';
+    ctx.lineWidth = 2;
+    ctx.stroke();
+    ctx.restore();
+  }
+
   function render() {
     if (!active || !ctx) return;
     ctx.fillStyle = '#020805';
@@ -198,11 +258,14 @@
     ctx.fillStyle = '#7cff9b';
     ctx.font = 'bold 15px Consolas, monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('JACK-IN ROUTING MATRIX 6×6', canvas.width / 2, 22);
+    ctx.fillText(
+      'JACK-IN ROUTING  6×6  —  STAGE ' + (stageIndex + 1) + '/' + STAGES.length,
+      canvas.width / 2, 22
+    );
     ctx.fillStyle = '#3f8a55';
     ctx.font = '11px Consolas, monospace';
     if (inVR()) {
-      ctx.fillText('POINT LASER · A/X OR TRIGGER ROTATE · STICK ALSO WORKS · TILE IDs A1…F6', canvas.width / 2, 42);
+      ctx.fillText('RED DOT = LASER HIT · A/X OR TRIGGER ROTATE · STICK ALSO WORKS', canvas.width / 2, 42);
     } else {
       ctx.fillText('CLICK TO ROTATE — CONNECT ENTRY → CORE · TILE IDs A1…F6', canvas.width / 2, 42);
     }
@@ -230,7 +293,6 @@
     ctx.fillText('ENTRY', 20, TOP + CELL * 0.5 + 14);
     ctx.fillText('CORE', canvas.width - 20, TOP + CELL * (SIZE - 0.5) + 14);
 
-    // column headers
     ctx.fillStyle = '#3f8a55';
     ctx.font = '10px Consolas, monospace';
     for (var c = 0; c < SIZE; c++) {
@@ -274,18 +336,37 @@
     if (ok) {
       ctx.fillStyle = '#ffb347';
       ctx.font = '13px Consolas, monospace';
-      ctx.fillText('PATH VALID — HOLDING TO CONFIRM…', canvas.width / 2, canvas.height - 12);
+      var confirmMsg = stageIndex < STAGES.length - 1
+        ? 'PATH VALID — HOLDING TO ADVANCE…'
+        : 'PATH VALID — HOLDING TO CONFIRM…';
+      ctx.fillText(confirmMsg, canvas.width / 2, canvas.height - 12);
     } else {
       ctx.fillStyle = '#3f8a55';
       ctx.font = '10px Consolas, monospace';
       ctx.fillText('LIT = POWERED FROM ENTRY · CALL OUT TILE IDs TO ROTATE', canvas.width / 2, canvas.height - 12);
     }
+    drawPointer();
     dirty = true;
+  }
+
+  function finishStageOrDone() {
+    if (stageIndex < STAGES.length - 1) {
+      var next = stageIndex + 1;
+      if (onStageClear) onStageClear(stageIndex + 1, STAGES.length);
+      stageIndex = next;
+      loadStage(stageIndex);
+      render();
+      return;
+    }
+    var ok = onSuccess;
+    close();
+    if (ok) ok();
   }
 
   function update(dt) {
     if (!active) return false;
     timeLeft -= dt;
+    if (pointerFresh > 0) pointerFresh -= dt;
     if (timeLeft <= 0) {
       var cb = onTimeout;
       close();
@@ -295,9 +376,7 @@
     if (connected()) {
       confirmHold += dt;
       if (confirmHold > 0.55) {
-        var ok = onSuccess;
-        close();
-        if (ok) ok();
+        finishStageOrDone();
         return true;
       }
     } else {
@@ -334,6 +413,7 @@
 
   function pickUv(u, v) {
     if (!active || !canvas) return -1;
+    setPointer(u, v);
     var x = u * canvas.width;
     var y = v * canvas.height;
     var c = Math.floor((x - PAD) / CELL);
@@ -348,11 +428,28 @@
     return i;
   }
 
-  function open(successCb, timeoutCb) {
+  function setPointer(u, v) {
+    if (!active) return;
+    pointerU = u;
+    pointerV = v;
+    pointerFresh = 0.35;
+    dirty = true;
+  }
+
+  function clearPointer() {
+    if (pointerU < 0 && pointerV < 0) return;
+    pointerU = -1;
+    pointerV = -1;
+    pointerFresh = 0;
+    dirty = true;
+  }
+
+  function open(successCb, timeoutCb, stageClearCb) {
     ensureCanvas();
     resetPuzzle();
     onSuccess = successCb;
     onTimeout = timeoutCb;
+    onStageClear = stageClearCb || null;
     active = true;
     canvas.style.display = inVR() ? 'none' : 'block';
     render();
@@ -363,17 +460,28 @@
     if (canvas) canvas.style.display = 'none';
     onSuccess = null;
     onTimeout = null;
+    onStageClear = null;
+    pointerU = -1;
+    pointerV = -1;
     dirty = true;
   }
 
-  // Sheet data for printable Mission Director packet (unsolved)
   function getSheetData() {
     return {
       size: SIZE,
       colLabels: COL_LABELS,
-      tiles: FIXED_TILES.slice(),
-      start: FIXED_START.slice(),
-      solution: FIXED_SOLUTION.slice(),
+      stages: STAGES.map(function (s, i) {
+        return {
+          index: i + 1,
+          tiles: s.tiles.slice(),
+          start: s.start.slice(),
+          solution: s.solution.slice()
+        };
+      }),
+      // legacy single-board fields = stage 1
+      tiles: STAGE1.tiles.slice(),
+      start: STAGE1.start.slice(),
+      solution: STAGE1.solution.slice(),
       straight: STRAIGHT,
       bend: BEND,
       tee: TEE
@@ -383,7 +491,10 @@
   NS.circuit = {
     open: open, close: close, update: update, rotateSelected: rotateSelected,
     moveSelection: moveSelection, nextTile: nextTile, pickUv: pickUv,
+    setPointer: setPointer, clearPointer: clearPointer,
     isActive: function () { return active; },
+    getStage: function () { return stageIndex + 1; },
+    getStageCount: function () { return STAGES.length; },
     getCanvas: function () { return canvas; },
     getSheetData: getSheetData,
     consumeDirty: function () {
@@ -393,10 +504,13 @@
     },
     debug: {
       reset: resetPuzzle,
+      loadStage: loadStage,
+      setStage: function (i) { stageIndex = i; loadStage(i); },
       solve: applySolution,
       connected: connected,
       rot: function () { return rot.slice(); },
-      solutionRot: function () { return solutionRot.slice(); }
+      solutionRot: function () { return solutionRot.slice(); },
+      stageCount: function () { return STAGES.length; }
     }
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})
