@@ -728,8 +728,18 @@
     missionBranch = branch;
     clonePhase = 'DONE';
     if (branch === 'RESCUE') {
-      var w = M.markers.W || { x: M.markers.P.x - 12, z: M.markers.P.z - 18 };
-      pow = { x: w.x, z: w.z, freed: false, path: null, pathIdx: 0, repath: 0 };
+      // Spawn at map W — pillar room north of infil (not marked on print sheet)
+      if (!M.markers.W) {
+        throw new Error('HOLLOW: POW marker W missing from map');
+      }
+      pow = {
+        x: M.markers.W.x,
+        z: M.markers.W.z,
+        freed: false,
+        path: null,
+        pathIdx: 0,
+        repath: 0
+      };
     } else {
       pow = null;
       virusProgress = 0;
