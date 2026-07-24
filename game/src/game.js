@@ -70,6 +70,7 @@
   var LZ_RADIUS = 3.5;
   var NOISE_UPLINK = 40;
   var NOISE_VIRUS = 28;
+  var JACKIN_RETRY_S = 10; // lockout cool-down before another jack-in attempt
   var CLONE_DURATION_S = 4.5;
   var VIRUS_DURATION_S = 11;
   var POW_FOLLOW_SPEED = 2.55;
@@ -156,6 +157,7 @@
   var vrHudHint = '';
   var vrHudObj = '';
   var uplinkDone = false;
+  var jackInCooldownUntil = 0;
   var exfilPhase = 'NONE'; // NONE | INBOUND | ON_STATION | GONE
   var exfilTimer = 0;
   var missionBranch = 'NONE'; // NONE | RESCUE | VIRUS
@@ -470,6 +472,7 @@
     accessKeys = M.markers.fuses.map(function (f) { return { x: f.x, z: f.z, taken: false }; });
     keysCollected = 0; doorsOpen = 0;
     uplinkDone = false;
+    jackInCooldownUntil = 0;
     exfilPhase = 'NONE'; exfilTimer = 0;
     missionBranch = 'NONE';
     clonePhase = 'NONE'; cloneTimer = 0; clonePct = 0; cloneChoiceIdx = 0;
@@ -781,7 +784,8 @@
   }
 
   function onCircuitTimeout() {
-    queueMsg('ROUTING LOCKOUT — SECURITY RUSHING CONSOLE', 'red', 4);
+    jackInCooldownUntil = now + JACKIN_RETRY_S;
+    queueMsg('ROUTING LOCKOUT — RETRY IN ' + JACKIN_RETRY_S + 's · SECURITY RUSHING', 'red', 4);
     A.securityAlarm();
     // Loud trip at the core — nearest two rush the console room
     EN.hear(M.markers.G.x, M.markers.G.z, NOISE_LASER, now, true);
@@ -1154,9 +1158,14 @@
       return;
     }
     if (CIR && CIR.isActive()) return;
+    if (now < jackInCooldownUntil) {
+      var wait = Math.ceil(jackInCooldownUntil - now);
+      pushMsg('CORE LOCKED OUT — RETRY IN ' + wait + 's', 'amber');
+      return;
+    }
     pushMsg(inVR()
       ? 'JACK-IN — 3 BOARDS · 20s EACH · POINT LASER / A ROTATE'
-      : 'JACK-IN SEQUENCE — TWO ROUTING MATRICES', 'amber');
+      : 'JACK-IN SEQUENCE — THREE ROUTING MATRICES', 'amber');
     CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear);
   }
 
@@ -1604,9 +1613,13 @@
         }
       }
       if (near(M.markers.G.x, M.markers.G.z, hintRange + 0.5) && !uplinkDone) {
-        hint = M.isConsoleSealed()
-          ? 'CONSOLE SEALED — OPEN D3 (3 KEYS)'
-          : btn + ' JACK INTO CORE';
+        if (M.isConsoleSealed()) {
+          hint = 'CONSOLE SEALED — OPEN D3 (3 KEYS)';
+        } else if (now < jackInCooldownUntil) {
+          hint = 'CORE LOCKED OUT — RETRY IN ' + Math.ceil(jackInCooldownUntil - now) + 's';
+        } else {
+          hint = btn + ' JACK INTO CORE';
+        }
       }
       if (missionBranch === 'VIRUS' && virusDone && near(M.markers.G.x, M.markers.G.z, hintRange + 0.5)) {
         hint = 'VIRUS ARMED — EXTRACT TO LZ';
