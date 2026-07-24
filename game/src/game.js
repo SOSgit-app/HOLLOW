@@ -66,7 +66,7 @@
 
   var CHOPPER_INBOUND_S = 40;
   var CHOPPER_LINGER_S = 60;
-  var MISSION_TIME_S = 8 * 60; // power returns — hard fail
+  var MISSION_TIME_S = 6 * 60; // power returns — hard fail
   var LZ_RADIUS = 3.5;
   var NOISE_UPLINK = 40;
   var NOISE_VIRUS = 28;
@@ -89,7 +89,7 @@
     "PRE-RAID EMP HAS CUT POWER. FACILITY IS DARK.",
     "",
     "MISSION: INFILTRATE. REACH THE AI CORE. CLONE THE MODEL.",
-    "         EXFIL BEFORE POWER RETURNS (8:00 BLACKOUT WINDOW).",
+    "         EXFIL BEFORE POWER RETURNS (6:00 BLACKOUT WINDOW).",
     "",
     "TOOLS: LiDAR MAPS THE DARK. WRIST RADAR TRACKS SECURITY.",
     "EMCON: MINIMIZE EMISSIONS. THEY HEAR WHAT YOU LIGHT."
@@ -485,7 +485,7 @@
     missionWarnAt = { m2: false, m1: false, s30: false };
     circuitPanelModel = null;
     msgQueue = []; curMsg = null;
-    queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 8:00.', '');
+    queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 6:00.', '');
   }
 
   function onKill() {
