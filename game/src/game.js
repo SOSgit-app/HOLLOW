@@ -1155,7 +1155,7 @@
     }
     if (CIR && CIR.isActive()) return;
     pushMsg(inVR()
-      ? 'JACK-IN — 2 BOARDS · 20s EACH · POINT LASER / A ROTATE'
+      ? 'JACK-IN — 3 BOARDS · 20s EACH · POINT LASER / A ROTATE'
       : 'JACK-IN SEQUENCE — TWO ROUTING MATRICES', 'amber');
     CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear);
   }
@@ -1891,7 +1891,7 @@
         updateExfil(dt);
         updateMsg(dt);
         updateHUD(dt);
-        vrHudHint = 'STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/2 · POINT LASER · A/X OR TRIGGER: ROTATE';
+        vrHudHint = 'STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/' + (CIR.getStageCount ? CIR.getStageCount() : 3) + ' · POINT LASER · A/X OR TRIGGER: ROTATE';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));

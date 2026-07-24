@@ -1,4 +1,4 @@
-/* HOLLOW — circuit.js : jack-in routing puzzles (two fixed hard boards). */
+/* HOLLOW — circuit.js : jack-in routing puzzles (three fixed hard boards). */
 (function (NS) {
   'use strict';
 
@@ -68,7 +68,35 @@
     ]
   };
 
-  var STAGES = [STAGE1, STAGE2];
+  // Stage 3 path: ENTRY→A1→A2→B2→B3→B4→C4→D4→E4→E5→E6→F6→CORE
+  var STAGE3 = {
+    tiles: [
+      BEND,     TEE,      STRAIGHT, BEND,   BEND,     STRAIGHT,
+      BEND,     BEND,     TEE,      STRAIGHT, BEND,    BEND,
+      STRAIGHT, STRAIGHT, BEND,     TEE,      BEND,    STRAIGHT,
+      BEND,     BEND,     STRAIGHT, STRAIGHT, BEND,    TEE,
+      TEE,      STRAIGHT, BEND,     BEND,     STRAIGHT, BEND,
+      BEND,     TEE,      STRAIGHT, BEND,     BEND,     STRAIGHT
+    ],
+    solution: [
+      2, 0, 1, 0, 1, 0,
+      0, 2, 1, 0, 0, 2,
+      1, 0, 0, 2, 1, 0,
+      0, 0, 1, 1, 2, 0,
+      1, 1, 3, 0, 0, 2,
+      2, 0, 0, 1, 0, 1
+    ],
+    start: [
+      0, 1, 0, 2, 0, 1,
+      2, 0, 0, 1, 3, 0,
+      0, 1, 2, 0, 0, 1,
+      1, 2, 0, 0, 0, 1,
+      0, 0, 1, 2, 1, 0,
+      0, 1, 2, 0, 2, 0
+    ]
+  };
+
+  var STAGES = [STAGE1, STAGE2, STAGE3];
 
   var active = false;
   var stageIndex = 0;
