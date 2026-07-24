@@ -45,24 +45,46 @@
   var skipX = 0, skipZ = 0, skipTimer = 0;
 
   // Secondary security units (independent stalkers)
-  function makeUnit(lairX, lairZ, clickBias) {
+  // patrolHalf: 'W' = west half of map, 'E' = east half
+  function makeUnit(lairX, lairZ, clickBias, patrolHalf) {
     return {
       x: lairX, z: lairZ, state: 'PATROL', agitation: 0, agitationFloor: 0,
       path: null, pathIdx: 0, repathTimer: 0,
       lastNoiseFed: -999, lastKnownX: lairX, lastKnownZ: lairZ,
       clickTimer: clickBias, stepDist: 0, wakeTimer: 0,
       facing: 0, animT: 0, bodyCache: null,
-      lairX: lairX, lairZ: lairZ
+      lairX: lairX, lairZ: lairZ,
+      patrolHalf: patrolHalf || 'W'
     };
   }
-  var B = makeUnit(4.5, 4.5, 2.0);
-  var C = makeUnit(106.5, 28.5, 2.8);
-  var SECONDARIES = [B, C];
+  var B = makeUnit(4.5, 4.5, 2.0, 'W');
+  var C = makeUnit(106.5, 28.5, 2.8, 'E');
+  var D = makeUnit(15, 72, 3.2, 'W');
+  var SECONDARIES = [B, C, D];
+
+  function mapMidX() {
+    return M.COLS() * M.CELL / 2;
+  }
+
+  function resetUnit(U, lx, lz, half, clickBias, agit) {
+    U.lairX = lx; U.lairZ = lz;
+    U.x = lx; U.z = lz;
+    U.patrolHalf = half;
+    U.state = 'PATROL';
+    U.agitation = agit; U.agitationFloor = 0;
+    U.path = null; U.pathIdx = 0; U.repathTimer = 0;
+    U.lastNoiseFed = -999;
+    U.lastKnownX = lx; U.lastKnownZ = lz;
+    U.clickTimer = clickBias; U.stepDist = 0; U.wakeTimer = 0;
+    U.facing = 0; U.animT = 0; U.bodyCache = null;
+  }
 
   function reset() {
     M = NS.map; math = NS.math;
+    // SEC-1 east (old lair), SEC-2/4 west, SEC-3 east — 2 per half
     lairX = M.markers.C.x; lairZ = M.markers.C.z;
     E.x = lairX; E.z = lairZ;
+    E.patrolHalf = 'E';
     E.state = 'PATROL';
     E.agitation = 12;
     E.agitationFloor = 0;
@@ -76,24 +98,10 @@
     skipX = 0; skipZ = 0; skipTimer = 0;
     hasteTimer = 0; hasteMode = 'NONE';
 
-    // Three units active from the start — spread across the site
-    B.lairX = 4.5; B.lairZ = 4.5;
-    B.x = B.lairX; B.z = B.lairZ;
-    B.state = 'PATROL';
-    B.agitation = 8; B.agitationFloor = 0;
-    B.path = null; B.pathIdx = 0; B.repathTimer = 0;
-    B.lastNoiseFed = -999;
-    B.clickTimer = 2.4; B.stepDist = 0; B.wakeTimer = 0;
-    B.facing = 0; B.animT = 0; B.bodyCache = null;
-
-    C.lairX = 106.5; C.lairZ = 28.5;
-    C.x = C.lairX; C.z = C.lairZ;
-    C.state = 'PATROL';
-    C.agitation = 8; C.agitationFloor = 0;
-    C.path = null; C.pathIdx = 0; C.repathTimer = 0;
-    C.lastNoiseFed = -999;
-    C.clickTimer = 2.8; C.stepDist = 0; C.wakeTimer = 0;
-    C.facing = 0; C.animT = 0; C.bodyCache = null;
+    // Four units: west pair + east pair
+    resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
+    resetUnit(C, 106.5, 28.5, 'E', 2.8, 8);
+    resetUnit(D, 15, 72, 'W', 3.2, 8);
   }
 
   function setPathTo(x, z) {
@@ -185,39 +193,63 @@
     hasteTimer = Math.max(hasteTimer, seconds);
   }
 
-  function moveSpeed(base) {
+  function moveSpeed(base, state) {
     if (hasteTimer <= 0 || hasteMode === 'NONE') return base;
+    // Only units actually responding (investigate/chase) get the haste boost
+    if (state !== 'INVESTIGATE' && state !== 'CHASE') return base;
     if (hasteMode === 'ALARM') return Math.max(base, SPEED_ALARM);
     if (hasteMode === 'CONVERGE') return Math.max(base, SPEED_CONVERGE);
     return base;
   }
 
-  function forceInvestigate(x, z) {
-    // Security alarm: all units sprint to the trip — no long dwell
-    pulseHaste('ALARM', 14);
+  function dispatchPrimaryInvestigate(x, z, nowTs) {
     if (E.state === 'DORMANT') E.state = 'PATROL';
     E.agitation = Math.min(100, E.agitation + 55);
     E.agitationFloor = Math.max(E.agitationFloor, 30);
     lastKnownX = x; lastKnownZ = z;
-    lastNoiseFed = (typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000);
+    lastNoiseFed = nowTs;
     mustInvestigateAfterChase = false;
     if (E.state === 'CHASE') NS.audio.sting(false);
     E.state = 'INVESTIGATE';
     investigateTarget = { x: x, z: z };
     dwellTimer = 0;
     setPathTo(x, z);
+  }
 
+  function dispatchUnitInvestigate(U, x, z, nowTs) {
+    if (U.state === 'DORMANT') U.state = 'PATROL';
+    U.agitation = Math.min(100, U.agitation + 50);
+    U.agitationFloor = Math.max(U.agitationFloor, 24);
+    U.lastKnownX = x; U.lastKnownZ = z;
+    U.lastNoiseFed = nowTs;
+    U.state = 'INVESTIGATE';
+    U.path = M.astar(U.x, U.z, x, z);
+    U.pathIdx = 0;
+    U.repathTimer = 0;
+  }
+
+  // maxUnits: how many closest responders (default 2 for tripwires).
+  // Pass 0 / Infinity / negative to send every unit (circuit lockout, etc.).
+  function forceInvestigate(x, z, maxUnits) {
+    if (maxUnits === undefined || maxUnits === null) maxUnits = 2;
+    pulseHaste('ALARM', 14);
+    var nowTs = (typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000);
+
+    var candidates = [{ kind: 'E', x: E.x, z: E.z, dist: 0 }];
     for (var i = 0; i < SECONDARIES.length; i++) {
-      var U = SECONDARIES[i];
-      if (U.state === 'DORMANT') U.state = 'PATROL';
-      U.agitation = Math.min(100, U.agitation + 50);
-      U.agitationFloor = Math.max(U.agitationFloor, 24);
-      U.lastKnownX = x; U.lastKnownZ = z;
-      U.lastNoiseFed = lastNoiseFed;
-      U.state = 'INVESTIGATE';
-      U.path = M.astar(U.x, U.z, x, z);
-      U.pathIdx = 0;
-      U.repathTimer = 0;
+      candidates.push({ kind: 'U', idx: i, x: SECONDARIES[i].x, z: SECONDARIES[i].z, dist: 0 });
+    }
+    for (var c = 0; c < candidates.length; c++) {
+      var dx = candidates[c].x - x, dz = candidates[c].z - z;
+      candidates[c].dist = dx * dx + dz * dz;
+    }
+    candidates.sort(function (a, b) { return a.dist - b.dist; });
+
+    var n = (maxUnits <= 0 || !isFinite(maxUnits)) ? candidates.length : Math.min(maxUnits, candidates.length);
+    for (var r = 0; r < n; r++) {
+      var pick = candidates[r];
+      if (pick.kind === 'E') dispatchPrimaryInvestigate(x, z, nowTs);
+      else dispatchUnitInvestigate(SECONDARIES[pick.idx], x, z, nowTs);
     }
   }
 
@@ -238,7 +270,8 @@
     var offsets = [
       { x: 0, z: 0 },
       { x: 5, z: 3 },
-      { x: -4, z: 6 }
+      { x: -4, z: 6 },
+      { x: 3, z: -5 }
     ];
     var tx = x + offsets[0].x, tz = z + offsets[0].z;
     E.agitation = Math.min(100, E.agitation + 40);
@@ -253,7 +286,8 @@
 
     for (var i = 0; i < SECONDARIES.length; i++) {
       var U = SECONDARIES[i];
-      var ox = x + offsets[i + 1].x, oz = z + offsets[i + 1].z;
+      var off = offsets[i + 1] || { x: 0, z: 0 };
+      var ox = x + off.x, oz = z + off.z;
       U.agitation = Math.min(100, U.agitation + 38);
       U.agitationFloor = Math.max(U.agitationFloor, 30);
       U.lastKnownX = ox; U.lastKnownZ = oz;
@@ -273,15 +307,22 @@
     setPathTo(toInvestigateAt.x, toInvestigateAt.z);
   }
 
-  function pickPatrolTarget(p) {
+  function pickPatrolTarget(p, patrolHalf, agitation) {
     if (!waypoints.length) return null;
-    var pool = waypoints;
-    if (E.agitation > BIAS_THRESHOLD) {
-      // bias toward the player's half of the map
-      var half = waypoints.filter(function (w) {
-        return (w.x < M.COLS() * M.CELL / 2) === (p.x < M.COLS() * M.CELL / 2);
+    var mid = mapMidX();
+    var half = patrolHalf || E.patrolHalf || 'E';
+    var agit = agitation != null ? agitation : E.agitation;
+    // Stick to assigned map half (2 west / 2 east)
+    var pool = waypoints.filter(function (w) {
+      return half === 'W' ? w.x < mid : w.x >= mid;
+    });
+    if (pool.length < 2) pool = waypoints.slice();
+    // High agitation: bias within half toward the player's side of that half
+    if (agit > BIAS_THRESHOLD && p) {
+      var towardPlayer = pool.filter(function (w) {
+        return (w.z < (M.ROWS() * M.CELL / 2)) === (p.z < (M.ROWS() * M.CELL / 2));
       });
-      if (half.length > 2) pool = half;
+      if (towardPlayer.length > 2) pool = towardPlayer;
     }
     // exclude spawn-room area until first fuse taken (anti-frustration, GDD §5.5)
     if (NS.game && NS.game.fusesCollected && NS.game.fusesCollected() === 0) {
@@ -388,16 +429,16 @@
         break;
 
       case 'PATROL':
-        speed = moveSpeed(SPEED_PATROL);
+        speed = moveSpeed(SPEED_PATROL, E.state);
         if (!path || pathIdx >= path.length) {
-          var t = pickPatrolTarget(p);
+          var t = pickPatrolTarget(p, E.patrolHalf, E.agitation);
           if (t) setPathTo(t.x, t.z);
         }
         followPath(dt, speed);
         break;
 
       case 'INVESTIGATE':
-        speed = moveSpeed(SPEED_INVESTIGATE);
+        speed = moveSpeed(SPEED_INVESTIGATE, E.state);
         arrived = followPath(dt, speed);
         if (arrived) {
           dwellTimer += dt;
@@ -426,7 +467,7 @@
         break;
 
       case 'CHASE':
-        speed = moveSpeed(SPEED_CHASE);
+        speed = moveSpeed(SPEED_CHASE, E.state);
         repathTimer -= dt;
         var fed = (now - lastNoiseFed) < CHASE_LOSE_S;
         if (fed && repathTimer <= 0) {
@@ -508,15 +549,15 @@
         }
         break;
       case 'PATROL':
-        speed = moveSpeed(SPEED_PATROL) * speedScale;
+        speed = moveSpeed(SPEED_PATROL, U.state) * speedScale;
         if (!U.path || U.pathIdx >= U.path.length) {
-          var t = pickPatrolTarget(p);
+          var t = pickPatrolTarget(p, U.patrolHalf, U.agitation);
           if (t) { U.path = M.astar(U.x, U.z, t.x, t.z); U.pathIdx = 0; }
         }
         followPathUnit(U, dt, speed);
         break;
       case 'INVESTIGATE':
-        speed = moveSpeed(SPEED_INVESTIGATE) * speedScale;
+        speed = moveSpeed(SPEED_INVESTIGATE, U.state) * speedScale;
         if (!U.path) { U.path = M.astar(U.x, U.z, p.x, p.z); U.pathIdx = 0; }
         if (followPathUnit(U, dt, speed)) {
           if (hasteMode === 'CONVERGE' && U.lastKnownX != null) {
@@ -532,7 +573,7 @@
         }
         break;
       case 'CHASE':
-        speed = moveSpeed(SPEED_CHASE) * (speedScale - 0.03);
+        speed = moveSpeed(SPEED_CHASE, U.state) * (speedScale - 0.03);
         U.repathTimer -= dt;
         var fed = (now - U.lastNoiseFed) < CHASE_LOSE_S;
         if (fed && U.repathTimer <= 0) {

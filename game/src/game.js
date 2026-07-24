@@ -781,7 +781,7 @@
     A.securityAlarm();
     // Loud trip at the core — all units rush the console room
     EN.hear(M.markers.G.x, M.markers.G.z, NOISE_LASER, now, true);
-    EN.forceInvestigate(M.markers.G.x, M.markers.G.z);
+    EN.forceInvestigate(M.markers.G.x, M.markers.G.z, 0);
     EN.addAgitationFloor(25);
   }
 
@@ -1494,10 +1494,10 @@
     var mx = (hit.x0 + hit.x1) * 0.5, mz = (hit.z0 + hit.z1) * 0.5;
     A.securityAlarm();
     EN.hear(mx, mz, NOISE_LASER, now, false);
-    EN.forceInvestigate(mx, mz);
+    EN.forceInvestigate(mx, mz, 2);
     recentLoud = Math.max(recentLoud, NOISE_LASER);
     auxLoud = Math.max(auxLoud, 0.95);
-    queueMsg('SECURITY ALARM — ' + hit.id + ' — IT HEARD THAT', 'amber', 4);
+    queueMsg('SECURITY ALARM — ' + hit.id + ' — NEAREST UNITS RESPONDING', 'amber', 4);
     // brief yellow paint of the single low beam
     var by = (hit.y0 + hit.y1) * 0.5;
     for (var i = 0; i < 48; i++) {
