@@ -59,11 +59,27 @@
   }
   var B = makeUnit(4.5, 4.5, 2.0, 'W');
   var C = makeUnit(106.5, 28.5, 2.8, 'E');
-  var D = makeUnit(15, 72, 3.2, 'W');
+  var D = makeUnit(16.5, 73.5, 3.2, 'W');
   var SECONDARIES = [B, C, D];
 
   function mapMidX() {
     return M.COLS() * M.CELL / 2;
+  }
+
+  // Snap out of wall-jammed positions (radius overlaps solid) so patrol can step.
+  function unstick(entity) {
+    if (!M.isSolidAt(entity.x - RADIUS, entity.z) &&
+        !M.isSolidAt(entity.x + RADIUS, entity.z) &&
+        !M.isSolidAt(entity.x, entity.z - RADIUS) &&
+        !M.isSolidAt(entity.x, entity.z + RADIUS)) {
+      return;
+    }
+    var cx = (Math.floor(entity.x / M.CELL) + 0.5) * M.CELL;
+    var cz = (Math.floor(entity.z / M.CELL) + 0.5) * M.CELL;
+    if (!M.isSolidAt(cx, cz)) {
+      entity.x = cx;
+      entity.z = cz;
+    }
   }
 
   function resetUnit(U, lx, lz, half, clickBias, agit) {
@@ -98,10 +114,14 @@
     skipX = 0; skipZ = 0; skipTimer = 0;
     hasteTimer = 0; hasteMode = 'NONE';
 
-    // Four units: west pair + east pair
+    // Four units: west pair + east pair (cell centers — avoid wall-jammed spawns)
     resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
     resetUnit(C, 106.5, 28.5, 'E', 2.8, 8);
-    resetUnit(D, 15, 72, 'W', 3.2, 8);
+    resetUnit(D, 16.5, 73.5, 'W', 3.2, 8);
+    unstick(E);
+    unstick(B);
+    unstick(C);
+    unstick(D);
   }
 
   function setPathTo(x, z) {
@@ -373,6 +393,12 @@
     var step = speed * dt;
     var nx = E.x + dx / d * step, nz = E.z + dz / d * step;
     var moved = M.moveWithCollision(E.x, E.z, nx, nz, RADIUS);
+    if (moved.x === E.x && moved.z === E.z) {
+      // Wedged — snap free and repath
+      unstick(E);
+      path = null;
+      return true;
+    }
     E.x = moved.x; E.z = moved.z;
     stepDist += step;
     // turn the body toward travel direction (shortest arc)
@@ -535,6 +561,11 @@
     var step = speed * dt;
     var nx = u.x + dx / d * step, nz = u.z + dz / d * step;
     var moved = M.moveWithCollision(u.x, u.z, nx, nz, RADIUS);
+    if (moved.x === u.x && moved.z === u.z) {
+      unstick(u);
+      u.path = null;
+      return true;
+    }
     u.x = moved.x; u.z = moved.z;
     u.stepDist += step;
     var want = Math.atan2(dx, dz);
