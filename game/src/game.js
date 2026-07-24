@@ -1843,6 +1843,18 @@
         : (stamina < 0.3 ? 'rgba(255,179,71,0.95)' : '');
     }
 
+    // MOTION radar contacts: security + POW (rescue path)
+    var radarContacts = EN.contacts ? EN.contacts() : [{ x: EN.state.x, z: EN.state.z, state: EN.state.state }];
+    if (missionBranch === 'RESCUE' && pow) {
+      radarContacts = radarContacts.concat([{
+        id: 'POW',
+        x: pow.x,
+        z: pow.z,
+        state: pow.freed ? 'POW_FREE' : 'POW',
+        kind: 'pow'
+      }]);
+    }
+
     if (R.setVRHud) {
       R.setVRHud({
         hint: vrHudHint,
@@ -1855,7 +1867,7 @@
         exhausted: staminaExhausted,
         timer: el.timer.textContent,
         chg: el.chg.textContent,
-        contacts: EN.contacts ? EN.contacts() : [{ x: EN.state.x, z: EN.state.z, state: EN.state.state }],
+        contacts: radarContacts,
         yaw: player.yaw,
         px: player.x,
         pz: player.z,

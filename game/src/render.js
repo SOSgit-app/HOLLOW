@@ -509,14 +509,27 @@
       var r = (dist / rangeM) * rad;
       var bx = cx + Math.sin(bearing) * r;
       var by = cy - Math.cos(bearing) * r;
+      var isPow = c.kind === 'pow' || c.state === 'POW' || c.state === 'POW_FREE';
       var chasing = c.state === 'CHASE';
       var dormant = c.state === 'DORMANT';
-      ctx.fillStyle = chasing
-        ? 'rgba(255,70,70,' + pulse + ')'
-        : (dormant ? 'rgba(124,255,155,0.35)' : 'rgba(255,200,80,' + pulse + ')');
-      ctx.beginPath();
-      ctx.arc(bx, by, chasing ? 7 : (dormant ? 3.5 : 5), 0, Math.PI * 2);
-      ctx.fill();
+      if (isPow) {
+        ctx.fillStyle = 'rgba(60,220,90,' + (0.75 + 0.25 * pulse) + ')';
+        ctx.beginPath();
+        ctx.arc(bx, by, c.state === 'POW_FREE' ? 6 : 5, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.strokeStyle = 'rgba(180,255,190,0.95)';
+        ctx.lineWidth = 1.5;
+        ctx.beginPath();
+        ctx.arc(bx, by, c.state === 'POW_FREE' ? 8 : 7, 0, Math.PI * 2);
+        ctx.stroke();
+      } else {
+        ctx.fillStyle = chasing
+          ? 'rgba(255,70,70,' + pulse + ')'
+          : (dormant ? 'rgba(124,255,155,0.35)' : 'rgba(255,200,80,' + pulse + ')');
+        ctx.beginPath();
+        ctx.arc(bx, by, chasing ? 7 : (dormant ? 3.5 : 5), 0, Math.PI * 2);
+        ctx.fill();
+      }
     }
 
     var aux = Math.max(0, Math.min(1, hudState.aux || 0));
