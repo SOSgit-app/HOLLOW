@@ -57,20 +57,31 @@
   .screen{
     position:absolute; inset:0; display:none; z-index:5;
     background:radial-gradient(ellipse at center, #041006 0%, #000 75%);
-    align-items:center; justify-content:center; text-align:center;
+    align-items:flex-start; justify-content:center; text-align:center;
+    overflow-y:auto; overflow-x:hidden;
+    -webkit-overflow-scrolling:touch;
   }
   .screen.visible{ display:flex; }
-  .screen-inner{ max-width:760px; padding:24px; font-size:14px; line-height:1.9; }
+  .screen-inner{
+    max-width:760px; width:100%;
+    padding:20px 24px 32px; font-size:14px; line-height:1.7;
+    margin:auto 0;
+  }
   .screen h1{ font-size:42px; letter-spacing:.55em; margin-bottom:6px; text-shadow:0 0 18px rgba(124,255,155,.9); }
-  .screen .sub{ color:var(--ph-dim); font-size:11px; margin-bottom:28px; }
+  .screen .sub{ color:var(--ph-dim); font-size:11px; margin-bottom:16px; }
   .screen .blink{ animation:blink 1.1s steps(2) infinite; }
   @keyframes blink{ 50%{ opacity:0; } }
-  .screen pre{ font-family:inherit; text-align:left; display:inline-block; font-size:12px; line-height:1.8; color:var(--ph); }
+  .screen pre{
+    font-family:inherit; text-align:left; display:block;
+    font-size:11px; line-height:1.55; color:var(--ph);
+    max-width:100%; overflow-x:auto; white-space:pre-wrap;
+    margin:0 auto 10px;
+  }
   .dim{ color:var(--ph-dim); }
   .amber{ color:var(--amber); }
   .red{ color:var(--red); }
-  .opt-row{ margin-top:14px; font-size:12px; pointer-events:auto; }
-  .opt-row label{ margin:0 14px; cursor:pointer; }
+  .opt-row{ margin-top:10px; font-size:12px; pointer-events:auto; }
+  .opt-row label{ margin:0 10px; cursor:pointer; }
   input[type=range]{ vertical-align:middle; width:110px; accent-color:#7cff9b; cursor:pointer; }
   input[type=checkbox]{ accent-color:#7cff9b; cursor:pointer; }
   select#opt-gfx{
@@ -79,10 +90,10 @@
     border:1px solid var(--ph); cursor:pointer; accent-color:#7cff9b;
   }
   select#opt-gfx:focus{ outline:1px solid var(--ph); }
-  .gfx-row, .menu-actions{ margin-top:18px; pointer-events:auto; }
+  .gfx-row, .menu-actions{ margin-top:12px; pointer-events:auto; }
   .gfx-btn, .menu-btn{
     font:inherit; letter-spacing:.14em; text-transform:uppercase;
-    padding:12px 18px; margin:6px; cursor:pointer; pointer-events:auto;
+    padding:10px 16px; margin:4px; cursor:pointer; pointer-events:auto;
     color:var(--ph); background:#031007; border:1px solid var(--ph-dim);
     box-shadow:0 0 10px rgba(124,255,155,.12);
   }
@@ -91,11 +102,37 @@
     box-shadow:0 0 14px rgba(124,255,155,.35);
   }
   .menu-btn:disabled{ opacity:.4; cursor:not-allowed; }
-  #enter-vr{
-    margin-top:0;
-  }
+  #enter-vr{ margin-top:0; }
   #enter-vr:disabled{ color:var(--ph-dim); border-color:var(--ph-dim); cursor:not-allowed; background:#031007; }
-  #vr-note{ margin-top:8px; font-size:10px; color:var(--ph-dim); }
+  #vr-note{ margin-top:8px; font-size:10px; color:var(--ph-dim); max-width:640px; margin-left:auto; margin-right:auto; }
+  .print-links{
+    margin:12px 0 8px; pointer-events:auto;
+    display:flex; flex-wrap:wrap; gap:8px; justify-content:center;
+  }
+  .print-links a{
+    color:#7cff9b; border:1px solid #7cff9b; padding:10px 16px;
+    text-decoration:none; display:inline-block; letter-spacing:.14em;
+    background:#031007;
+  }
+  .print-links a:hover{ background:rgba(124,255,155,.12); }
+
+  /* Laptop / short viewports: keep downloads reachable */
+  @media (max-height: 820px){
+    .screen-inner{ padding:12px 16px 24px; font-size:13px; line-height:1.55; }
+    .screen h1{ font-size:28px; letter-spacing:.4em; margin-bottom:4px; }
+    .screen .sub{ margin-bottom:10px; font-size:10px; }
+    .screen pre{ font-size:10px; line-height:1.45; }
+    .gfx-btn, .menu-btn{ padding:8px 12px; margin:3px; font-size:12px; }
+    .print-links a{ padding:8px 12px; font-size:12px; }
+  }
+  @media (max-height: 640px){
+    .screen-inner{ padding:8px 12px 20px; }
+    .screen pre{ font-size:9px; line-height:1.35; max-height:32vh; overflow-y:auto; }
+  }
+  @media (max-width: 720px){
+    .screen h1{ font-size:26px; letter-spacing:.28em; }
+    .opt-row label{ display:inline-block; margin:4px 8px; }
+  }
   #death-screen h1{ color:var(--red); text-shadow:0 0 18px rgba(255,68,68,.9); }
   #death-epitaph{ color:var(--ph-dim); margin:18px 0 26px; }
 
@@ -173,37 +210,31 @@
 <div class="screen" id="controls-screen">
   <div class="screen-inner">
     <div class="sub">RD-9 OPERATOR BRIEF</div>
+    <div class="print-links">
+      <a href="map-print.html?v=67" target="_blank" rel="noopener">MAP DOWNLOAD</a>
+      <a href="circuit-print.html?v=67" target="_blank" rel="noopener">CIRCUIT DOWNLOAD</a>
+    </div>
+    <div class="dim" style="margin-bottom:12px;font-size:10px">MISSION DIRECTOR: PRINT MAP + CIRCUIT · VOICE-DIRECT THE OPERATOR</div>
+    <div class="menu-actions" style="margin-top:0;margin-bottom:14px">
+      <button type="button" class="menu-btn primary" id="btn-start-desktop">START DESKTOP</button>
+      <button id="enter-vr" type="button" class="menu-btn" disabled>CHECKING WEBXR...</button>
+    </div>
     <pre>
   MOUSE ............ AIM LiDAR HEAD
   HOLD LMB ......... TRICKLE SCAN          <span class="dim">(QUIET, NARROW)</span>
   RMB / SPACE ...... BURST SWEEP           <span class="red">(LOUD. SECURITY HEARS.)</span>
   W A S D .......... MOVE
-  SHIFT ............ SPRINT (FASTER THAN SECURITY) <span class="red">(LOUD · DRAINS STAMINA)</span>
+  SHIFT ............ SPRINT                <span class="red">(LOUD · DRAINS STAMINA)</span>
   CTRL ............. CROUCH                <span class="dim">(NEAR-SILENT)</span>
   E ................ INTERACT / ROTATE TILE
 
-  SITUATION: ENEMY SITE HOUSES A HIGH-RISK AI. EMP HAS CUT POWER —
-             FACILITY IS DARK. YOU SEE ONLY WHAT YOUR LiDAR PAINTS.
+  MISSION: 3 KEYS → CONSOLE DOOR → JACK-IN (3 BOARDS · 20s) → PATH → LZ
+           BLACKOUT WINDOW: 6:00 · LZ NOT PAINTED AFTER UPLINK (GUIDE VOICES IT)
 
-  MISSION:   RECOVER 3 ACCESS KEYS <span class="amber">[AMBER]</span>
-             OPEN CONSOLE DOOR (ALL 3 KEYS) → JACK INTO AI CORE
-             CLONE THE MODEL TO HARD DRIVE
-             EXTRACT VIA LZ — MAP GUIDE VOICES YOU (LZ NOT PAINTED ON LiDAR)
-             BLACKOUT WINDOW: 6 MINUTES — THEN SITE POWER RETURNS
-             OPTIONAL BLAST DOORS = SHORTCUTS (1 KEY EACH)
-
-  <span style="color:#0f0">HARBOR GREEN</span> = ONE FARADAY SAFE ROOM (START / INFIL ROOM)
-  <span class="amber">YELLOW</span> = TRIPWIRE ALARM
-  <span style="color:#4a6cff">DARK BLUE</span> = BLAST DOORS
-  <span class="dim">LZ (X ON MAP)</span> = CHOPPER PAD — NOT PAINTED AFTER UPLINK; GUIDE REQUIRED
-
-  <span class="red">RED RETURNS = SECURITY (3 UNITS ACTIVE). DO NOT ENGAGE.</span>
-  <span class="dim">WRISTLINK MOTION TRACKER FLAGS SECURITY. MIC / VOICE RAISES SIGNATURE.</span>
-  <span class="dim">VR SPRINT: HOLD LEFT GRIP (OR STICK CLICK). WALK IS DEFAULT. LOUD + STAMINA.</span>
-  <span class="dim">RAISE LEFT CONTROLLER — WRISTLINK FOLLOWS THE CONTROLLER (MOTION + STAMINA).</span>
-  <span class="dim">VR JACK-IN: 3× 6×6 MATRICES · 20s EACH · POINT LASER / STICK · A ROTATE · FAIL = ALARM.</span>
-  <span class="dim">PRINT CIRCUIT DOWNLOAD FOR THE OUTSIDE SOLVER — SAME UNSOLVED BOARD.</span></pre>
-    <div class="opt-row" style="margin-top:12px">
+  <span style="color:#0f0">HARBOR GREEN</span> = SAFE ROOM · <span class="amber">YELLOW</span> = TRIPWIRE · <span style="color:#4a6cff">DARK BLUE</span> = BLAST DOORS
+  <span class="red">RED / AMBER RADAR = SECURITY</span> · <span style="color:#3cdc5a">GREEN RADAR = POW</span> (RESCUE PATH)
+  <span class="dim">VR: LEFT GRIP SPRINT · RAISE LEFT WRISTLINK · A/X INTERACT · TRIGGER SCAN</span></pre>
+    <div class="opt-row" style="margin-top:8px">
       <label><input type="checkbox" id="opt-smooth-controls"> SMOOTH TURN (VR)</label>
     </div>
     <div class="gfx-row">
@@ -212,22 +243,7 @@
       <button type="button" class="gfx-btn active" data-gfx="medium">MEDIUM</button>
       <button type="button" class="gfx-btn" data-gfx="high">HIGH</button>
     </div>
-    <div class="menu-actions">
-      <button type="button" class="menu-btn primary" id="btn-start-desktop">START DESKTOP</button>
-      <button id="enter-vr" type="button" class="menu-btn" disabled>CHECKING WEBXR...</button>
-    </div>
     <div id="vr-note">QUEST: HOLD LEFT GRIP TO SPRINT · RAISE LEFT FOR WRISTLINK · JACK-IN: POINT LASER + A/X ROTATE · RIGHT STICK TURN · TRIGGER SCAN · RIGHT GRIP BURST · A/X INTERACT</div>
-    <p style="margin-top:18px">
-      <a href="map-print.html?v=66" target="_blank" rel="noopener"
-         style="color:#7cff9b;border:1px solid #7cff9b;padding:8px 14px;text-decoration:none;display:inline-block;pointer-events:auto;margin:4px">
-        MAP DOWNLOAD
-      </a>
-      <a href="circuit-print.html?v=66" target="_blank" rel="noopener"
-         style="color:#7cff9b;border:1px solid #7cff9b;padding:8px 14px;text-decoration:none;display:inline-block;pointer-events:auto;margin:4px">
-        CIRCUIT DOWNLOAD
-      </a>
-    </p>
-    <div class="dim" style="margin-top:8px;font-size:10px">MISSION DIRECTOR: PRINT MAP + UNSOLVED CIRCUIT · VOICE-DIRECT THE OPERATOR · MIC SPEECH RAISES SIGNATURE</div>
   </div>
 </div>
 
@@ -263,14 +279,14 @@
 
 <div id="crt-frame"></div>
 
-<script src="src/math.js?v=66"></script>
-<script src="src/map.js?v=66"></script>
-<script src="src/render.js?v=66"></script>
-<script src="src/audio.js?v=66"></script>
-<script src="src/mic.js?v=66"></script>
-<script src="src/enemy.js?v=66"></script>
-<script src="src/circuit.js?v=66"></script>
-<script src="src/vr.js?v=66"></script>
-<script src="src/game.js?v=66"></script>
+<script src="src/math.js?v=67"></script>
+<script src="src/map.js?v=67"></script>
+<script src="src/render.js?v=67"></script>
+<script src="src/audio.js?v=67"></script>
+<script src="src/mic.js?v=67"></script>
+<script src="src/enemy.js?v=67"></script>
+<script src="src/circuit.js?v=67"></script>
+<script src="src/vr.js?v=67"></script>
+<script src="src/game.js?v=67"></script>
 </body>
 </html>
