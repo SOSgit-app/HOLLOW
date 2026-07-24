@@ -12,6 +12,10 @@
   var TOUCH_RANGE = 3.5;
   var CHASE_CONF = 0.75;
   var CHASE_LOSE_S = 6.0;
+  var CHASE_SOUND_S = 7.0;     // red signature: chase this long, then resume patrol
+  var NOISE_SAFE_MAX = 5;       // at/below: green — ignored by security hearing
+  var NOISE_YELLOW_MAX = 16;    // up to here: yellow — investigate noise origin
+  var YELLOW_DWELL_S = 3.0;     // seconds listening at yellow noise site
   var AGITATION_DECAY = 1.2;
   var DORMANT_WAKE = 12;
   var BIAS_THRESHOLD = 40;
@@ -43,6 +47,8 @@
   var hasteTimer = 0;
   var hasteMode = 'NONE'; // NONE | ALARM | CONVERGE
   var skipX = 0, skipZ = 0, skipTimer = 0;
+  var chaseLeft = 0;
+  var investigateDwell = 4;
 
   // Secondary security units (independent stalkers)
   // patrolHalf: 'W' = west half of map, 'E' = east half
@@ -54,7 +60,9 @@
       clickTimer: clickBias, stepDist: 0, wakeTimer: 0,
       facing: 0, animT: 0, bodyCache: null,
       lairX: lairX, lairZ: lairZ,
-      patrolHalf: patrolHalf || 'W'
+      patrolHalf: patrolHalf || 'W',
+      chaseLeft: 0,
+      investigateDwell: 4
     };
   }
   var B = makeUnit(4.5, 4.5, 2.0, 'W');
@@ -93,6 +101,8 @@
     U.lastKnownX = lx; U.lastKnownZ = lz;
     U.clickTimer = clickBias; U.stepDist = 0; U.wakeTimer = 0;
     U.facing = 0; U.animT = 0; U.bodyCache = null;
+    U.chaseLeft = 0;
+    U.investigateDwell = 4;
   }
 
   function reset() {
@@ -113,6 +123,8 @@
     facing = 0; animT = 0; bodyCache = null;
     skipX = 0; skipZ = 0; skipTimer = 0;
     hasteTimer = 0; hasteMode = 'NONE';
+    chaseLeft = 0;
+    investigateDwell = 4;
 
     // Four units: west pair + east pair (cell centers — avoid wall-jammed spawns)
     resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
@@ -134,74 +146,127 @@
     return Math.sqrt(dx * dx + dz * dz);
   }
 
+  function noiseBand(loud) {
+    if (loud <= NOISE_SAFE_MAX) return 'SAFE';
+    if (loud <= NOISE_YELLOW_MAX) return 'YELLOW';
+    return 'RED';
+  }
+
   // Perceived loudness model (GDD §3.4 / §5.1)
+  // Player emission bands (match AUX bar):
+  //   SAFE (green)  — heard but ignored
+  //   YELLOW        — units that hear investigate the noise origin (~3s)
+  //   RED           — units that hear chase the player for 7s, then resume patrol
   function hear(x, z, loud, now, isPlayerNoise) {
     // Player noise from inside a safe harbor is heavily attenuated (EMCON)
     if (isPlayerNoise && M.isSafeAt(x, z)) {
       loud *= 0.15;
     }
+    var band = isPlayerNoise ? noiseBand(loud) : 'RED';
+
+    hearPrimary(x, z, loud, now, isPlayerNoise, band);
+    for (var si = 0; si < SECONDARIES.length; si++) {
+      hearUnit(SECONDARIES[si], x, z, loud * (0.85 - si * 0.05), now, isPlayerNoise, band);
+    }
+  }
+
+  function hearPrimary(x, z, loud, now, isPlayerNoise, band) {
     var dx = x - E.x, dz = z - E.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
     var walls = M.wallsBetween(E.x, E.z, x, z);
     var effective = loud * Math.pow(WALL_ATTEN, walls) - dist;
     if (effective <= 0) return;
-    var conf = Math.min(1, effective / Math.max(loud, 0.01) + 0.15);
-    E.agitation = Math.min(100, E.agitation + effective * 0.9);
 
-    if (E.state !== 'DORMANT') {
-      if (isPlayerNoise) lastNoiseFed = now;
-
-      // Inside sanctuary: never escalate to CHASE from hearing alone
-      if (isPlayerNoise && M.isSafeAt(x, z)) {
-        if (E.state !== 'CHASE') {
-          E.state = 'INVESTIGATE';
-          investigateTarget = { x: x, z: z };
-          dwellTimer = 0;
-          setPathTo(x, z);
-        }
-      } else if (conf >= CHASE_CONF && !mustInvestigateAfterChase && E.state !== 'CHASE') {
-        enterChase();
-      } else if (E.state !== 'CHASE') {
-        E.state = 'INVESTIGATE';
-        investigateTarget = { x: x, z: z };
-        dwellTimer = 0;
-        setPathTo(x, z);
-      } else {
-        // already chasing: refresh last known contact
-        lastKnownX = x; lastKnownZ = z;
-      }
+    if (band === 'SAFE') {
+      E.agitation = Math.min(100, E.agitation + effective * 0.12);
+      return;
     }
 
-    // Secondary units also hear (slightly less sensitive)
-    for (var si = 0; si < SECONDARIES.length; si++) {
-      hearUnit(SECONDARIES[si], x, z, loud * (0.85 - si * 0.05), now, isPlayerNoise);
+    E.agitation = Math.min(100, E.agitation + effective * 0.9);
+    if (E.state === 'DORMANT') return;
+    if (isPlayerNoise) lastNoiseFed = now;
+
+    // Inside sanctuary: never escalate to CHASE from hearing alone
+    if (isPlayerNoise && M.isSafeAt(x, z)) {
+      if (E.state !== 'CHASE') beginInvestigate(x, z, YELLOW_DWELL_S);
+      return;
+    }
+
+    if (band === 'RED') {
+      lastKnownX = x; lastKnownZ = z;
+      if (isPlayerNoise) {
+        lastKnownX = x; lastKnownZ = z;
+        enterChase(CHASE_SOUND_S);
+      } else if (E.state !== 'CHASE') {
+        beginInvestigate(x, z, YELLOW_DWELL_S);
+      }
+      return;
+    }
+
+    // YELLOW — investigate noise site, never chase from yellow alone
+    if (E.state !== 'CHASE') {
+      beginInvestigate(x, z, YELLOW_DWELL_S);
+    } else {
+      lastKnownX = x; lastKnownZ = z;
     }
   }
 
-  function hearUnit(U, x, z, loud, now, isPlayerNoise) {
-    if (isPlayerNoise && M.isSafeAt(x, z)) loud *= 0.15;
+  function beginInvestigate(x, z, dwell) {
+    E.state = 'INVESTIGATE';
+    investigateTarget = { x: x, z: z };
+    dwellTimer = 0;
+    investigateDwell = dwell || (4 + math.rand() * 4);
+    setPathTo(x, z);
+  }
+
+  function hearUnit(U, x, z, loud, now, isPlayerNoise, band) {
+    band = band || (isPlayerNoise ? noiseBand(loud) : 'RED');
     var dx = x - U.x, dz = z - U.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
     var walls = M.wallsBetween(U.x, U.z, x, z);
     var effective = loud * Math.pow(WALL_ATTEN, walls) - dist;
     if (effective <= 0) return;
-    var conf = Math.min(1, effective / Math.max(loud, 0.01) + 0.15);
+
+    if (band === 'SAFE') {
+      U.agitation = Math.min(100, U.agitation + effective * 0.1);
+      return;
+    }
+
     U.agitation = Math.min(100, U.agitation + effective * 0.85);
     if (U.state === 'DORMANT') return;
     if (isPlayerNoise) U.lastNoiseFed = now;
+
     if (isPlayerNoise && M.isSafeAt(x, z)) {
       if (U.state !== 'CHASE') {
         U.state = 'INVESTIGATE';
+        U.investigateDwell = YELLOW_DWELL_S;
+        U.lastKnownX = x; U.lastKnownZ = z;
+        U._dwellAcc = 0;
         U.path = M.astar(U.x, U.z, x, z); U.pathIdx = 0;
       }
       return;
     }
-    if (conf >= CHASE_CONF && U.state !== 'CHASE') {
-      U.state = 'CHASE';
-      U.repathTimer = 0;
+
+    if (band === 'RED') {
       U.lastKnownX = x; U.lastKnownZ = z;
-    } else if (U.state !== 'CHASE') {
+      if (isPlayerNoise) {
+        U.state = 'CHASE';
+        U.chaseLeft = Math.max(U.chaseLeft || 0, CHASE_SOUND_S);
+        U.repathTimer = 0;
+      } else if (U.state !== 'CHASE') {
+        U.state = 'INVESTIGATE';
+        U.investigateDwell = YELLOW_DWELL_S;
+        U._dwellAcc = 0;
+        U.path = M.astar(U.x, U.z, x, z); U.pathIdx = 0;
+      }
+      return;
+    }
+
+    if (U.state !== 'CHASE') {
       U.state = 'INVESTIGATE';
+      U.investigateDwell = YELLOW_DWELL_S;
+      U.lastKnownX = x; U.lastKnownZ = z;
+      U._dwellAcc = 0;
       U.path = M.astar(U.x, U.z, x, z); U.pathIdx = 0;
     } else {
       U.lastKnownX = x; U.lastKnownZ = z;
@@ -273,15 +338,24 @@
     }
   }
 
-  function enterChase() {
+  function enterChase(seconds) {
     E.state = 'CHASE';
     repathTimer = 0;
+    chaseLeft = Math.max(chaseLeft, seconds != null ? seconds : CHASE_SOUND_S);
     NS.audio.sting(true);
   }
   function forceChase(now) {
     mustInvestigateAfterChase = false;
     if (typeof now === 'number') lastNoiseFed = now;
-    enterChase();
+    enterChase(CHASE_SOUND_S);
+  }
+
+  function endChaseToPatrol() {
+    NS.audio.sting(false);
+    mustInvestigateAfterChase = false;
+    E.state = 'PATROL';
+    path = null;
+    chaseLeft = 0;
   }
 
   // Quiet converge: all units rush toward LZ vicinity (virus success).
@@ -457,7 +531,9 @@
       lastKnownX = p.x; lastKnownZ = p.z;
       if (E.state !== 'CHASE') {
         mustInvestigateAfterChase = false;
-        enterChase();
+        enterChase(CHASE_SOUND_S);
+      } else {
+        chaseLeft = Math.max(chaseLeft, CHASE_SOUND_S);
       }
     }
 
@@ -469,7 +545,7 @@
 
     // If chasing into a harbor, break off at the edge
     if (E.state === 'CHASE' && playerSafe) {
-      leaveChase({ x: p.x, z: p.z });
+      endChaseToPatrol();
     }
 
     var speed = 0, arrived;
@@ -505,7 +581,7 @@
           // Alarm / converge: barely dwell — keep pressure moving
           var dwellNeeded = (hasteMode === 'ALARM' || hasteMode === 'CONVERGE')
             ? (0.35 + math.rand() * 0.45)
-            : (4 + math.rand() * 4);
+            : investigateDwell;
           if (dwellTimer > dwellNeeded) {
             mustInvestigateAfterChase = false;
             if (hasteMode === 'CONVERGE' && investigateTarget) {
@@ -515,6 +591,7 @@
             } else {
               E.state = 'PATROL';
               path = null;
+              investigateDwell = 4 + math.rand() * 4;
             }
           }
         }
@@ -523,15 +600,18 @@
       case 'CHASE':
         speed = moveSpeed(SPEED_CHASE, E.state);
         repathTimer -= dt;
-        var fed = (now - lastNoiseFed) < CHASE_LOSE_S;
-        if (fed && repathTimer <= 0) {
+        chaseLeft -= dt;
+        if (repathTimer <= 0) {
           lastKnownX = p.x; lastKnownZ = p.z;
           setPathTo(p.x, p.z);
           repathTimer = 0.4;
         }
         followPath(dt, speed);
-        if (!fed) {
-          leaveChase({ x: lastKnownX, z: lastKnownZ });
+        // Red signature chase ends after timer unless still in touch range
+        if (chaseLeft <= 0 && dist >= TOUCH_RANGE) {
+          endChaseToPatrol();
+        } else if (chaseLeft <= 0 && dist < TOUCH_RANGE && !playerSafe) {
+          chaseLeft = CHASE_SOUND_S;
         }
         break;
     }
@@ -587,15 +667,17 @@
     if (dist < TOUCH_RANGE && U.state !== 'DORMANT' && !playerSafe) {
       U.lastNoiseFed = now;
       U.lastKnownX = p.x; U.lastKnownZ = p.z;
-      if (U.state !== 'CHASE') U.state = 'CHASE';
+      U.state = 'CHASE';
+      U.chaseLeft = Math.max(U.chaseLeft || 0, CHASE_SOUND_S);
     }
     if (dist < KILL_RANGE && U.state !== 'DORMANT' && !playerSafe) {
       game.onKill();
       return;
     }
     if (U.state === 'CHASE' && playerSafe) {
-      U.state = 'INVESTIGATE';
-      U.path = M.astar(U.x, U.z, p.x, p.z); U.pathIdx = 0;
+      U.state = 'PATROL';
+      U.path = null;
+      U.chaseLeft = 0;
     }
 
     var speed = 0;
@@ -617,7 +699,11 @@
         break;
       case 'INVESTIGATE':
         speed = moveSpeed(SPEED_INVESTIGATE, U.state) * speedScale;
-        if (!U.path) { U.path = M.astar(U.x, U.z, p.x, p.z); U.pathIdx = 0; }
+        if (!U.path) {
+          U.path = M.astar(U.x, U.z, U.lastKnownX != null ? U.lastKnownX : p.x,
+            U.lastKnownZ != null ? U.lastKnownZ : p.z);
+          U.pathIdx = 0;
+        }
         if (followPathUnit(U, dt, speed)) {
           if (hasteMode === 'CONVERGE' && U.lastKnownX != null) {
             U.path = M.astar(U.x, U.z, U.lastKnownX, U.lastKnownZ);
@@ -626,24 +712,36 @@
             U.path = M.astar(U.x, U.z, U.lastKnownX, U.lastKnownZ);
             U.pathIdx = 0;
           } else {
-            U.state = 'PATROL';
-            U.path = null;
+            // Yellow: brief linger then resume patrol
+            U.wakeTimer = (U.wakeTimer || 0) + dt; // reuse as dwell at site
+            if (!U._dwellAcc) U._dwellAcc = 0;
+            U._dwellAcc += dt;
+            if (U._dwellAcc > (U.investigateDwell || YELLOW_DWELL_S)) {
+              U._dwellAcc = 0;
+              U.state = 'PATROL';
+              U.path = null;
+            }
           }
+        } else {
+          U._dwellAcc = 0;
         }
         break;
       case 'CHASE':
         speed = moveSpeed(SPEED_CHASE, U.state) * (speedScale - 0.03);
         U.repathTimer -= dt;
-        var fed = (now - U.lastNoiseFed) < CHASE_LOSE_S;
-        if (fed && U.repathTimer <= 0) {
+        U.chaseLeft = (U.chaseLeft || 0) - dt;
+        if (U.repathTimer <= 0) {
           U.lastKnownX = p.x; U.lastKnownZ = p.z;
           U.path = M.astar(U.x, U.z, p.x, p.z); U.pathIdx = 0;
           U.repathTimer = 0.45;
         }
         followPathUnit(U, dt, speed);
-        if (!fed) {
-          U.state = 'INVESTIGATE';
-          U.path = M.astar(U.x, U.z, U.lastKnownX, U.lastKnownZ); U.pathIdx = 0;
+        if (U.chaseLeft <= 0 && dist >= TOUCH_RANGE) {
+          U.state = 'PATROL';
+          U.path = null;
+          U.chaseLeft = 0;
+        } else if (U.chaseLeft <= 0 && dist < TOUCH_RANGE && !playerSafe) {
+          U.chaseLeft = CHASE_SOUND_S;
         }
         break;
     }
@@ -833,7 +931,10 @@
     addAgitationFloor: addAgitationFloor,
     forceChase: forceChase,
     forceInvestigate: forceInvestigate,
-    convergeOn: convergeOn
+    convergeOn: convergeOn,
+    noiseBand: noiseBand,
+    NOISE_SAFE_MAX: NOISE_SAFE_MAX,
+    NOISE_YELLOW_MAX: NOISE_YELLOW_MAX
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})
                                  : (global.HOLLOW = global.HOLLOW || {}));

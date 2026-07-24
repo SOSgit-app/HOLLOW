@@ -503,8 +503,26 @@
     ctx.fillText('SIGNATURE', bx2, by2 - 12);
     ctx.strokeStyle = 'rgba(63,138,85,0.95)';
     ctx.strokeRect(bx2, by2, bw2, bh2);
-    ctx.fillStyle = aux > 0.55 ? 'rgba(255,80,80,0.95)' : 'rgba(124,255,155,0.95)';
+    var band = hudState.auxBand || (aux > 0.47 ? 'RED' : (aux > 0.15 ? 'YELLOW' : 'SAFE'));
+    ctx.fillStyle = band === 'RED'
+      ? 'rgba(255,68,68,0.95)'
+      : (band === 'YELLOW' ? 'rgba(255,179,71,0.95)' : 'rgba(124,255,155,0.95)');
     ctx.fillRect(bx2 + 2, by2 + 2, Math.max(0, (bw2 - 4) * aux), bh2 - 4);
+    // Safe / yellow threshold ticks
+    var safeT = Math.max(0, Math.min(1, hudState.auxSafe != null ? hudState.auxSafe : 0.15));
+    var yelT = Math.max(0, Math.min(1, hudState.auxYellow != null ? hudState.auxYellow : 0.47));
+    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+    ctx.beginPath();
+    ctx.moveTo(bx2 + 2 + (bw2 - 4) * safeT, by2);
+    ctx.lineTo(bx2 + 2 + (bw2 - 4) * safeT, by2 + bh2);
+    ctx.moveTo(bx2 + 2 + (bw2 - 4) * yelT, by2);
+    ctx.lineTo(bx2 + 2 + (bw2 - 4) * yelT, by2 + bh2);
+    ctx.stroke();
+    ctx.fillStyle = band === 'RED' ? 'rgba(255,120,120,0.9)'
+      : (band === 'YELLOW' ? 'rgba(255,200,120,0.9)' : 'rgba(160,255,180,0.85)');
+    ctx.font = '14px Consolas, monospace';
+    ctx.fillText(band === 'RED' ? 'RED — CHASE' : (band === 'YELLOW' ? 'YELLOW — CHECK' : 'GREEN — SAFE'),
+      bx2, by2 + bh2 + 18);
 
     var sta = Math.max(0, Math.min(1, hudState.stamina == null ? 1 : hudState.stamina));
     var by3 = by2 + 48;
@@ -590,6 +608,9 @@
       hint: state.hint || '',
       obj: state.obj || '',
       aux: state.aux || 0,
+      auxBand: state.auxBand || 'SAFE',
+      auxSafe: state.auxSafe != null ? state.auxSafe : 0.15,
+      auxYellow: state.auxYellow != null ? state.auxYellow : 0.47,
       stamina: state.stamina == null ? 1 : state.stamina,
       exhausted: !!state.exhausted,
       timer: state.timer || '',

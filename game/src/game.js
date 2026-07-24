@@ -1781,11 +1781,20 @@
     vrHudObj = el.obj.textContent || el.obj.innerText || '';
 
     // AUX needle: own emission + live mic level
+    // Green = safe · Yellow = investigate · Red = 7s chase
     auxLoud = Math.max(0, auxLoud - dt * 1.1);
     recentLoud = Math.max(0, recentLoud - dt * 14);
     var micL = (NS.mic && NS.mic.level) ? NS.mic.level() : 0;
     var shownAux = Math.max(auxLoud, micL);
+    var auxBandLoud = shownAux * NOISE_BURST;
+    var auxBand = EN.noiseBand ? EN.noiseBand(auxBandLoud) : 'SAFE';
     el.auxFill.style.width = Math.min(100, shownAux * 100) + '%';
+    el.auxFill.style.background = auxBand === 'RED'
+      ? 'rgba(255,68,68,0.95)'
+      : (auxBand === 'YELLOW' ? 'rgba(255,179,71,0.95)' : 'rgba(124,255,155,0.95)');
+    el.auxFill.style.boxShadow = auxBand === 'RED'
+      ? '0 0 8px rgba(255,68,68,0.7)'
+      : (auxBand === 'YELLOW' ? '0 0 8px rgba(255,179,71,0.55)' : '0 0 8px rgba(124,255,155,0.55)');
     if (el.staFill) {
       el.staFill.style.width = Math.min(100, stamina * 100) + '%';
       el.staFill.style.background = staminaExhausted
@@ -1798,6 +1807,9 @@
         hint: vrHudHint,
         obj: vrHudObj,
         aux: shownAux,
+        auxBand: auxBand,
+        auxSafe: (EN.NOISE_SAFE_MAX || 5) / NOISE_BURST,
+        auxYellow: (EN.NOISE_YELLOW_MAX || 16) / NOISE_BURST,
         stamina: stamina,
         exhausted: staminaExhausted,
         timer: el.timer.textContent,
