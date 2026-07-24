@@ -1396,6 +1396,37 @@
     }
   }
 
+  function vanishDoor(door) {
+    if (!door) return;
+    // Wipe old blue door returns so the seal vanishes on LiDAR
+    if (R.expirePointsNear) R.expirePointsNear(door.x, door.z, 2.4, now);
+    // Brief dissolve spray (dies fast — not a lasting ghost)
+    for (var i = 0; i < 48; i++) {
+      var ang = math.rand() * Math.PI * 2;
+      var rr = math.rand() * 1.1;
+      R.addPoint(
+        door.x + Math.cos(ang) * rr,
+        0.3 + math.rand() * 2.4,
+        door.z + Math.sin(ang) * rr,
+        C_DOOR[0], C_DOOR[1], C_DOOR[2],
+        now, 0.35 + math.rand() * 0.25
+      );
+    }
+    if (A.doorGrind) A.doorGrind();
+    else A.clunk(0);
+  }
+
+  function onDoorUnlocked(unlocked) {
+    doorsOpen = M.doorsOpenCount();
+    vanishDoor(unlocked);
+    emitNoise(NOISE_INTERACT);
+    if (unlocked.console || unlocked.id === 'D3') {
+      pushMsg('CONSOLE DOOR OPEN — SEAL GONE · JACK-IN READY', 'amber');
+    } else {
+      pushMsg('BLAST DOOR ' + unlocked.id + ' OPEN — SEAL GONE', 'amber');
+    }
+  }
+
   function interact() {
     if (CIR && CIR.isActive()) { CIR.rotateSelected(); return; }
     if (cloneUiActive()) return;
@@ -1427,14 +1458,7 @@
         }
         var unlockedAim = M.unlockDoor(aimed.id);
         if (unlockedAim) {
-          doorsOpen = M.doorsOpenCount();
-          A.clunk(0);
-          emitNoise(NOISE_INTERACT);
-          if (unlockedAim.console || unlockedAim.id === 'D3') {
-            pushMsg('CONSOLE DOOR OPEN — JACK-IN READY', 'amber');
-          } else {
-            pushMsg('OPTIONAL BLAST DOOR OPEN (' + unlockedAim.id + ')', 'amber');
-          }
+          onDoorUnlocked(unlockedAim);
         }
         return;
       }
@@ -1467,14 +1491,7 @@
       }
       var unlocked = M.unlockDoor(door.id);
       if (unlocked) {
-        doorsOpen = M.doorsOpenCount();
-        A.clunk(0);
-        emitNoise(NOISE_INTERACT);
-        if (unlocked.console || unlocked.id === 'D3') {
-          pushMsg('CONSOLE DOOR OPEN — JACK-IN READY', 'amber');
-        } else {
-          pushMsg('OPTIONAL BLAST DOOR OPEN (' + unlocked.id + ')', 'amber');
-        }
+        onDoorUnlocked(unlocked);
       }
       return;
     }

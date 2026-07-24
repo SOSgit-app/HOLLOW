@@ -329,6 +329,30 @@
     densCount.fill(0);
   }
 
+  // Kill lingering LiDAR returns around a world XZ (e.g. unlocked blast door).
+  function expirePointsNear(x, z, radius, nowTs) {
+    var r2 = radius * radius;
+    var killed = 0;
+    function killBuf(buf, count) {
+      for (var i = 0; i < count; i++) {
+        var o = i * STRIDE;
+        var dx = buf[o] - x, dz = buf[o + 2] - z;
+        if (dx * dx + dz * dz > r2) continue;
+        buf[o + 6] = nowTs - 10;
+        buf[o + 7] = 0.01;
+        killed++;
+      }
+    }
+    killBuf(staging, stagingCount);
+    var n = Math.min(written, CAPACITY);
+    if (n > 0) {
+      killBuf(cpu, n);
+      gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
+      gl.bufferSubData(gl.ARRAY_BUFFER, 0, cpu.subarray(0, n * STRIDE));
+    }
+    return killed;
+  }
+
   function flush() {
     if (stagingCount === 0) return;
     gl.bindBuffer(gl.ARRAY_BUFFER, vbo);
@@ -708,6 +732,7 @@
     CAPACITY: CAPACITY,
     init: init, resize: resize,
     addPoint: addPoint, pointCount: pointCount, clearPoints: clearPoints,
+    expirePointsNear: expirePointsNear,
     render: render, renderXR: renderXR,
     setVRHud: setVRHud, setWristModel: setWristModel, setCircuitPanel: setCircuitPanel, setQuality: setQuality,
     getContext: function () { return gl; },
