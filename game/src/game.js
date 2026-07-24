@@ -65,7 +65,7 @@
   var LASER_COOLDOWN = 10;
 
   var CHOPPER_INBOUND_S = 40;
-  var CHOPPER_LINGER_S = 60;
+  var CHOPPER_LINGER_S = 90; // on-station wait before left-behind
   var MISSION_TIME_S = 6 * 60; // power returns — hard fail
   var LZ_RADIUS = 3.5;
   var NOISE_UPLINK = 40;
