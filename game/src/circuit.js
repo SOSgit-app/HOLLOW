@@ -8,7 +8,7 @@
   var TEE = 7;        // N+E+S (three-way)
 
   var SIZE = 6;
-  var TIMEOUT = 120;
+  var TIMEOUT = 20;
   var COL_LABELS = 'ABCDEF';
 
   // Fixed 6×6 — hard, always the same.
@@ -206,7 +206,7 @@
     } else {
       ctx.fillText('CLICK TO ROTATE — CONNECT ENTRY → CORE · TILE IDs A1…F6', canvas.width / 2, 42);
     }
-    ctx.fillStyle = timeLeft < 15 ? '#ff4444' : '#ffb347';
+    ctx.fillStyle = timeLeft < 8 ? '#ff4444' : '#ffb347';
     ctx.fillText('LOCKOUT T-' + Math.ceil(timeLeft) + 's', canvas.width / 2, 60);
 
     var live = liveSet();

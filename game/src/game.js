@@ -777,10 +777,12 @@
   }
 
   function onCircuitTimeout() {
-    queueMsg('ROUTING LOCKOUT — GRID ALARM', 'red', 3);
+    queueMsg('ROUTING LOCKOUT — SECURITY RUSHING CONSOLE', 'red', 4);
     A.securityAlarm();
+    // Loud trip at the core — all units rush the console room
     EN.hear(M.markers.G.x, M.markers.G.z, NOISE_LASER, now, true);
     EN.forceInvestigate(M.markers.G.x, M.markers.G.z);
+    EN.addAgitationFloor(25);
   }
 
   function onJackInSuccess() {
