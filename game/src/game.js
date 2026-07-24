@@ -127,7 +127,8 @@
 
   var CLONE_INTEL =
     "CLONE COMPLETE.\n\n" +
-    "FLASH TRAFFIC: POSSIBLE POW HELD WEST OF THE CORE WING.\n" +
+    "FLASH TRAFFIC: POSSIBLE POW ON-SITE.\n" +
+    "MAP GUIDE HAS EXTERNAL COORDINATES — ASK THEM.\n" +
     "SCAN WITH LiDAR — THE POW PAINTS GREEN.\n" +
     "Free them, then escort to the LZ.\n\n" +
     "ALTERNATE: REMAIN AT CONSOLE. PLANT VIRUS.\n" +
@@ -771,7 +772,7 @@
       EN.state.agitation = 100;
       EN.hear(M.markers.G.x, M.markers.G.z, NOISE_UPLINK, now, true);
       EN.forceChase(now);
-      queueMsg('RESCUE PATH — MAP GUIDE: ROUTE TO POW THEN LZ', 'amber', 5);
+      queueMsg('RESCUE PATH — ASK MAP GUIDE FOR POW COORDS', 'amber', 5);
     } else {
       // Virus path: stay quiet until plant completes — no security surge on choose
       EN.addAgitationFloor(8);
