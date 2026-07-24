@@ -336,6 +336,34 @@
     return pool[Math.floor(math.rand() * pool.length)];
   }
 
+  // Prefer half-map target; if A* fails, fall back across the full waypoint set.
+  function choosePatrolPath(fromX, fromZ, p, patrolHalf, agitation) {
+    var tried = {};
+    for (var attempt = 0; attempt < 8; attempt++) {
+      var t = pickPatrolTarget(p, attempt < 5 ? patrolHalf : null, agitation);
+      if (!t) break;
+      var key = t.x + ',' + t.z;
+      if (tried[key]) continue;
+      tried[key] = true;
+      var pth = M.astar(fromX, fromZ, t.x, t.z);
+      if (pth && pth.length) return pth;
+    }
+    // Last resort: nearest reachable waypoint
+    var best = null, bestD = Infinity;
+    for (var i = 0; i < waypoints.length; i++) {
+      var w = waypoints[i];
+      var dx = w.x - fromX, dz = w.z - fromZ;
+      var d = dx * dx + dz * dz;
+      if (d < 1) continue;
+      var pathTry = M.astar(fromX, fromZ, w.x, w.z);
+      if (pathTry && pathTry.length && d < bestD) {
+        bestD = d;
+        best = pathTry;
+      }
+    }
+    return best;
+  }
+
   function followPath(dt, speed) {
     if (!path || pathIdx >= path.length) return true; // arrived
     var wp = path[pathIdx];
@@ -431,8 +459,8 @@
       case 'PATROL':
         speed = moveSpeed(SPEED_PATROL, E.state);
         if (!path || pathIdx >= path.length) {
-          var t = pickPatrolTarget(p, E.patrolHalf, E.agitation);
-          if (t) setPathTo(t.x, t.z);
+          path = choosePatrolPath(E.x, E.z, p, E.patrolHalf, E.agitation);
+          pathIdx = 0;
         }
         followPath(dt, speed);
         break;
@@ -551,8 +579,8 @@
       case 'PATROL':
         speed = moveSpeed(SPEED_PATROL, U.state) * speedScale;
         if (!U.path || U.pathIdx >= U.path.length) {
-          var t = pickPatrolTarget(p, U.patrolHalf, U.agitation);
-          if (t) { U.path = M.astar(U.x, U.z, t.x, t.z); U.pathIdx = 0; }
+          U.path = choosePatrolPath(U.x, U.z, p, U.patrolHalf, U.agitation);
+          U.pathIdx = 0;
         }
         followPathUnit(U, dt, speed);
         break;

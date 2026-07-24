@@ -1925,11 +1925,13 @@
         updateItems(dt);
         updateExfil(dt);
         if (NS.mic) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
-        EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
         updateHeartbeat(dt);
         updateMsg(dt);
         updateHUD(dt);
       }
+
+      // Always tick security during PLAY (including jack-in / clone UI)
+      EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
 
       if (EN.state.agitation > 70) {
         tearTimer -= dt;
