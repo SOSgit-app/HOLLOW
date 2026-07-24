@@ -779,9 +779,9 @@
   function onCircuitTimeout() {
     queueMsg('ROUTING LOCKOUT — SECURITY RUSHING CONSOLE', 'red', 4);
     A.securityAlarm();
-    // Loud trip at the core — all units rush the console room
+    // Loud trip at the core — nearest two rush the console room
     EN.hear(M.markers.G.x, M.markers.G.z, NOISE_LASER, now, true);
-    EN.forceInvestigate(M.markers.G.x, M.markers.G.z, 0);
+    EN.forceInvestigate(M.markers.G.x, M.markers.G.z, 2);
     EN.addAgitationFloor(25);
   }
 
