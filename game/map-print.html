@@ -44,10 +44,8 @@
       Pre-raid EMP has blacked out the site. Operator maps with LiDAR goggles
       and tracks security on the Wristlink motion radar. Recover 3 access keys,
       open the console door, jack into the AI core and clone the model.
-      After clone they must choose one path: rescue a POW (escort to LZ) or
-      plant a virus at the console (then extract alone). Cannot do both.
-      POW grid location is <b>not</b> on this sheet — use the external
-      intel message when they take the rescue path.
+      After clone the Operator locks an exfil path in VR. Support their call
+      and in-game flash traffic — do not read ahead on this sheet.
       Minimize emissions. Four security units patrol from the start
       (two west half / two east half). Tripwires pull only the nearest two.
       If compromised, break to the Faraday harbor in the
@@ -66,16 +64,15 @@
       <span class="swatch" style="background:#e67e00"></span> Blast door (D1–D3)<br>
       <span class="swatch" style="background:#063;border-radius:50%"></span> <b>START</b> Infil (P)<br>
       <b>1–3</b> Keys · <b>G</b> Jack-in · <b>X</b> LZ · <b>C</b> Security (4 units · 2/half)
-      <div style="margin-top:4px"><i>POW location: external message only (not marked).</i></div>
       <div style="margin-top:6px">Infil grid: col 10, row 23 (atrium west of center).</div>
       <div style="margin-top:4px"><b>D3</b> console door needs all 3 keys. <b>D1/D2</b> optional (1 key).</div>
       <div id="door-coords" style="margin-top:4px"></div>
       <div id="trip-coords" style="margin-top:2px"></div>
 
       <h2>EXFIL FORK</h2>
-      After clone: chopper clock starts when they confirm a path.
-      <b>RESCUE:</b> use external POW intel; POW paints <b>green</b> on LiDAR scan; free + escort to <b>X</b>.<br>
-      <b>VIRUS:</b> at <b>G</b>, hold <b>B</b> (Wristlink upload bar) until plant completes, then race to <b>X</b> alone.<br>
+      After clone: chopper clock starts when they confirm a path in VR.
+      <b>VIRUS PATH:</b> at <b>G</b>, hold <b>B</b> (Wristlink upload bar) until plant completes, then race to <b>X</b> alone.<br>
+      Other exfil details arrive via in-game traffic when the Operator locks their path.<br>
       After uplink: inbound timer, then <b>1:30</b> on-station window.
       Whole raid: <b>6:00</b> blackout — then site power returns (fail).
       LZ does <b>not</b> paint on LiDAR — voice the Operator to <b>X</b>.
@@ -86,8 +83,8 @@
       Voice near mic raises signature (EMCON).
     </div>
   </div>
-<script src="src/math.js?v=65"></script>
-<script src="src/map.js?v=65"></script>
+<script src="src/math.js?v=69"></script>
+<script src="src/map.js?v=69"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -157,7 +154,6 @@
 
   label(M.markers.G, 'G', '#840');
   label(M.markers.X, 'X', '#000');
-  // POW (W) intentionally omitted — Mission Director gets location via external message
   label(M.markers.C, 'C', '#900');
   M.markers.fuses.forEach(function (f, i) { label(f, String(i + 1), '#840'); });
   M.markers.doors.forEach(function (d) {

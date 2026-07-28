@@ -7,8 +7,10 @@ var M = global.HOLLOW.map;
 var rows = M.asciiRows().map(function (line, r) {
   var out = '';
   for (var c = 0; c < line.length; c++) {
-    if (M.isSafeCell(c, r) && (line[c] === '.' || line[c] === 'S')) out += 'S';
-    else out += line[c];
+    var ch = line[c];
+    if (ch === 'W') ch = '.'; // POW location withheld from mission map
+    if (M.isSafeCell(c, r) && (ch === '.' || ch === 'S')) out += 'S';
+    else out += ch;
   }
   return out;
 });
@@ -50,7 +52,7 @@ var body = [
   'EMP cut facility power. Operator maps with LiDAR; Wristlink radar tracks security.',
   'Minimize emissions. One Faraday harbor in the start/infil room. Two security units.',
   '',
-  'LEGEND: # wall  . floor  S harbor  P START  D blast door  T tripwire  1-3 keys  G AI core  X LZ  m intel  C security',
+  'LEGEND: # wall  . floor  S harbor  P START  D blast door  T tripwire  1-3 keys  G AI core  X LZ  C security',
   ''
 ].concat(rows).concat([
   '',
