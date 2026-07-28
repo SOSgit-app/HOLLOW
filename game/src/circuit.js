@@ -8,7 +8,7 @@
   var TEE = 7;        // N+E+S (three-way)
 
   var SIZE = 6;
-  var TIMEOUT = 20;
+  var TIMEOUT = 60;
   var COL_LABELS = 'ABCDEF';
 
   // STRAIGHT: 0=NS 1=EW · BEND: 0=NE 1=ES 2=SW 3=WN · TEE: 0=NES 1=ESW 2=SWN 3=WNE

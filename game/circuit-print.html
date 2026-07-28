@@ -33,7 +33,7 @@
 </head>
 <body>
   <h1>HOLLOW — JACK-IN ROUTING MATRICES (UNSOLVED)</h1>
-  <div class="sub">MISSION DIRECTOR PACKET · THREE BOARDS · 20s LOCKOUT EACH · SAME AS IN-HEADSET</div>
+  <div class="sub">MISSION DIRECTOR PACKET · THREE BOARDS · 60s LOCKOUT EACH · SAME AS IN-HEADSET</div>
   <div class="actions">
     <button type="button" onclick="window.print()">PRINT / SAVE AS PDF</button>
     <a href="map-print.html">MAP SHEET</a>
@@ -42,12 +42,12 @@
   <div class="panel" style="max-width:720px;margin-bottom:16px">
     <h2>PURPOSE</h2>
     Pre-solve all sheets offline. Operator must clear <b>stages 1–3</b>
-    (each has its own 20s lockout). Call out tile IDs and rotations over voice.
+    (each has its own 60s lockout). Call out tile IDs and rotations over voice.
     <b>ENTRY</b> feeds west into <b>A1</b>. <b>CORE</b> exits east from <b>F6</b>.
     Rotate 90° clockwise per step.
   </div>
   <div id="boards"></div>
-<script src="src/circuit.js?v=61"></script>
+<script src="src/circuit.js?v=70"></script>
 <script>
 (function () {
   var data = window.HOLLOW.circuit.getSheetData();
@@ -161,7 +161,7 @@
     }
 
     ctx.font = '11px Consolas, monospace';
-    ctx.fillText('UNSOLVED — MATCHES IN-HEADSET START · 20s LOCKOUT', canvas.width / 2, canvas.height - 16);
+    ctx.fillText('UNSOLVED — MATCHES IN-HEADSET START · 60s LOCKOUT', canvas.width / 2, canvas.height - 16);
   }
 
   for (var i = 0; i < stages.length; i++) drawBoard(stages[i]);
