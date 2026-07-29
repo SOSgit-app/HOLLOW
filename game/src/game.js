@@ -582,7 +582,7 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 door1, 2 key, 3 door2, 4 circuit, 5 tripwire, 6 virus
+  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 tripwire, 5 virus
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
@@ -590,9 +590,8 @@
 
   var TUTORIAL_MSGS = [
     'TUTORIAL: WALK (WASD) · SPRINT (SHIFT / LEFT GRIP) · CROUCH (CTRL)',
-    'TUTORIAL: OPEN THE FIRST BLAST DOOR (E / A) — ENTER THE KEY ROOM',
     'TUTORIAL: SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
-    'TUTORIAL: USE THE KEY ON THE NEXT DOOR — ENTER THE CONSOLE ROOM',
+    'TUTORIAL: USE THE KEY ON THE BLAST DOOR — ENTER THE CONSOLE ROOM',
     'TUTORIAL: JACK INTO THE CONSOLE · SOLVE 1 CIRCUIT BOARD',
     'TUTORIAL: YELLOW TRIPWIRE AT CONSOLE ENTRANCE — CROSS IT',
     'TUTORIAL: SECURITY SPAWNED IN HARBOR — HOLD B/E · UPLOAD VIRUS'
@@ -622,7 +621,7 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
-    if (tutorialStation >= 7) {
+    if (tutorialStation >= 6) {
       endTutorial(true);
       return;
     }
@@ -634,17 +633,14 @@
     if (tutorialStation === 0) {
       if (tutorialMoveDist > 8) advanceTutorial(1);
     } else if (tutorialStation === 1) {
-      var d1 = M.markers.doors[0];
-      if (d1 && !d1.locked) advanceTutorial(2);
+      if (keysCollected >= 1) advanceTutorial(2);
     } else if (tutorialStation === 2) {
-      if (keysCollected >= 1) advanceTutorial(3);
-    } else if (tutorialStation === 3) {
-      var d2 = M.markers.doors[1];
-      if (d2 && !d2.locked) advanceTutorial(4);
+      var d1 = M.markers.doors[0];
+      if (d1 && !d1.locked) advanceTutorial(3);
+    } else if (tutorialStation === 4) {
+      if (tutorialTripHit) advanceTutorial(5);
     } else if (tutorialStation === 5) {
-      if (tutorialTripHit) advanceTutorial(6);
-    } else if (tutorialStation === 6) {
-      if (virusDone) advanceTutorial(7);
+      if (virusDone) advanceTutorial(6);
     }
   }
 
@@ -1074,7 +1070,7 @@
       tutorialTripHit = false;
       armTutorialTripwire();
       queueMsg('TRIPWIRE ARMED — CONSOLE ENTRANCE HALLWAY', 'amber', 4);
-      advanceTutorial(5);
+      advanceTutorial(4);
       return;
     }
     queueMsg('MATRIX STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT BOARD', 'amber', 3);
@@ -1106,7 +1102,7 @@
       tutorialTripHit = false;
       armTutorialTripwire();
       queueMsg('TRIPWIRE ARMED — CONSOLE ENTRANCE HALLWAY', 'amber', 4);
-      advanceTutorial(5);
+      advanceTutorial(4);
       return;
     }
     beginCloneSequence();

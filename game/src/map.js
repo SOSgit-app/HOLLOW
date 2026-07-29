@@ -48,8 +48,8 @@
     "################################################"
   ];
 
-  // Compact tutorial arena: harbor → free door → key room → keyed door → console
-  // Stations: move → door1 → key → door2 → circuit → virus
+  // Compact tutorial arena: harbor → key room → keyed door → console
+  // Stations: move → key → door → circuit → tripwire → virus
   var TUTORIAL_ASCII = [
     "########################",
     "#SSSSSS#.......#.......#",
@@ -137,12 +137,11 @@
       for (var sr = 1; sr <= 4; sr++) {
         for (var sc = 1; sc <= 6; sc++) placeSafe(sc, sr);
       }
-      // Tripwire armed only after circuit (see releaseTutorialSecurity)
+      // Tripwire armed only after circuit (see armTutorialTripwire in game.js)
       markers.lasers = [];
-      // D1: free practice door into key room. D2: keyed console door.
+      // Open harbor → key room; one keyed door into the console room
       markers.doors = [
-        { id: 'D1', c: 7, r: 2, locked: true, keysRequired: 0 },
-        { id: 'D2', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
+        { id: 'D1', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
       if (!markers.X && markers.P) markers.X = { x: markers.P.x, z: markers.P.z };
     } else {
