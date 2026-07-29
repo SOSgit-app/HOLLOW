@@ -1711,7 +1711,7 @@
       virusHolding = false;
       virusWristActive = false;
       if (tutorialMode) {
-        pushMsg('VIRUS PLANTED — MOVE TO THE YELLOW LZ', 'amber', 4);
+        pushMsg('VIRUS PLANTED — CROSS THE YELLOW WIRE, THEN LZ', 'amber', 4);
         return;
       }
       // Quiet plant — no alarm sting; security drifts toward the LZ
