@@ -672,6 +672,7 @@
       pendingTutorial = false;
       M.loadLayout('tutorial');
       EN.reset('tutorial');
+      if (EN.setSuppressed) EN.setSuppressed(true);
     } else {
       tutorialMode = false;
       M.loadLayout('mission');
@@ -1174,8 +1175,8 @@
       bestT = lt; color = C_YELLOW; life = 8;
     }
 
-    // the Custodian — red returns, fast decay
-    var sph = EN.spheres();
+    // the Custodian — red returns, fast decay (absent in early tutorial)
+    var sph = (tutorialMode && tutorialStation < 5) ? [] : EN.spheres();
     for (var i = 0; i < sph.length; i++) {
       var t = raySphere(ox, oy, oz, dx, dy, dz, sph[i]);
       if (t > 0 && t < bestT) { bestT = t; color = C_RED; life = ENEMY_POINT_LIFE; }
@@ -2111,7 +2112,9 @@
     }
 
     // MOTION radar contacts: security + POW (rescue path)
-    var radarContacts = EN.contacts ? EN.contacts() : [{ x: EN.state.x, z: EN.state.z, state: EN.state.state }];
+    var radarContacts = (tutorialMode && tutorialStation < 5)
+      ? []
+      : (EN.contacts ? EN.contacts() : [{ x: EN.state.x, z: EN.state.z, state: EN.state.state }]);
     if (missionBranch === 'RESCUE' && pow) {
       radarContacts = radarContacts.concat([{
         id: 'POW',
@@ -2258,7 +2261,10 @@
         updateExfil(dt);
         updateTutorial(dt);
         if (NS.mic && !tutorialMode) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
-        EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
+        // No security until tutorial circuit is cleared
+        if (!(tutorialMode && tutorialStation < 5)) {
+          EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
+        }
         updateHeartbeat(dt);
         updateMsg(dt);
         updateHUD(dt);

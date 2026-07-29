@@ -117,6 +117,10 @@
       bodyCache = null;
       E.agitation = 0;
       E.agitationFloor = 0;
+      // Park far off the playable map so nothing can scan or touch it
+      E.x = -999;
+      E.z = -999;
+      SECONDARIES = [];
     } else if (currentDiff === 'tutorial') {
       E.x = lairX; E.z = lairZ;
       unstick(E);
@@ -136,13 +140,14 @@
 
     M = NS.map; math = NS.math;
     // SEC-1 east (old lair), SEC-2/4 west, SEC-3 east — 2 per half
-    lairX = M.markers.C.x; lairZ = M.markers.C.z;
+    lairX = M.markers.C ? M.markers.C.x : 4.5;
+    lairZ = M.markers.C ? M.markers.C.z : 4.5;
     E.x = lairX; E.z = lairZ;
     E.patrolHalf = currentDiff === 'tutorial' ? 'W' : 'E';
     // Tutorial starts with no guard — released after circuit puzzle
     suppressed = currentDiff === 'tutorial';
     E.state = suppressed ? 'DORMANT' : 'PATROL';
-    E.agitation = suppressed ? 0 : (currentDiff === 'tutorial' ? 4 : 12);
+    E.agitation = suppressed ? 0 : 12;
     E.agitationFloor = 0;
     path = null; pathIdx = 0; repathTimer = 0;
     investigateTarget = null; dwellTimer = 0;
@@ -160,14 +165,18 @@
     resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
     resetUnit(C, 106.5, 28.5, 'E', 2.8, 8);
     resetUnit(D, 16.5, 73.5, 'W', 3.2, 8);
-    if (currentDiff === 'tutorial') {
-      // Keep the single unit near the training lair marker
+    if (suppressed) {
+      E.x = -999; E.z = -999;
+      bodyCache = null;
+    } else if (currentDiff === 'tutorial') {
       E.x = lairX; E.z = lairZ;
+      unstick(E);
+    } else {
+      unstick(E);
+      unstick(B);
+      unstick(C);
+      unstick(D);
     }
-    unstick(E);
-    unstick(B);
-    unstick(C);
-    unstick(D);
   }
 
   function setPathTo(x, z) {

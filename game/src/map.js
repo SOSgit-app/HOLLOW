@@ -54,12 +54,12 @@
     "########################",
     "#SSSSSS#.......#.......#",
     "#SSPSSS................#",
-    "#SSSSSS#...1...#...G...#",
+    "#SSSSSS#...1...#..CG...#",
     "#SSSSSS#.......#.......#",
     "########.......#########",
     "#..............#########",
     "#......................#",
-    "#..........C...........#",
+    "#......................#",
     "#......................#",
     "########################"
   ];
@@ -137,10 +137,8 @@
       for (var sr = 1; sr <= 4; sr++) {
         for (var sc = 1; sc <= 6; sc++) placeSafe(sc, sr);
       }
-      // Tripwire across corridor south of key room (row 5 gap is wall; trip in open hall at row 6)
-      markers.lasers = [
-        { x0: 1 * CELL + IN, z0: 6.5 * CELL, x1: 14 * CELL - IN, z1: 6.5 * CELL, y0: TY - TH, y1: TY + TH, id: 'L-TRAIN' }
-      ];
+      // Tripwire omitted in tutorial — no security until circuit clears
+      markers.lasers = [];
       // D1: free practice door into key room. D2: keyed console door.
       markers.doors = [
         { id: 'D1', c: 7, r: 2, locked: true, keysRequired: 0 },
