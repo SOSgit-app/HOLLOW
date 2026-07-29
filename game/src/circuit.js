@@ -1,4 +1,4 @@
-/* HOLLOW — circuit.js : jack-in routing puzzles (three fixed hard boards). */
+/* HOLLOW — circuit.js : jack-in routing puzzles (mission boards + tutorial). */
 (function (NS) {
   'use strict';
 
@@ -98,6 +98,39 @@
 
   var STAGES = [STAGE1, STAGE2, STAGE3];
 
+  // Tutorial only: top-row then right-column L-path. Start is almost solved (~4 one-click fixes).
+  // Path: ENTRY→A1→B1→C1→D1→E1→F1→F2→F3→F4→F5→F6→CORE
+  var TUTORIAL_STAGE = {
+    tiles: [
+      STRAIGHT, STRAIGHT, STRAIGHT, STRAIGHT, STRAIGHT, BEND,
+      BEND,     BEND,     TEE,      BEND,     BEND,     STRAIGHT,
+      BEND,     TEE,      BEND,     TEE,      BEND,     STRAIGHT,
+      TEE,      BEND,     BEND,     BEND,     TEE,      STRAIGHT,
+      BEND,     BEND,     TEE,      BEND,     BEND,     STRAIGHT,
+      BEND,     TEE,      BEND,     BEND,     TEE,      BEND
+    ],
+    solution: [
+      1, 1, 1, 1, 1, 2,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0
+    ],
+    start: [
+      0, 1, 0, 1, 1, 1,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 0,
+      0, 0, 0, 0, 0, 1
+    ]
+  };
+
+  var activeStages = STAGES;
+  var isTutorialPuzzle = false;
+  var TIMEOUT_TUTORIAL = 90;
+
   var active = false;
   var stageIndex = 0;
   var tiles = [];
@@ -139,12 +172,12 @@
   }
 
   function loadStage(i) {
-    var s = STAGES[i];
+    var s = activeStages[i];
     tiles = s.tiles.slice();
     solutionRot = s.solution.slice();
     rot = s.start.slice();
     selected = 0;
-    timeLeft = TIMEOUT;
+    timeLeft = isTutorialPuzzle ? TIMEOUT_TUTORIAL : TIMEOUT;
     confirmHold = 0;
     pointerU = -1;
     pointerV = -1;
@@ -308,7 +341,9 @@
     ctx.font = 'bold 15px Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.fillText(
-      'JACK-IN ROUTING  6×6  —  STAGE ' + (stageIndex + 1) + '/' + STAGES.length,
+      isTutorialPuzzle
+        ? 'PRACTICE JACK-IN  —  MATCH THE CORNER DOTS'
+        : ('JACK-IN ROUTING  6×6  —  STAGE ' + (stageIndex + 1) + '/' + activeStages.length),
       canvas.width / 2, 22
     );
     ctx.fillStyle = '#3f8a55';
@@ -386,7 +421,7 @@
     if (ok) {
       ctx.fillStyle = '#ffb347';
       ctx.font = '13px Consolas, monospace';
-      var confirmMsg = stageIndex < STAGES.length - 1
+      var confirmMsg = stageIndex < activeStages.length - 1
         ? 'PATH VALID — HOLDING TO ADVANCE…'
         : 'PATH VALID — HOLDING TO CONFIRM…';
       ctx.fillText(confirmMsg, canvas.width / 2, canvas.height - 12);
@@ -400,9 +435,9 @@
   }
 
   function finishStageOrDone() {
-    if (stageIndex < STAGES.length - 1) {
+    if (stageIndex < activeStages.length - 1) {
       var next = stageIndex + 1;
-      if (onStageClear) onStageClear(stageIndex + 1, STAGES.length);
+      if (onStageClear) onStageClear(stageIndex + 1, activeStages.length);
       stageIndex = next;
       loadStage(stageIndex);
       render();
@@ -494,8 +529,10 @@
     dirty = true;
   }
 
-  function open(successCb, timeoutCb, stageClearCb) {
+  function open(successCb, timeoutCb, stageClearCb, opts) {
     ensureCanvas();
+    isTutorialPuzzle = !!(opts && opts.tutorial);
+    activeStages = isTutorialPuzzle ? [TUTORIAL_STAGE] : STAGES;
     resetPuzzle();
     onSuccess = successCb;
     onTimeout = timeoutCb;
@@ -507,6 +544,8 @@
 
   function close() {
     active = false;
+    isTutorialPuzzle = false;
+    activeStages = STAGES;
     if (canvas) canvas.style.display = 'none';
     onSuccess = null;
     onTimeout = null;
@@ -544,7 +583,7 @@
     setPointer: setPointer, clearPointer: clearPointer,
     isActive: function () { return active; },
     getStage: function () { return stageIndex + 1; },
-    getStageCount: function () { return STAGES.length; },
+    getStageCount: function () { return activeStages.length; },
     getCanvas: function () { return canvas; },
     getSheetData: getSheetData,
     consumeDirty: function () {
@@ -560,7 +599,7 @@
       connected: connected,
       rot: function () { return rot.slice(); },
       solutionRot: function () { return solutionRot.slice(); },
-      stageCount: function () { return STAGES.length; }
+      stageCount: function () { return activeStages.length; }
     }
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})

@@ -1632,7 +1632,8 @@
       : (tutorialMode
         ? 'PRACTICE JACK-IN — CLEAR ONE BOARD'
         : 'JACK-IN SEQUENCE — THREE ROUTING MATRICES'), 'amber');
-    CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear);
+    CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear,
+      tutorialMode ? { tutorial: true } : null);
   }
 
   function powSpheres() {
