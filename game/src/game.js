@@ -607,7 +607,8 @@
   var tutorialSecTimer = 0;
   var pendingTutorial = false;
   var pendingEasyRaid = false;
-  var pendingPostTutorial = false; // show offer after VR session fully ends
+  var pendingPostTutorial = false; // true while waiting for VR session to end after tutorial extract
+  var tutorialExitSuccess = null; // null = idle, true/false = exit in flight (idempotent settle)
 
   var TUTORIAL_STEPS = [
     {
@@ -755,20 +756,30 @@
 
   function finishEndTutorial(success) {
     M.loadLayout('mission');
+    state = 'CONTROLS';
+    showScreen('controls');
     if (success) {
-      state = 'POST_TUTORIAL';
-      showScreen('post-tutorial');
-      queueMsg('TUTORIAL COMPLETE — START EASY RAID?', 'amber', 8);
-    } else {
-      state = 'CONTROLS';
-      showScreen('controls');
+      queueMsg('TUTORIAL COMPLETE — READY FOR RAID', 'amber', 8);
     }
   }
 
+  function settleTutorialExit() {
+    if (tutorialExitSuccess === null) return;
+    var success = !!tutorialExitSuccess;
+    tutorialExitSuccess = null;
+    pendingPostTutorial = false;
+    finishEndTutorial(success);
+  }
+
   function endTutorial(success) {
+    // Guard re-entry: standing on the LZ used to call this every frame, then fall
+    // through into winGame('VIRUS') once tutorialMode was cleared → black screen.
+    if (tutorialExitSuccess !== null) return;
+    tutorialExitSuccess = !!success;
     tutorialMode = false;
     pendingTutorial = false;
     runActive = false;
+    exfilPhase = 'BOARDED';
     clearCoachPanel();
     coachPose = null;
     if (CIR) CIR.close();
@@ -776,13 +787,26 @@
     if (A.sting) A.sting(false);
     if (A.chopperStop) A.chopperStop();
     document.exitPointerLock();
-    // Immersive VR hides DOM — wait for session end before showing the offer
+    pendingPostTutorial = true;
+    // Immersive VR hides DOM — wait for session end before showing the menu
     if (VR && VR.active()) {
-      pendingPostTutorial = !!success;
-      VR.end();
+      var finished = false;
+      function afterVr() {
+        if (finished) return;
+        finished = true;
+        settleTutorialExit();
+      }
+      try {
+        Promise.resolve(VR.end()).then(afterVr, afterVr);
+      } catch (err) {
+        void err;
+        afterVr();
+      }
+      // Hard fallback if the XR 'end' event / promise never settles (Quest quirk)
+      setTimeout(afterVr, 800);
       return;
     }
-    finishEndTutorial(!!success);
+    settleTutorialExit();
   }
 
   function startEasyRaid() {
@@ -908,6 +932,8 @@
     tutorialSecTimer = 0;
     tutorialStation = 0;
     coachPose = null;
+    tutorialExitSuccess = null;
+    pendingPostTutorial = false;
     applyComfort();
     if (tutorialMode) {
       var s0 = TUTORIAL_STEPS[0];
@@ -1034,6 +1060,7 @@
   }
 
   function winGame(ending) {
+    if (tutorialExitSuccess !== null || pendingPostTutorial) return;
     runActive = false;
     state = 'WIN';
     clonePhase = 'DONE';
@@ -1691,10 +1718,12 @@
   function tryBoardLz(fromInteract) {
     if (exfilPhase !== 'ON_STATION') return false;
     if (!near(M.markers.X.x, M.markers.X.z, LZ_RADIUS)) return false;
-    if (tutorialMode) {
-      endTutorial(true);
+    // Tutorial extract — lock phase immediately so we never fall into winGame
+    if (tutorialMode || tutorialExitSuccess !== null || pendingPostTutorial) {
+      if (tutorialMode) endTutorial(true);
       return true;
     }
+    if (!runActive) return false;
     if (missionBranch === 'RESCUE') {
       if (!pow || !pow.freed) {
         if (fromInteract) pushMsg('POW STILL HELD — FREE THEM FIRST', 'red');
@@ -2591,11 +2620,9 @@
       if (R.setWristModel) R.setWristModel(null);
       clearCoachPanel();
       if (NS.mic) NS.mic.stop();
-      // Tutorial LZ success — show Easy-raid offer now that DOM is visible again
-      if (pendingPostTutorial) {
-        var offer = pendingPostTutorial;
-        pendingPostTutorial = false;
-        finishEndTutorial(offer);
+      // Tutorial LZ success — show main menu now that DOM is visible again
+      if (pendingPostTutorial || tutorialExitSuccess !== null) {
+        settleTutorialExit();
         lastFrame = performance.now();
         return;
       }
