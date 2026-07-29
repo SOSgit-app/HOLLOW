@@ -5,7 +5,6 @@
   var ctx = null, master = null, noiseBuf = null;
   var drone = null, droneGain = null;
   var breathGain = null, breathPan = null, breathSrc = null;
-  var whineOsc = null, whineGain = null;
   var stingNodes = null;
   var stingStopTimer = null;
   var transientNodes = [];   // one-shots that must be hard-stopped on restart
@@ -31,11 +30,6 @@
     }
     transientNodes.forEach(stopNode);
     transientNodes = [];
-    if (whineOsc) {
-      stopNode(whineOsc);
-      whineOsc = null;
-      whineGain = null;
-    }
     chopperStop();
     if (breathSrc) { stopNode(breathSrc); breathSrc = null; }
     if (breathGain) { try { breathGain.disconnect(); } catch (e3) { void e3; } breathGain = null; }
@@ -167,48 +161,6 @@
     if (t - lastTick < 0.035) return;
     lastTick = t;
     blipAt(1050 + Math.random() * 140, 0.025, 0.018, (Math.random() - 0.5) * 0.4, 'square');
-  }
-
-  function burstSweep() {                        // rising chirp + tick shower
-    if (!ctx) return;
-    var t = ctx.currentTime;
-    var o = ctx.createOscillator();
-    o.type = 'sawtooth';
-    o.frequency.setValueAtTime(300, t);
-    o.frequency.exponentialRampToValueAtTime(2400, t + 1.3);
-    var g = ctx.createGain();
-    g.gain.setValueAtTime(0.05, t);
-    g.gain.linearRampToValueAtTime(0.10, t + 1.0);
-    g.gain.exponentialRampToValueAtTime(0.0005, t + 1.45);
-    var f = ctx.createBiquadFilter();
-    f.type = 'bandpass'; f.Q.value = 4;
-    f.frequency.setValueAtTime(600, t);
-    f.frequency.exponentialRampToValueAtTime(3000, t + 1.3);
-    o.connect(f); f.connect(g); g.connect(master);
-    o.start(t); o.stop(t + 1.5);
-    for (var i = 0; i < 40; i++) {
-      blipAt(1400 + Math.random() * 600, 0.02, 0.012, -1 + 2 * (i / 40), 'square', t + (i / 40) * 1.4);
-    }
-  }
-
-  function setCharge(level, charging) {          // capacitor whine while recharging
-    if (!ctx) return;
-    if (charging && !whineOsc) {
-      whineOsc = ctx.createOscillator();
-      whineOsc.type = 'triangle';
-      whineGain = ctx.createGain();
-      whineGain.gain.value = 0.008;
-      whineOsc.connect(whineGain); whineGain.connect(master);
-      whineOsc.start();
-    }
-    if (whineOsc) {
-      if (charging) {
-        whineOsc.frequency.value = 1800 + 2400 * level;
-      } else {
-        blipAt(4200, 0.07, 0.02, 0, 'sine');     // "ready" tick
-        whineOsc.stop(); whineOsc = null; whineGain = null;
-      }
-    }
   }
 
   function footstep(loud) {                      // player's own steps
@@ -440,7 +392,7 @@
   NS.audio = {
     ensure: ensure, getContext: getContext, setVolume: setVolume,
     startAmbient: startAmbient, setAgitation: setAgitation, setBreath: setBreath,
-    scanTick: scanTick, burstSweep: burstSweep, setCharge: setCharge,
+    scanTick: scanTick,
     footstep: footstep, enemyStep: enemyStep, click: click, heartbeat: heartbeat,
     sting: sting, scareImpact: scareImpact, death: death, fuseChime: fuseChime, clunk: clunk,
     generatorRoar: generatorRoar, doorGrind: doorGrind, teletype: teletype,

@@ -234,8 +234,8 @@
         currentInput.trickle = currentInput.trickle || trig;
         currentInput.tricklePressed = currentInput.tricklePressed ||
           rising(id + '-trig', trig);
-        currentInput.burstPressed = currentInput.burstPressed ||
-          rising(id + '-burst', pressed(gp, 1));
+        currentInput.secondaryPressed = currentInput.secondaryPressed ||
+          rising(id + '-secondary', pressed(gp, 1));
       }
       currentInput.interactPressed = currentInput.interactPressed ||
         interactRising(id, gp, source.handedness === 'left');

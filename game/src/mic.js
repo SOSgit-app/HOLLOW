@@ -6,8 +6,15 @@
   var enabled = false;
   var emitAcc = 0;
   var starting = false;
+  var profile = 'low'; // 'off' | 'low' | 'high'
+
+  function setProfile(p) {
+    profile = p || 'low';
+    if (profile === 'off') stop();
+  }
 
   function start() {
+    if (profile === 'off') return Promise.resolve(false);
     if (enabled || starting) return Promise.resolve(enabled);
     if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
       return Promise.resolve(false);
@@ -58,6 +65,14 @@
   }
 
   function loudnessFromRms(r) {
+    if (profile === 'off') return 0;
+    if (profile === 'high') {
+      if (r < 0.02) return 0;
+      if (r < 0.05) return 12 + (r - 0.02) * 100;
+      if (r < 0.10) return 18 + (r - 0.05) * 100;
+      return Math.min(34, 24 + (r - 0.10) * 100);
+    }
+    // 'low' (medium difficulty)
     if (r < 0.045) return 0;
     if (r < 0.08) return 8 + (r - 0.045) * 80;
     if (r < 0.14) return 12 + (r - 0.08) * 70;
@@ -74,7 +89,7 @@
   }
 
   NS.mic = {
-    start: start, stop: stop, tick: tick,
+    start: start, stop: stop, tick: tick, setProfile: setProfile,
     active: function () { return enabled; },
     level: function () {
       if (!enabled) return 0;

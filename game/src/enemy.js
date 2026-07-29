@@ -68,7 +68,9 @@
   var B = makeUnit(4.5, 4.5, 2.0, 'W');
   var C = makeUnit(106.5, 28.5, 2.8, 'E');
   var D = makeUnit(16.5, 73.5, 3.2, 'W');
+  var ALL_SECONDARIES = [B, C, D];
   var SECONDARIES = [B, C, D];
+  var currentDiff = 'medium';
 
   function mapMidX() {
     return M.COLS() * M.CELL / 2;
@@ -105,7 +107,12 @@
     U.investigateDwell = 4;
   }
 
-  function reset() {
+  function reset(difficulty) {
+    currentDiff = difficulty || 'medium';
+    if (currentDiff === 'easy') SECONDARIES = [B];
+    else if (currentDiff === 'medium') SECONDARIES = [B, C];
+    else SECONDARIES = [B, C, D];
+
     M = NS.map; math = NS.math;
     // SEC-1 east (old lair), SEC-2/4 west, SEC-3 east — 2 per half
     lairX = M.markers.C.x; lairZ = M.markers.C.z;
@@ -158,6 +165,8 @@
   //   YELLOW        — units that hear investigate the noise origin (~3s)
   //   RED           — units that hear chase the player for 7s, then resume patrol
   function hear(x, z, loud, now, isPlayerNoise) {
+    if (currentDiff === 'easy' && isPlayerNoise) loud *= 0.7;
+
     // Player noise from inside a safe harbor is heavily attenuated (EMCON)
     if (isPlayerNoise && M.isSafeAt(x, z)) {
       loud *= 0.15;
@@ -279,12 +288,16 @@
   }
 
   function moveSpeed(base, state) {
-    if (hasteTimer <= 0 || hasteMode === 'NONE') return base;
+    var s = base;
+    if (currentDiff === 'easy' && state === 'PATROL') s *= 0.75;
+    if (currentDiff === 'hard' && state === 'CHASE') s *= 1.1;
+
+    if (hasteTimer <= 0 || hasteMode === 'NONE') return s;
     // Only units actually responding (investigate/chase) get the haste boost
-    if (state !== 'INVESTIGATE' && state !== 'CHASE') return base;
-    if (hasteMode === 'ALARM') return Math.max(base, SPEED_ALARM);
-    if (hasteMode === 'CONVERGE') return Math.max(base, SPEED_CONVERGE);
-    return base;
+    if (state !== 'INVESTIGATE' && state !== 'CHASE') return s;
+    if (hasteMode === 'ALARM') return Math.max(s, SPEED_ALARM);
+    if (hasteMode === 'CONVERGE') return Math.max(s, SPEED_CONVERGE);
+    return s;
   }
 
   function dispatchPrimaryInvestigate(x, z, nowTs) {
