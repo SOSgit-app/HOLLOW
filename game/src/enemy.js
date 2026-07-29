@@ -107,6 +107,26 @@
     U.investigateDwell = 4;
   }
 
+  var suppressed = false; // tutorial: no guard until circuit clears
+
+  function setSuppressed(v) {
+    suppressed = !!v;
+    if (suppressed) {
+      E.state = 'DORMANT';
+      path = null;
+      bodyCache = null;
+      E.agitation = 0;
+      E.agitationFloor = 0;
+    } else if (currentDiff === 'tutorial') {
+      E.x = lairX; E.z = lairZ;
+      unstick(E);
+      E.state = 'PATROL';
+      E.agitation = Math.max(E.agitation, 18);
+      path = null;
+      bodyCache = null;
+    }
+  }
+
   function reset(difficulty) {
     currentDiff = difficulty || 'medium';
     if (currentDiff === 'tutorial') SECONDARIES = [];
@@ -119,8 +139,10 @@
     lairX = M.markers.C.x; lairZ = M.markers.C.z;
     E.x = lairX; E.z = lairZ;
     E.patrolHalf = currentDiff === 'tutorial' ? 'W' : 'E';
-    E.state = 'PATROL';
-    E.agitation = currentDiff === 'tutorial' ? 4 : 12;
+    // Tutorial starts with no guard — released after circuit puzzle
+    suppressed = currentDiff === 'tutorial';
+    E.state = suppressed ? 'DORMANT' : 'PATROL';
+    E.agitation = suppressed ? 0 : (currentDiff === 'tutorial' ? 4 : 12);
     E.agitationFloor = 0;
     path = null; pathIdx = 0; repathTimer = 0;
     investigateTarget = null; dwellTimer = 0;
@@ -170,6 +192,7 @@
   //   YELLOW        — units that hear investigate the noise origin (~3s)
   //   RED           — units that hear chase the player for 7s, then resume patrol
   function hear(x, z, loud, now, isPlayerNoise) {
+    if (suppressed) return;
     if (currentDiff === 'easy' && isPlayerNoise) loud *= 0.7;
 
     // Player noise from inside a safe harbor is heavily attenuated (EMCON)
@@ -334,6 +357,7 @@
   // maxUnits: how many closest responders (default 2 for tripwires).
   // Pass 0 / Infinity / negative to send every unit (circuit lockout, etc.).
   function forceInvestigate(x, z, maxUnits) {
+    if (suppressed) return;
     if (maxUnits === undefined || maxUnits === null) maxUnits = 2;
     pulseHaste('ALARM', 14);
     var nowTs = (typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000);
@@ -363,6 +387,7 @@
     NS.audio.sting(true);
   }
   function forceChase(now) {
+    if (suppressed) return;
     mustInvestigateAfterChase = false;
     if (typeof now === 'number') lastNoiseFed = now;
     enterChase(CHASE_SOUND_S);
@@ -378,6 +403,7 @@
 
   // Quiet converge: all units rush toward LZ vicinity (virus success).
   function convergeOn(x, z) {
+    if (suppressed) return;
     pulseHaste('CONVERGE', 28);
     var offsets = [
       { x: 0, z: 0 },
@@ -531,6 +557,11 @@
   }
 
   function update(dt, p, now, game) {
+    if (suppressed) {
+      NS.audio.setAgitation(0);
+      bodyCache = null;
+      return;
+    }
     // agitation decay toward floor
     E.agitation = Math.max(E.agitationFloor, E.agitation - AGITATION_DECAY * dt);
     NS.audio.setAgitation(E.agitation);
@@ -906,6 +937,7 @@
   }
 
   function spheres() {
+    if (suppressed) return [];
     var out = bodyCache || [];
     if (!out.length) {
       bodyCache = buildBody(0);
@@ -920,6 +952,7 @@
   }
 
   function contacts() {
+    if (suppressed) return [];
     var list = [{ id: 'SEC-1', x: E.x, z: E.z, state: E.state }];
     for (var i = 0; i < SECONDARIES.length; i++) {
       list.push({
@@ -950,6 +983,7 @@
     forceChase: forceChase,
     forceInvestigate: forceInvestigate,
     convergeOn: convergeOn,
+    setSuppressed: setSuppressed,
     noiseBand: noiseBand,
     NOISE_SAFE_MAX: NOISE_SAFE_MAX,
     NOISE_YELLOW_MAX: NOISE_YELLOW_MAX

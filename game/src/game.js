@@ -728,6 +728,8 @@
       player.x = M.markers.P.x; player.z = M.markers.P.z;
       player.yaw = 0; player.pitch = 0;
       EN.reset('tutorial');
+      // Keep security live if the circuit was already cleared
+      if (tutorialStation >= 5 && EN.setSuppressed) EN.setSuppressed(false);
       queueMsg('CAUGHT — RESPAWNED IN HARBOR. QUIETER NEXT TIME.', 'red', 4);
       return;
     }
@@ -1030,6 +1032,15 @@
     }
   }
 
+  function releaseTutorialSecurity() {
+    if (!EN.setSuppressed) return;
+    EN.setSuppressed(false);
+    if (M.markers.G) {
+      EN.forceInvestigate(M.markers.G.x, M.markers.G.z, 1);
+    }
+    queueMsg('SECURITY ONLINE — FINISH THE VIRUS UPLOAD', 'amber', 4);
+  }
+
   function onCircuitStageClear(clearedStage, total) {
     if (tutorialMode) {
       if (CIR) CIR.close();
@@ -1041,6 +1052,7 @@
       virusDone = false;
       virusHolding = false;
       virusWristActive = false;
+      releaseTutorialSecurity();
       advanceTutorial(5);
       return;
     }
@@ -1070,6 +1082,7 @@
       missionBranch = 'VIRUS';
       virusProgress = 0;
       virusDone = false;
+      releaseTutorialSecurity();
       advanceTutorial(5);
       return;
     }
