@@ -1502,6 +1502,7 @@
     EN.addAgitationFloor(15);
     A.fuseChime();
     emitNoise(NOISE_INTERACT);
+    if (R.expirePointsNear) R.expirePointsNear(accessKeys[i].x, accessKeys[i].z, 1.6, now);
     queueMsg(tutorialMode
       ? 'ACCESS KEY RECOVERED — OPEN THE NEXT DOOR'
       : 'ACCESS KEY RECOVERED ' + keysCollected + '/3', 'amber');
