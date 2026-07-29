@@ -49,7 +49,7 @@
   ];
 
   // Compact tutorial arena: harbor → free door → key room → keyed door → console
-  // Stations: move → open door → pick key → tripwire → security → circuit
+  // Stations: move → door1 → key → door2 → circuit → virus
   var TUTORIAL_ASCII = [
     "########################",
     "#SSSSSS#.......#.......#",

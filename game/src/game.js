@@ -582,7 +582,7 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 door, 2 key, 3 trip, 4 security, 5 circuit
+  var tutorialStation = 0; // 0 move, 1 door1, 2 key, 3 door2, 4 circuit, 5 virus
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
@@ -590,11 +590,11 @@
 
   var TUTORIAL_MSGS = [
     'TUTORIAL: WALK (WASD) · SPRINT (SHIFT / LEFT GRIP) · CROUCH (CTRL)',
-    'TUTORIAL: APPROACH THE BLAST DOOR · PRESS E / A TO OPEN IT',
-    'TUTORIAL: ENTER THE NEXT ROOM · SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
-    'TUTORIAL: CROSS THE YELLOW TRIPWIRE — ALARM BRINGS SECURITY',
-    'TUTORIAL: CHECK WRISTLINK RADAR — RED/AMBER = SECURITY. STAY QUIET.',
-    'TUTORIAL: USE THE KEY ON THE CONSOLE DOOR · JACK-IN · CLEAR 1 BOARD'
+    'TUTORIAL: OPEN THE FIRST BLAST DOOR (E / A) — ENTER THE KEY ROOM',
+    'TUTORIAL: SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
+    'TUTORIAL: USE THE KEY ON THE NEXT DOOR — ENTER THE CONSOLE ROOM',
+    'TUTORIAL: JACK INTO THE CONSOLE · SOLVE 1 CIRCUIT BOARD',
+    'TUTORIAL: HOLD B (VR) / E (DESKTOP) AT CONSOLE — UPLOAD VIRUS'
   ];
 
   function doorKeysNeeded(door) {
@@ -633,16 +633,15 @@
     if (tutorialStation === 0) {
       if (tutorialMoveDist > 8) advanceTutorial(1);
     } else if (tutorialStation === 1) {
-      // First door opened (into key room)
       var d1 = M.markers.doors[0];
       if (d1 && !d1.locked) advanceTutorial(2);
     } else if (tutorialStation === 2) {
       if (keysCollected >= 1) advanceTutorial(3);
     } else if (tutorialStation === 3) {
-      if (tutorialTripHit) advanceTutorial(4);
-    } else if (tutorialStation === 4) {
-      tutorialSecTimer += dt;
-      if (tutorialSecTimer > 10) advanceTutorial(5);
+      var d2 = M.markers.doors[1];
+      if (d2 && !d2.locked) advanceTutorial(4);
+    } else if (tutorialStation === 5) {
+      if (virusDone) advanceTutorial(6);
     }
   }
 
@@ -1035,8 +1034,14 @@
     if (tutorialMode) {
       if (CIR) CIR.close();
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-      queueMsg('BOARD CLEAR — TUTORIAL COMPLETE', 'amber', 3);
-      setTimeout(function () { endTutorial(true); }, 1200);
+      // Skip clone/choice — go straight to virus plant practice
+      uplinkDone = true;
+      missionBranch = 'VIRUS';
+      virusProgress = 0;
+      virusDone = false;
+      virusHolding = false;
+      virusWristActive = false;
+      advanceTutorial(5);
       return;
     }
     queueMsg('MATRIX STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT BOARD', 'amber', 3);
@@ -1059,7 +1064,13 @@
 
   function onJackInSuccess() {
     if (tutorialMode) {
-      endTutorial(true);
+      if (CIR) CIR.close();
+      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+      uplinkDone = true;
+      missionBranch = 'VIRUS';
+      virusProgress = 0;
+      virusDone = false;
+      advanceTutorial(5);
       return;
     }
     beginCloneSequence();
@@ -1356,7 +1367,9 @@
     EN.addAgitationFloor(15);
     A.fuseChime();
     emitNoise(NOISE_INTERACT);
-    queueMsg('ACCESS KEY RECOVERED ' + keysCollected + '/3', 'amber');
+    queueMsg(tutorialMode
+      ? 'ACCESS KEY RECOVERED — OPEN THE NEXT DOOR'
+      : 'ACCESS KEY RECOVERED ' + keysCollected + '/3', 'amber');
   }
 
   function tryJackIn() {
@@ -1482,6 +1495,10 @@
       virusProgress = 1;
       virusHolding = false;
       virusWristActive = false;
+      if (tutorialMode) {
+        pushMsg('VIRUS PLANTED — AI CORRUPTED. TUTORIAL COMPLETE.', 'amber', 4);
+        return;
+      }
       // Quiet plant — no alarm sting; security drifts toward the LZ
       if (M.markers.X && EN.convergeOn) {
         EN.convergeOn(M.markers.X.x, M.markers.X.z);
