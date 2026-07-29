@@ -44,6 +44,8 @@
     });
     button.addEventListener('click', function (event) {
       event.stopPropagation();
+      // Normal raid — not tutorial
+      if (NS.game && NS.game.clearTutorialPending) NS.game.clearTutorialPending();
       enter();
     });
   }
@@ -346,6 +348,7 @@
   NS.vr = {
     init: init,
     enter: enter,
+    supported: function () { return !!supported; },
     active: function () { return !!session; },
     end: end,
     input: function () { return currentInput; },

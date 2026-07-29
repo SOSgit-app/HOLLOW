@@ -365,7 +365,7 @@
     if (btnTutorial) {
       btnTutorial.addEventListener('click', function (e) {
         e.stopPropagation();
-        startTutorialDesktop();
+        startTutorial();
       });
     }
 
@@ -640,12 +640,18 @@
     }
   }
 
-  function startTutorialDesktop() {
+  function startTutorial() {
     pendingTutorial = true;
     A.ensure();
     A.startAmbient();
-    // Mic off for tutorial clarity
     if (NS.mic && NS.mic.setProfile) NS.mic.setProfile('off');
+    // Prefer immersive VR when the headset path is available
+    if (VR && VR.enter && VR.supported && VR.supported()) {
+      VR.enter().then(function (ok) {
+        if (!ok) el.canvas.requestPointerLock();
+      });
+      return;
+    }
     el.canvas.requestPointerLock();
   }
 
@@ -2266,13 +2272,15 @@
     init: init,
     fusesCollected: function () { return keysCollected; },
     cloneUiActive: cloneUiActive,
+    clearTutorialPending: function () { pendingTutorial = false; },
     onVRStart: function () {
       if (A.stopAllTransient) A.stopAllTransient();
       if (!runActive) startRun();
       state = 'PLAY';
       showScreen(null);
       lastFrame = performance.now();
-      if (NS.mic) NS.mic.start();
+      // Mic follows difficulty; tutorial keeps it off
+      if (NS.mic && !tutorialMode) NS.mic.start();
     },
     onVREnd: function () {
       trickleOn = false;
