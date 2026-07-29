@@ -644,13 +644,36 @@
     if (R.setCoachPanel) R.setCoachPanel(null, null);
   }
 
-  function buildCoachModel() {
-    var yaw = player.yaw;
+  var lastVrBodyYaw = 0;
+  var coachAnchor = null; // world-locked panel pose
+
+  function panelYaw() {
+    return inVR() ? lastVrBodyYaw : player.yaw;
+  }
+
+  function placeCoachAnchor() {
+    var yaw = panelYaw();
     var sy = Math.sin(yaw), cy = Math.cos(yaw);
-    var dist = 1.45;
-    var px = player.x + sy * dist;
-    var py = player.eye + 0.18;
-    var pz = player.z - cy * dist;
+    var dist = 1.55;
+    coachAnchor = {
+      x: player.x + sy * dist,
+      y: player.eye + 0.12,
+      z: player.z - cy * dist,
+      yaw: yaw,
+      station: tutorialStation,
+      px: player.x,
+      pz: player.z
+    };
+  }
+
+  function buildCoachModel() {
+    if (!coachAnchor || coachAnchor.station !== tutorialStation) placeCoachAnchor();
+    // Re-anchor if player walked away from where it was placed
+    var adx = player.x - coachAnchor.px, adz = player.z - coachAnchor.pz;
+    if (adx * adx + adz * adz > 3.5 * 3.5) placeCoachAnchor();
+
+    var yaw = coachAnchor.yaw;
+    var sy = Math.sin(yaw), cy = Math.cos(yaw);
     var nx = -sy, ny = 0, nz = cy;
     var right = math.vnorm(math.vcross([0, 1, 0], [nx, ny, nz]));
     var up = math.vnorm(math.vcross([nx, ny, nz], right));
@@ -659,7 +682,7 @@
     m[0] = right[0] * sx; m[1] = right[1] * sx; m[2] = right[2] * sx; m[3] = 0;
     m[4] = up[0] * sy2; m[5] = up[1] * sy2; m[6] = up[2] * sy2; m[7] = 0;
     m[8] = nx; m[9] = ny; m[10] = nz; m[11] = 0;
-    m[12] = px; m[13] = py; m[14] = pz; m[15] = 1;
+    m[12] = coachAnchor.x; m[13] = coachAnchor.y; m[14] = coachAnchor.z; m[15] = 1;
     return m;
   }
 
@@ -706,6 +729,7 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
+    coachAnchor = null; // re-place coach for the new step
     if (tutorialStation >= TUTORIAL_STEPS.length) {
       endTutorial(true);
       return;
@@ -802,6 +826,7 @@
     tutorialTripHit = false;
     tutorialSecTimer = 0;
     tutorialStation = 0;
+    coachAnchor = null;
     applyComfort();
     if (tutorialMode) {
       var s0 = TUTORIAL_STEPS[0];
@@ -1690,9 +1715,9 @@
     }
   }
 
-  // Floating jack-in matrix panel in front of the operator (VR-visible)
+  // Floating jack-in matrix panel — body-yaw locked (not head gaze)
   function buildCircuitModel() {
-    var yaw = player.yaw;
+    var yaw = panelYaw();
     var sy = Math.sin(yaw), cy = Math.cos(yaw);
     var dist = 1.05;
     var px = player.x + sy * dist;
@@ -2327,6 +2352,7 @@
 
     if (state === 'PLAY') {
       var vrInput = xrData ? xrData.input : null;
+      if (vrInput && typeof vrInput.bodyYaw === 'number') lastVrBodyYaw = vrInput.bodyYaw;
 
       if (CIR && CIR.isActive()) {
         if (vrInput) {
@@ -2335,8 +2361,8 @@
           if (vrInput.navX) CIR.moveSelection(vrInput.navX, 0);
           if (vrInput.navY) CIR.moveSelection(0, vrInput.navY);
           if (vrInput.interactPressed) CIR.rotateSelected();
+          else if (vrInput.tricklePressed) CIR.rotateSelected();
           if (vrInput.secondaryPressed && CIR.nextTile) CIR.nextTile();
-          if (vrInput.tricklePressed) CIR.rotateSelected();
           if (R.setWristModel) {
             R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
           }

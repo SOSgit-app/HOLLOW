@@ -250,6 +250,27 @@
     ctx.fill();
   }
 
+  // Operator-blind orientation marker: corner pip moves with tile rotation
+  // turns 0=NW, 1=NE, 2=SE, 3=SW — matches print sheet
+  function drawOrientDot(cellX, cellY, turns, selectedTile) {
+    var corner = ((turns % 4) + 4) % 4;
+    var inset = CELL * 0.2;
+    var ox, oy;
+    if (corner === 0) { ox = cellX + inset; oy = cellY + inset; }
+    else if (corner === 1) { ox = cellX + CELL - inset; oy = cellY + inset; }
+    else if (corner === 2) { ox = cellX + CELL - inset; oy = cellY + CELL - inset; }
+    else { ox = cellX + inset; oy = cellY + CELL - inset; }
+    ctx.fillStyle = selectedTile ? '#ffcc66' : '#e0a030';
+    ctx.beginPath();
+    ctx.arc(ox, oy, Math.max(3, CELL * 0.075), 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = selectedTile ? '#fff0c0' : 'rgba(255,200,100,0.55)';
+    ctx.lineWidth = 1.5;
+    ctx.beginPath();
+    ctx.arc(ox, oy, Math.max(4.5, CELL * 0.1), 0, Math.PI * 2);
+    ctx.stroke();
+  }
+
   function drawPointer() {
     if (pointerU < 0 || pointerV < 0 || pointerFresh <= 0) return;
     var x = pointerU * canvas.width;
@@ -293,9 +314,9 @@
     ctx.fillStyle = '#3f8a55';
     ctx.font = '11px Consolas, monospace';
     if (inVR()) {
-      ctx.fillText('RED DOT = LASER HIT · A/X OR TRIGGER ROTATE · STICK ALSO WORKS', canvas.width / 2, 42);
+      ctx.fillText('LASER SELECT · A/X OR TRIGGER ROTATE · CORNER DOT TURNS WITH TILE', canvas.width / 2, 42);
     } else {
-      ctx.fillText('CLICK TO ROTATE — CONNECT ENTRY → CORE · TILE IDs A1…F6', canvas.width / 2, 42);
+      ctx.fillText('CLICK TO ROTATE — CORNER DOT SHOWS ORIENTATION · TILE IDs A1…F6', canvas.width / 2, 42);
     }
     ctx.fillStyle = timeLeft < 8 ? '#ff4444' : '#ffb347';
     ctx.fillText('LOCKOUT T-' + Math.ceil(timeLeft) + 's', canvas.width / 2, 60);
@@ -339,6 +360,7 @@
         ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6);
         var col = ok ? '#9fffbb' : (powered ? '#b8ffd0' : '#4a7a58');
         drawPipe(x + CELL / 2, y + CELL / 2, maskAt(c, r), col, powered ? 8 : 6);
+        drawOrientDot(x, y, rot[i], i === selected);
 
         ctx.fillStyle = i === selected ? '#ffb347' : '#2a5a3a';
         ctx.font = '9px Consolas, monospace';

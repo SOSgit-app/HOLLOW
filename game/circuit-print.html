@@ -85,8 +85,8 @@
 
     var note = document.createElement('div');
     note.className = 'panel';
-    note.innerHTML = '<h2>CALLOUT</h2>“Rotate C3 twice.” · “Select F5, rotate once.”<br>' +
-      'Do not mark the solution on a sheet the adversary could see.';
+    note.innerHTML = '<h2>CALLOUT</h2>“Rotate C3 until the corner dots match.” · “Select F5, rotate once.”<br>' +
+      'Corner dots mark orientation — match the operator board. Do not mark the solution path.';
     wrap.appendChild(note);
     host.appendChild(wrap);
 
@@ -151,6 +151,25 @@
         ctx.lineWidth = 1.5;
         ctx.strokeRect(x + 4, y + 4, cell - 8, cell - 8);
         drawPipe(x + cell / 2, y + cell / 2, maskAt(c, r));
+        // Orientation corner pip (0=NW 1=NE 2=SE 3=SW) — matches headset
+        (function () {
+          var turns = start[r * size + c] % 4;
+          var inset = cell * 0.2;
+          var ox, oy;
+          if (turns === 0) { ox = x + inset; oy = y + inset; }
+          else if (turns === 1) { ox = x + cell - inset; oy = y + inset; }
+          else if (turns === 2) { ox = x + cell - inset; oy = y + cell - inset; }
+          else { ox = x + inset; oy = y + cell - inset; }
+          ctx.fillStyle = '#b8860b';
+          ctx.beginPath();
+          ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+          ctx.fill();
+          ctx.strokeStyle = '#111';
+          ctx.lineWidth = 1;
+          ctx.beginPath();
+          ctx.arc(ox, oy, 6.5, 0, Math.PI * 2);
+          ctx.stroke();
+        })();
         ctx.fillStyle = '#555';
         ctx.font = '11px Consolas, monospace';
         ctx.textAlign = 'left';
