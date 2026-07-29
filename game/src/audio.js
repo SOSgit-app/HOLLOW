@@ -346,6 +346,14 @@
     blipAt(1480, 0.6, 0.03, 0, 'sine');
   }
 
+  function tutorialCue() {                       // soft ascending ping on coach step change
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    blipAt(620, 0.09, 0.032, 0, 'sine', t);
+    blipAt(930, 0.11, 0.026, 0, 'sine', t + 0.06);
+    blipAt(1240, 0.14, 0.02, 0, 'triangle', t + 0.12);
+  }
+
   function clunk(pan) {
     thump(140, 0.18, 0.10, pan || 0, 500);
   }
@@ -395,6 +403,7 @@
     scanTick: scanTick,
     footstep: footstep, enemyStep: enemyStep, click: click, heartbeat: heartbeat,
     sting: sting, scareImpact: scareImpact, death: death, fuseChime: fuseChime, clunk: clunk,
+    tutorialCue: tutorialCue,
     generatorRoar: generatorRoar, doorGrind: doorGrind, teletype: teletype,
     securityAlarm: securityAlarm, stopAllTransient: stopAllTransient,
     uplinkSurge: uplinkSurge, chopperInbound: chopperInbound,

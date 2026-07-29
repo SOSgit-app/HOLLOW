@@ -665,9 +665,9 @@
   }
 
   var lastVrBodyYaw = 0;
-  var coachPose = null; // smoothly follows player: {x,y,z,yaw,station}
-  var COACH_FOLLOW_DIST = 1.55;
-  var COACH_FOLLOW_RATE = 5.5;
+  var coachPose = null; // smoothly follows player: {x,y,z,yaw}
+  var COACH_FOLLOW_DIST = 1.45;
+  var COACH_FOLLOW_RATE = 11; // tight chase — never snap-teleport
 
   function panelYaw() {
     return inVR() ? lastVrBodyYaw : player.yaw;
@@ -693,17 +693,18 @@
 
   function updateCoachFollow(dt) {
     var target = idealCoachTarget();
-    if (!coachPose || coachPose.station !== tutorialStation) {
+    if (!coachPose) {
       coachPose = {
         x: target.x,
         y: target.y,
         z: target.z,
-        yaw: target.yaw,
-        station: tutorialStation
+        yaw: target.yaw
       };
       return;
     }
-    var k = 1 - Math.exp(-COACH_FOLLOW_RATE * Math.max(0, dt || 0));
+    // Guard against 0-dt frames so the panel never freezes then jumps
+    var stepDt = (dt > 0 && dt < 1) ? dt : 0.016;
+    var k = 1 - Math.exp(-COACH_FOLLOW_RATE * stepDt);
     coachPose.x += (target.x - coachPose.x) * k;
     coachPose.y += (target.y - coachPose.y) * k;
     coachPose.z += (target.z - coachPose.z) * k;
@@ -711,7 +712,7 @@
   }
 
   function buildCoachModel() {
-    if (!coachPose) updateCoachFollow(0);
+    if (!coachPose) updateCoachFollow(0.016);
     var yaw = coachPose.yaw;
     var sy = Math.sin(yaw), cy = Math.cos(yaw);
     var nx = -sy, ny = 0, nz = cy;
@@ -732,16 +733,17 @@
       clearCoachPanel();
       return;
     }
-    if (CIR && CIR.isActive()) {
-      clearCoachPanel();
-      return;
-    }
     var step = TUTORIAL_STEPS[tutorialStation];
     if (!step) {
       clearCoachPanel();
       return;
     }
+    // Keep chasing the player even while hidden (circuit) so it never teleports back
     updateCoachFollow(dt);
+    if (CIR && CIR.isActive()) {
+      clearCoachPanel();
+      return;
+    }
     R.setCoachPanel({
       title: step.title,
       lines: step.lines,
@@ -805,14 +807,15 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
-    coachPose = null; // snap coach in front for the new step
+    // Keep coachPose — panel stays with the player; only the text changes
     if (tutorialStation >= TUTORIAL_STEPS.length) {
       endTutorial(true);
       return;
     }
+    if (A.tutorialCue) A.tutorialCue();
     var step = TUTORIAL_STEPS[tutorialStation];
     queueMsg(step.msg || step.title, 'amber', 7);
-    syncCoachPanel(0);
+    syncCoachPanel(0.016);
   }
 
   function updateTutorial(dt) {
@@ -908,8 +911,9 @@
     applyComfort();
     if (tutorialMode) {
       var s0 = TUTORIAL_STEPS[0];
+      if (A.tutorialCue) A.tutorialCue();
       queueMsg(s0.msg || s0.title, 'amber', 7);
-      syncCoachPanel(0);
+      syncCoachPanel(0.016);
     } else {
       queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 10:00.', '');
     }
@@ -2448,6 +2452,7 @@
         }
         CIR.update(dt);
         if (inVR()) syncCircuitPanel();
+        updateCoachFollow(dt); // keep tracking while circuit hides the card
         clearCoachPanel();
         updateExfil(dt);
         updateMsg(dt);
