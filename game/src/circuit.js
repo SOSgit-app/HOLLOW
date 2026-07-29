@@ -349,7 +349,7 @@
     ctx.fillStyle = '#3f8a55';
     ctx.font = '11px Consolas, monospace';
     if (inVR()) {
-      ctx.fillText('LASER SELECT · A/X OR TRIGGER ROTATE · CORNER DOT TURNS WITH TILE', canvas.width / 2, 42);
+      ctx.fillText('LASER SELECT · X OR TRIGGER ROTATE · CORNER DOT TURNS WITH TILE', canvas.width / 2, 42);
     } else {
       ctx.fillText('CLICK TO ROTATE — CORNER DOT SHOWS ORIENTATION · TILE IDs A1…F6', canvas.width / 2, 42);
     }

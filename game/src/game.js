@@ -618,20 +618,20 @@
     },
     {
       title: 'PICK UP THE KEY',
-      lines: ['Leave the harbor into the next room.', 'Scan for the amber key orb.', 'Press A / X to pick it up.'],
-      buttons: ['RIGHT TRIGGER — scan', 'A / X — interact / pick up', 'LEFT STICK — move'],
-      msg: 'TUTORIAL: SCAN AMBER KEY · A/X TO PICK UP'
+      lines: ['Leave the harbor into the next room.', 'Scan for the amber key orb.', 'Press X to pick it up.'],
+      buttons: ['RIGHT TRIGGER — scan', 'X — interact / pick up', 'LEFT STICK — move'],
+      msg: 'TUTORIAL: SCAN AMBER KEY · X TO PICK UP'
     },
     {
       title: 'OPEN THE BLAST DOOR',
-      lines: ['Find the dark-blue blast door.', 'You need the key you just took.', 'Press A / X to unlock and open it.'],
-      buttons: ['A / X — open door', 'RIGHT TRIGGER — scan door', 'WALK THROUGH — enter console room'],
-      msg: 'TUTORIAL: A/X ON BLAST DOOR — ENTER CONSOLE ROOM'
+      lines: ['Find the dark-blue blast door.', 'You need the key you just took.', 'Press X to unlock and open it.'],
+      buttons: ['X — open door', 'RIGHT TRIGGER — scan door', 'WALK THROUGH — enter console room'],
+      msg: 'TUTORIAL: X ON BLAST DOOR — ENTER CONSOLE ROOM'
     },
     {
       title: 'JACK INTO THE CONSOLE',
-      lines: ['Stand at the amber console pyramid.', 'Press A / X to jack in.', 'Point laser + A/X to rotate tiles.'],
-      buttons: ['A / X — jack in / rotate tile', 'POINT CONTROLLER — aim laser', 'CLEAR 1 BOARD TO CONTINUE'],
+      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'Point laser + X to rotate tiles.'],
+      buttons: ['X — jack in / rotate tile', 'POINT CONTROLLER — aim laser', 'CLEAR 1 BOARD TO CONTINUE'],
       msg: 'TUTORIAL: JACK IN · SOLVE 1 CIRCUIT BOARD'
     },
     {
@@ -649,7 +649,7 @@
     {
       title: 'BOARD THE LZ',
       lines: ['Chopper is inbound.', 'Find the yellow floor pad south.', 'Stand on it when the bird arrives.'],
-      buttons: ['FOLLOW YELLOW FLOOR — LZ', 'STAND ON PAD — extract', 'A / X — board if prompted'],
+      buttons: ['FOLLOW YELLOW FLOOR — LZ', 'STAND ON PAD — extract', 'X — board if prompted'],
       msg: 'TUTORIAL: STAND ON YELLOW LZ — BOARD CHOPPER'
     }
   ];
@@ -665,37 +665,54 @@
   }
 
   var lastVrBodyYaw = 0;
-  var coachAnchor = null; // world-locked panel pose
-  var coachReanchorAt = 0;
-  var COACH_REANCHOR_S = 10;
+  var coachPose = null; // smoothly follows player: {x,y,z,yaw,station}
+  var COACH_FOLLOW_DIST = 1.55;
+  var COACH_FOLLOW_RATE = 5.5;
 
   function panelYaw() {
     return inVR() ? lastVrBodyYaw : player.yaw;
   }
 
-  function placeCoachAnchor() {
+  function lerpAngle(a, b, t) {
+    var d = b - a;
+    while (d > Math.PI) d -= Math.PI * 2;
+    while (d < -Math.PI) d += Math.PI * 2;
+    return a + d * t;
+  }
+
+  function idealCoachTarget() {
     var yaw = panelYaw();
     var sy = Math.sin(yaw), cy = Math.cos(yaw);
-    var dist = 1.55;
-    coachAnchor = {
-      x: player.x + sy * dist,
+    return {
+      x: player.x + sy * COACH_FOLLOW_DIST,
       y: player.eye + 0.12,
-      z: player.z - cy * dist,
-      yaw: yaw,
-      station: tutorialStation,
-      px: player.x,
-      pz: player.z
+      z: player.z - cy * COACH_FOLLOW_DIST,
+      yaw: yaw
     };
-    coachReanchorAt = now + COACH_REANCHOR_S;
+  }
+
+  function updateCoachFollow(dt) {
+    var target = idealCoachTarget();
+    if (!coachPose || coachPose.station !== tutorialStation) {
+      coachPose = {
+        x: target.x,
+        y: target.y,
+        z: target.z,
+        yaw: target.yaw,
+        station: tutorialStation
+      };
+      return;
+    }
+    var k = 1 - Math.exp(-COACH_FOLLOW_RATE * Math.max(0, dt || 0));
+    coachPose.x += (target.x - coachPose.x) * k;
+    coachPose.y += (target.y - coachPose.y) * k;
+    coachPose.z += (target.z - coachPose.z) * k;
+    coachPose.yaw = lerpAngle(coachPose.yaw, target.yaw, k);
   }
 
   function buildCoachModel() {
-    if (!coachAnchor || coachAnchor.station !== tutorialStation) placeCoachAnchor();
-    // Reappear at the player every 10s (and if they walk far away)
-    var adx = player.x - coachAnchor.px, adz = player.z - coachAnchor.pz;
-    if (now >= coachReanchorAt || adx * adx + adz * adz > 3.5 * 3.5) placeCoachAnchor();
-
-    var yaw = coachAnchor.yaw;
+    if (!coachPose) updateCoachFollow(0);
+    var yaw = coachPose.yaw;
     var sy = Math.sin(yaw), cy = Math.cos(yaw);
     var nx = -sy, ny = 0, nz = cy;
     var right = math.vnorm(math.vcross([0, 1, 0], [nx, ny, nz]));
@@ -705,11 +722,11 @@
     m[0] = right[0] * sx; m[1] = right[1] * sx; m[2] = right[2] * sx; m[3] = 0;
     m[4] = up[0] * sy2; m[5] = up[1] * sy2; m[6] = up[2] * sy2; m[7] = 0;
     m[8] = nx; m[9] = ny; m[10] = nz; m[11] = 0;
-    m[12] = coachAnchor.x; m[13] = coachAnchor.y; m[14] = coachAnchor.z; m[15] = 1;
+    m[12] = coachPose.x; m[13] = coachPose.y; m[14] = coachPose.z; m[15] = 1;
     return m;
   }
 
-  function syncCoachPanel() {
+  function syncCoachPanel(dt) {
     if (!R.setCoachPanel) return;
     if (!tutorialMode || state !== 'PLAY' || !inVR()) {
       clearCoachPanel();
@@ -724,6 +741,7 @@
       clearCoachPanel();
       return;
     }
+    updateCoachFollow(dt);
     R.setCoachPanel({
       title: step.title,
       lines: step.lines,
@@ -750,7 +768,7 @@
     pendingTutorial = false;
     runActive = false;
     clearCoachPanel();
-    coachAnchor = null;
+    coachPose = null;
     if (CIR) CIR.close();
     if (R.setCircuitPanel) R.setCircuitPanel(null, null);
     if (A.sting) A.sting(false);
@@ -787,14 +805,14 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
-    coachAnchor = null; // re-place coach for the new step
+    coachPose = null; // snap coach in front for the new step
     if (tutorialStation >= TUTORIAL_STEPS.length) {
       endTutorial(true);
       return;
     }
     var step = TUTORIAL_STEPS[tutorialStation];
     queueMsg(step.msg || step.title, 'amber', 7);
-    syncCoachPanel();
+    syncCoachPanel(0);
   }
 
   function updateTutorial(dt) {
@@ -886,12 +904,12 @@
     tutorialTripHit = false;
     tutorialSecTimer = 0;
     tutorialStation = 0;
-    coachAnchor = null;
+    coachPose = null;
     applyComfort();
     if (tutorialMode) {
       var s0 = TUTORIAL_STEPS[0];
       queueMsg(s0.msg || s0.title, 'amber', 7);
-      syncCoachPanel();
+      syncCoachPanel(0);
     } else {
       queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 10:00.', '');
     }
@@ -1087,7 +1105,7 @@
       }
       ctx.fillStyle = '#6a8';
       ctx.font = '12px monospace';
-      ctx.fillText('STICK SELECT · A / X CONFIRM', w / 2, 400);
+      ctx.fillText('STICK SELECT · X CONFIRM', w / 2, 400);
     }
   }
 
@@ -1627,8 +1645,8 @@
     }
     pushMsg(inVR()
       ? (tutorialMode
-        ? 'PRACTICE JACK-IN — 1 BOARD · POINT LASER / A ROTATE'
-        : 'JACK-IN — 3 BOARDS · 60s EACH · POINT LASER / A ROTATE')
+        ? 'PRACTICE JACK-IN — 1 BOARD · POINT LASER / X ROTATE'
+        : 'JACK-IN — 3 BOARDS · 60s EACH · POINT LASER / X ROTATE')
       : (tutorialMode
         ? 'PRACTICE JACK-IN — CLEAR ONE BOARD'
         : 'JACK-IN SEQUENCE — THREE ROUTING MATRICES'), 'amber');
@@ -1938,7 +1956,7 @@
               ? 'CONSOLE DOOR — NEED THE KEY YOU FOUND'
               : 'CONSOLE DOOR — NEED ALL 3 KEYS (' + keysCollected + '/3)', 'amber');
           } else if (needAim <= 0) {
-            pushMsg('BLAST DOOR — PRESS E / A TO OPEN', 'amber');
+            pushMsg(inVR() ? 'BLAST DOOR — PRESS X TO OPEN' : 'BLAST DOOR — PRESS E TO OPEN', 'amber');
           } else {
             pushMsg('BLAST DOOR LOCKED — NEED ACCESS KEY', 'amber');
           }
@@ -2050,7 +2068,7 @@
     if (!curMsg && !(CIR && CIR.isActive()) && !cloneUiActive()) {
       var hint = '';
       var hintRange = inVR() ? INTERACT_RANGE_VR : INTERACT_RANGE;
-      var btn = inVR() ? '[A/X]' : '[E]';
+      var btn = inVR() ? '[X]' : '[E]';
       var i;
       if (missionBranch === 'RESCUE' && pow && !pow.freed && near(pow.x, pow.z, hintRange + 0.5)) {
         hint = btn + ' FREE POW';
@@ -2434,7 +2452,7 @@
         updateExfil(dt);
         updateMsg(dt);
         updateHUD(dt);
-        vrHudHint = 'STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/' + (CIR.getStageCount ? CIR.getStageCount() : 3) + ' · POINT LASER · A/X OR TRIGGER: ROTATE';
+        vrHudHint = 'STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/' + (CIR.getStageCount ? CIR.getStageCount() : 3) + ' · POINT LASER · X OR TRIGGER: ROTATE';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
@@ -2446,7 +2464,7 @@
         updateHUD(dt);
         vrHudHint = clonePhase === 'CLONING'
           ? 'CLONING AI ONTO HARD DRIVE… ' + Math.floor(clonePct) + '%'
-          : 'STICK: SELECT · A/X: CONFIRM PATH';
+          : 'STICK: SELECT · X: CONFIRM PATH';
       } else {
         if (R.setCircuitPanel) R.setCircuitPanel(null, null);
         updatePlayer(dt, vrInput);
@@ -2481,7 +2499,7 @@
         updateItems(dt);
         updateExfil(dt);
         updateTutorial(dt);
-        syncCoachPanel();
+        syncCoachPanel(dt);
         if (NS.mic && !tutorialMode) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
         // No security until tutorial tripwire fires
         if (!(tutorialMode && !tutorialTripHit)) {

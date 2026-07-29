@@ -132,11 +132,10 @@
   }
 
   function interactRising(id, gp, isLeft) {
-    // Right A (4) = interact / rotate. Left X (4) is reserved for virus hold-upload.
-    if (isLeft) return false;
-    return rising(id + '-i4', pressed(gp, 4)) ||
-      rising(id + '-i3', pressed(gp, 3)) ||
-      rising(id + '-i2', pressed(gp, 2));
+    // Left X (4) = interact / rotate / confirm. Right A is unused for world actions.
+    // Hold of the same button still drives virus upload via holdUpload.
+    if (!isLeft) return false;
+    return rising(id + '-i4', pressed(gp, 4));
   }
 
   function rising(key, value) {
