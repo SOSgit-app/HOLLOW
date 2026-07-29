@@ -91,6 +91,7 @@
   var C_FLOOR = [0.12, 0.38, 0.34];
   var C_CEIL = [0.20, 0.50, 0.30];
   var C_HARBOR = [0.12, 0.78, 0.28];   // safe-zone LiDAR returns
+  var C_LZ = [1.0, 0.92, 0.12];        // landing zone pad (yellow)
   var C_YELLOW = [1.0, 0.92, 0.12];   // laser alarm beams
   var C_AMBER = [1.0, 0.70, 0.28];
   var C_CYAN = [0.43, 0.91, 0.91];
@@ -582,7 +583,7 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 tripwire, 5 virus
+  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 tripwire, 5 virus, 6 exfil
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
@@ -594,7 +595,8 @@
     'TUTORIAL: USE THE KEY ON THE BLAST DOOR — ENTER THE CONSOLE ROOM',
     'TUTORIAL: JACK INTO THE CONSOLE · SOLVE 1 CIRCUIT BOARD',
     'TUTORIAL: YELLOW TRIPWIRE AT CONSOLE ENTRANCE — CROSS IT',
-    'TUTORIAL: SECURITY SPAWNED IN HARBOR — HOLD B/E · UPLOAD VIRUS'
+    'TUTORIAL: SECURITY SPAWNED IN HARBOR — HOLD B/E · UPLOAD VIRUS',
+    'TUTORIAL: STAND ON THE YELLOW LZ — BOARD THE CHOPPER'
   ];
 
   function doorKeysNeeded(door) {
@@ -621,7 +623,7 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
-    if (tutorialStation >= 6) {
+    if (tutorialStation >= 7) {
       endTutorial(true);
       return;
     }
@@ -640,7 +642,10 @@
     } else if (tutorialStation === 4) {
       if (tutorialTripHit) advanceTutorial(5);
     } else if (tutorialStation === 5) {
-      if (virusDone) advanceTutorial(6);
+      if (virusDone) {
+        advanceTutorial(6);
+        startExfil();
+      }
     }
   }
 
@@ -768,6 +773,12 @@
   }
 
   function failLeftBehind() {
+    if (tutorialMode) {
+      // Soft retry — call another bird
+      startExfil();
+      queueMsg('CHOPPER LEFT — ANOTHER INBOUND. STAND ON THE YELLOW LZ.', 'red', 5);
+      return;
+    }
     runActive = false;
     state = 'LEFT';
     exfilPhase = 'GONE';
@@ -1017,8 +1028,12 @@
 
   function startExfil() {
     exfilPhase = 'INBOUND';
-    exfilTimer = CHOPPER_INBOUND_S;
+    exfilTimer = tutorialMode ? 12 : CHOPPER_INBOUND_S;
     if (A.chopperInbound) A.chopperInbound();
+    if (tutorialMode) {
+      queueMsg('CHOPPER INBOUND — MOVE TO THE YELLOW LZ', 'amber', 5);
+      return;
+    }
     if (missionBranch === 'RESCUE') {
       // Rescue path draws heat immediately
       EN.state.agitation = 100;
@@ -1183,6 +1198,7 @@
     var color = null, life = POINT_LIFE;
     if (hit) {
       if (hit.type === 'door') color = C_DOOR;
+      else if (hit.type === 'floor' && M.isLzAt && M.isLzAt(hit.x, hit.z)) color = C_LZ;
       else if (hit.type === 'floor' && M.isSafeAt(hit.x, hit.z)) color = C_HARBOR;
       else color = hit.type === 'floor' ? C_FLOOR : (hit.type === 'ceil' ? C_CEIL : C_WALL);
     }
@@ -1479,6 +1495,10 @@
   function tryBoardLz(fromInteract) {
     if (exfilPhase !== 'ON_STATION') return false;
     if (!near(M.markers.X.x, M.markers.X.z, LZ_RADIUS)) return false;
+    if (tutorialMode) {
+      endTutorial(true);
+      return true;
+    }
     if (missionBranch === 'RESCUE') {
       if (!pow || !pow.freed) {
         if (fromInteract) pushMsg('POW STILL HELD — FREE THEM FIRST', 'red');
@@ -1530,7 +1550,7 @@
       virusHolding = false;
       virusWristActive = false;
       if (tutorialMode) {
-        pushMsg('VIRUS PLANTED — AI CORRUPTED. TUTORIAL COMPLETE.', 'amber', 4);
+        pushMsg('VIRUS PLANTED — MOVE TO THE YELLOW LZ', 'amber', 4);
         return;
       }
       // Quiet plant — no alarm sting; security drifts toward the LZ
@@ -1935,14 +1955,13 @@
   }
 
   function updateExfil(dt) {
-    if (tutorialMode) return;
     if (exfilPhase === 'INBOUND') {
       exfilTimer -= dt;
       if (exfilTimer <= 0) {
         exfilPhase = 'ON_STATION';
-        exfilTimer = CHOPPER_LINGER_S;
+        exfilTimer = tutorialMode ? 45 : CHOPPER_LINGER_S;
         if (A.chopperOnStation) A.chopperOnStation();
-        queueMsg('CHOPPER ON STATION — BOARD THE LZ', 'amber', 4);
+        queueMsg('CHOPPER ON STATION — BOARD THE YELLOW LZ', 'amber', 4);
       }
     } else if (exfilPhase === 'ON_STATION') {
       exfilTimer -= dt;

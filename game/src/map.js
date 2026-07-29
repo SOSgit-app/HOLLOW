@@ -48,8 +48,8 @@
     "################################################"
   ];
 
-  // Compact tutorial arena: harbor → key room → keyed door → console
-  // Stations: move → key → door → circuit → tripwire → virus
+  // Compact tutorial arena: harbor → key room → keyed door → console · south LZ
+  // Stations: move → key → door → circuit → tripwire → virus → exfil
   var TUTORIAL_ASCII = [
     "########################",
     "#SSSSSS#.......#.......#",
@@ -59,7 +59,7 @@
     "########.......#########",
     "#..............#########",
     "#......................#",
-    "#......................#",
+    "#..........X...........#",
     "#......................#",
     "########################"
   ];
@@ -71,6 +71,7 @@
   // grid[row][col] => true if solid; safe[row][col] => acoustic harbor
   var grid = [];
   var safe = [];
+  var lz = []; // yellow landing-zone pad
   var ROWS = 0, COLS = 0;
   var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], doors: [] };
   var doorSolid = {}; // key "c,r" -> true while locked
@@ -85,6 +86,20 @@
 
   function isDoorSolid(c, r) {
     return !!doorSolid[doorKey(c, r)];
+  }
+
+  function placeLzPad() {
+    if (!markers.X) return;
+    var cx = Math.floor(markers.X.x / CELL);
+    var cz = Math.floor(markers.X.z / CELL);
+    var rad = 2;
+    for (var r = cz - rad; r <= cz + rad; r++) {
+      for (var c = cx - rad; c <= cx + rad; c++) {
+        if (c < 0 || r < 0 || c >= COLS || r >= ROWS) continue;
+        if (grid[r][c]) continue;
+        lz[r][c] = true;
+      }
+    }
   }
 
   function parse() {
@@ -102,16 +117,18 @@
     COLS = rows[0].length;
     grid = [];
     safe = [];
+    lz = [];
     for (var r = 0; r < ROWS; r++) {
       var line = rows[r];
       if (line.length !== COLS) {
         throw new Error('HOLLOW map: row ' + r + ' length ' + line.length + ' != ' + COLS);
       }
-      var row = [], srow = [];
+      var row = [], srow = [], lrow = [];
       for (var c = 0; c < COLS; c++) {
         var ch = line[c];
         row.push(ch === '#' || ch === ' ');
         srow.push(false);
+        lrow.push(false);
         var wx = (c + 0.5) * CELL, wz = (r + 0.5) * CELL;
         if (ch === 'P') markers.P = { x: wx, z: wz };
         else if (ch === 'C') markers.C = { x: wx, z: wz };
@@ -126,6 +143,7 @@
       }
       grid.push(row);
       safe.push(srow);
+      lz.push(lrow);
     }
 
     var IN = 0.08;
@@ -143,7 +161,6 @@
       markers.doors = [
         { id: 'D1', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
-      if (!markers.X && markers.P) markers.X = { x: markers.P.x, z: markers.P.z };
     } else {
       // One Faraday sanctuary = the spawn / infil room (around P)
       for (var mr = 20; mr <= 25; mr++) {
@@ -162,6 +179,8 @@
         { id: 'D3', c: 34, r: 23, locked: true, keysRequired: 3, console: true }
       ];
     }
+
+    placeLzPad();
 
     doorSolid = {};
     markers.doors.forEach(function (d) {
@@ -198,6 +217,14 @@
   }
   function isSafeAt(x, z) {
     return isSafeCell(Math.floor(x / CELL), Math.floor(z / CELL));
+  }
+
+  function isLzCell(c, r) {
+    if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return false;
+    return !!(lz[r] && lz[r][c]);
+  }
+  function isLzAt(x, z) {
+    return isLzCell(Math.floor(x / CELL), Math.floor(z / CELL));
   }
 
   function asciiRows() {
@@ -464,6 +491,7 @@
     markers: markers,
     isSolidCell: isSolidCell, isSolidAt: isSolidAt,
     isSafeCell: isSafeCell, isSafeAt: isSafeAt,
+    isLzCell: isLzCell, isLzAt: isLzAt,
     raycast: raycast, wallsBetween: wallsBetween, astar: astar,
     moveWithCollision: moveWithCollision, patrolWaypoints: patrolWaypoints,
     rayLaser: rayLaser, laserHitPlayer: laserHitPlayer, asciiRows: asciiRows,
