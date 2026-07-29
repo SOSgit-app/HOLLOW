@@ -107,11 +107,13 @@
     U.investigateDwell = 4;
   }
 
-  var suppressed = false; // tutorial: no guard until circuit clears
+  var suppressed = false; // tutorial: gone until circuit clears
+  var heldStill = false;  // tutorial: visible but frozen until tripwire
 
   function setSuppressed(v) {
     suppressed = !!v;
     if (suppressed) {
+      heldStill = false;
       E.state = 'DORMANT';
       path = null;
       bodyCache = null;
@@ -122,14 +124,30 @@
       E.z = -999;
       SECONDARIES = [];
     } else if (currentDiff === 'tutorial') {
+      // Appear at lair, frozen — tripwire wakes them
+      heldStill = true;
       E.x = lairX; E.z = lairZ;
       unstick(E);
-      E.state = 'PATROL';
-      E.agitation = Math.max(E.agitation, 18);
+      E.state = 'DORMANT';
+      E.agitation = 0;
+      E.agitationFloor = 0;
+      wakeTimer = 0;
       path = null;
       bodyCache = null;
+    } else {
+      heldStill = false;
     }
   }
+
+  function wakeFromStill() {
+    if (!heldStill) return;
+    heldStill = false;
+    if (E.state === 'DORMANT') E.state = 'PATROL';
+    path = null;
+    wakeTimer = 0;
+  }
+
+  function isHeldStill() { return heldStill; }
 
   function reset(difficulty) {
     currentDiff = difficulty || 'medium';
@@ -146,6 +164,7 @@
     E.patrolHalf = currentDiff === 'tutorial' ? 'W' : 'E';
     // Tutorial starts with no guard — released after circuit puzzle
     suppressed = currentDiff === 'tutorial';
+    heldStill = false;
     E.state = suppressed ? 'DORMANT' : 'PATROL';
     E.agitation = suppressed ? 0 : 12;
     E.agitationFloor = 0;
@@ -201,7 +220,7 @@
   //   YELLOW        — units that hear investigate the noise origin (~3s)
   //   RED           — units that hear chase the player for 7s, then resume patrol
   function hear(x, z, loud, now, isPlayerNoise) {
-    if (suppressed) return;
+    if (suppressed || heldStill) return;
     if (currentDiff === 'easy' && isPlayerNoise) loud *= 0.7;
 
     // Player noise from inside a safe harbor is heavily attenuated (EMCON)
@@ -367,6 +386,7 @@
   // Pass 0 / Infinity / negative to send every unit (circuit lockout, etc.).
   function forceInvestigate(x, z, maxUnits) {
     if (suppressed) return;
+    wakeFromStill();
     if (maxUnits === undefined || maxUnits === null) maxUnits = 2;
     pulseHaste('ALARM', 14);
     var nowTs = (typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000);
@@ -397,6 +417,7 @@
   }
   function forceChase(now) {
     if (suppressed) return;
+    wakeFromStill();
     mustInvestigateAfterChase = false;
     if (typeof now === 'number') lastNoiseFed = now;
     enterChase(CHASE_SOUND_S);
@@ -413,6 +434,7 @@
   // Quiet converge: all units rush toward LZ vicinity (virus success).
   function convergeOn(x, z) {
     if (suppressed) return;
+    wakeFromStill();
     pulseHaste('CONVERGE', 28);
     var offsets = [
       { x: 0, z: 0 },
@@ -609,6 +631,7 @@
     var speed = 0, arrived;
     switch (E.state) {
       case 'DORMANT':
+        if (heldStill) break; // tutorial freeze — only tripwire / force wakes
         wakeTimer += dt;
         if (E.agitation > DORMANT_WAKE || wakeTimer > 120) {
           E.state = 'PATROL';
@@ -993,6 +1016,8 @@
     forceInvestigate: forceInvestigate,
     convergeOn: convergeOn,
     setSuppressed: setSuppressed,
+    wakeFromStill: wakeFromStill,
+    isHeldStill: isHeldStill,
     noiseBand: noiseBand,
     NOISE_SAFE_MAX: NOISE_SAFE_MAX,
     NOISE_YELLOW_MAX: NOISE_YELLOW_MAX

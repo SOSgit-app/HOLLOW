@@ -137,7 +137,7 @@
       for (var sr = 1; sr <= 4; sr++) {
         for (var sc = 1; sc <= 6; sc++) placeSafe(sc, sr);
       }
-      // Tripwire omitted in tutorial — no security until circuit clears
+      // Tripwire armed only after circuit (see releaseTutorialSecurity)
       markers.lasers = [];
       // D1: free practice door into key room. D2: keyed console door.
       markers.doors = [

@@ -582,7 +582,7 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 door1, 2 key, 3 door2, 4 circuit, 5 virus
+  var tutorialStation = 0; // 0 move, 1 door1, 2 key, 3 door2, 4 circuit, 5 tripwire, 6 virus
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
@@ -594,6 +594,7 @@
     'TUTORIAL: SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
     'TUTORIAL: USE THE KEY ON THE NEXT DOOR — ENTER THE CONSOLE ROOM',
     'TUTORIAL: JACK INTO THE CONSOLE · SOLVE 1 CIRCUIT BOARD',
+    'TUTORIAL: SECURITY IS STILL — CROSS THE YELLOW TRIPWIRE TO WAKE IT',
     'TUTORIAL: HOLD B (VR) / E (DESKTOP) AT CONSOLE — UPLOAD VIRUS'
   ];
 
@@ -621,7 +622,7 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
-    if (tutorialStation >= 6) {
+    if (tutorialStation >= 7) {
       endTutorial(true);
       return;
     }
@@ -641,7 +642,9 @@
       var d2 = M.markers.doors[1];
       if (d2 && !d2.locked) advanceTutorial(4);
     } else if (tutorialStation === 5) {
-      if (virusDone) advanceTutorial(6);
+      if (tutorialTripHit) advanceTutorial(6);
+    } else if (tutorialStation === 6) {
+      if (virusDone) advanceTutorial(7);
     }
   }
 
@@ -730,7 +733,10 @@
       player.yaw = 0; player.pitch = 0;
       EN.reset('tutorial');
       // Keep security live if the circuit was already cleared
-      if (tutorialStation >= 5 && EN.setSuppressed) EN.setSuppressed(false);
+      if (tutorialStation >= 5 && EN.setSuppressed) {
+        EN.setSuppressed(false);
+        if (tutorialTripHit && EN.wakeFromStill) EN.wakeFromStill();
+      }
       queueMsg('CAUGHT — RESPAWNED IN HARBOR. QUIETER NEXT TIME.', 'red', 4);
       return;
     }
@@ -1033,26 +1039,39 @@
     }
   }
 
+  function armTutorialTripwire() {
+    var cell = M.CELL || 3;
+    var IN = 0.08, TY = 0.22, TH = 0.03;
+    // Vertical beam just inside the console room doorway — armed only after circuit
+    M.markers.lasers = [
+      {
+        x0: 16 * cell + IN, z0: 1 * cell + IN,
+        x1: 16 * cell + IN, z1: 4 * cell - IN,
+        y0: TY - TH, y1: TY + TH,
+        id: 'L-TRAIN'
+      }
+    ];
+  }
+
   function releaseTutorialSecurity() {
     if (!EN.setSuppressed) return;
-    EN.setSuppressed(false);
-    if (M.markers.G) {
-      EN.forceInvestigate(M.markers.G.x, M.markers.G.z, 1);
-    }
-    queueMsg('SECURITY ONLINE — FINISH THE VIRUS UPLOAD', 'amber', 4);
+    EN.setSuppressed(false); // appears at lair, held still
+    armTutorialTripwire();
+    queueMsg('SECURITY ONLINE — STILL UNTIL THE YELLOW WIRE TRIPS', 'amber', 4);
   }
 
   function onCircuitStageClear(clearedStage, total) {
     if (tutorialMode) {
       if (CIR) CIR.close();
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-      // Skip clone/choice — go straight to virus plant practice
+      // Skip clone/choice — spawn still security, then tripwire station
       uplinkDone = true;
       missionBranch = 'VIRUS';
       virusProgress = 0;
       virusDone = false;
       virusHolding = false;
       virusWristActive = false;
+      tutorialTripHit = false;
       releaseTutorialSecurity();
       advanceTutorial(5);
       return;
@@ -1083,6 +1102,7 @@
       missionBranch = 'VIRUS';
       virusProgress = 0;
       virusDone = false;
+      tutorialTripHit = false;
       releaseTutorialSecurity();
       advanceTutorial(5);
       return;
@@ -1489,6 +1509,8 @@
     virusHolding = false;
     virusWristActive = false;
     if (missionBranch !== 'VIRUS' || virusDone) return;
+    // Tutorial: finish tripwire station before virus upload
+    if (tutorialMode && !tutorialTripHit) return;
     var atConsole = near(M.markers.G.x, M.markers.G.z, interactRange() + 0.8);
     if (!atConsole) return;
     virusWristActive = true;
@@ -1807,7 +1829,10 @@
     recentLoud = Math.max(recentLoud, NOISE_LASER);
     auxLoud = Math.max(auxLoud, 0.95);
     queueMsg('SECURITY ALARM — ' + hit.id + (tutorialMode ? ' — TRAINING RESPONSE' : ' — NEAREST UNITS RESPONDING'), 'amber', 4);
-    if (tutorialMode) tutorialTripHit = true;
+    if (tutorialMode) {
+      tutorialTripHit = true;
+      if (EN.wakeFromStill) EN.wakeFromStill();
+    }
     // brief yellow paint of the single low beam
     var by = (hit.y0 + hit.y1) * 0.5;
     for (var i = 0; i < 48; i++) {
