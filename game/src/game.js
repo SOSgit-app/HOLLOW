@@ -594,8 +594,8 @@
     'TUTORIAL: SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
     'TUTORIAL: USE THE KEY ON THE NEXT DOOR — ENTER THE CONSOLE ROOM',
     'TUTORIAL: JACK INTO THE CONSOLE · SOLVE 1 CIRCUIT BOARD',
-    'TUTORIAL: SECURITY IS STILL — CROSS THE YELLOW TRIPWIRE TO WAKE IT',
-    'TUTORIAL: HOLD B (VR) / E (DESKTOP) AT CONSOLE — UPLOAD VIRUS'
+    'TUTORIAL: YELLOW TRIPWIRE AT CONSOLE ENTRANCE — CROSS IT',
+    'TUTORIAL: SECURITY SPAWNED IN HARBOR — HOLD B/E · UPLOAD VIRUS'
   ];
 
   function doorKeysNeeded(door) {
@@ -732,11 +732,8 @@
       player.x = M.markers.P.x; player.z = M.markers.P.z;
       player.yaw = 0; player.pitch = 0;
       EN.reset('tutorial');
-      // Keep security live if the circuit was already cleared
-      if (tutorialStation >= 5 && EN.setSuppressed) {
-        EN.setSuppressed(false);
-        if (tutorialTripHit && EN.wakeFromStill) EN.wakeFromStill();
-      }
+      // Respawn security in harbor if the tripwire already fired
+      if (tutorialTripHit) spawnTutorialSecurityInHarbor();
       queueMsg('CAUGHT — RESPAWNED IN HARBOR. QUIETER NEXT TIME.', 'red', 4);
       return;
     }
@@ -1042,29 +1039,32 @@
   function armTutorialTripwire() {
     var cell = M.CELL || 3;
     var IN = 0.08, TY = 0.22, TH = 0.03;
-    // Vertical beam just inside the console room doorway — armed only after circuit
+    // Hallway entrance into 3rd room (door D2 at col 15) — armed only after circuit
     M.markers.lasers = [
       {
-        x0: 16 * cell + IN, z0: 1 * cell + IN,
-        x1: 16 * cell + IN, z1: 4 * cell - IN,
+        x0: 15 * cell + IN, z0: 2.5 * cell,
+        x1: 16 * cell - IN, z1: 2.5 * cell,
         y0: TY - TH, y1: TY + TH,
         id: 'L-TRAIN'
       }
     ];
   }
 
-  function releaseTutorialSecurity() {
-    if (!EN.setSuppressed) return;
-    EN.setSuppressed(false); // appears at lair, held still
-    armTutorialTripwire();
-    queueMsg('SECURITY ONLINE — STILL UNTIL THE YELLOW WIRE TRIPS', 'amber', 4);
+  function spawnTutorialSecurityInHarbor() {
+    var cell = M.CELL || 3;
+    // First room (harbor) — west side, clear of the door
+    var hx = 2.5 * cell;
+    var hz = 2.5 * cell;
+    if (EN.spawnTutorial) EN.spawnTutorial(hx, hz);
+    else if (EN.setSuppressed) EN.setSuppressed(false);
+    EN.forceInvestigate(player.x, player.z, 1);
   }
 
   function onCircuitStageClear(clearedStage, total) {
     if (tutorialMode) {
       if (CIR) CIR.close();
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-      // Skip clone/choice — spawn still security, then tripwire station
+      // Arm entrance tripwire only — security spawns when it trips
       uplinkDone = true;
       missionBranch = 'VIRUS';
       virusProgress = 0;
@@ -1072,7 +1072,8 @@
       virusHolding = false;
       virusWristActive = false;
       tutorialTripHit = false;
-      releaseTutorialSecurity();
+      armTutorialTripwire();
+      queueMsg('TRIPWIRE ARMED — CONSOLE ENTRANCE HALLWAY', 'amber', 4);
       advanceTutorial(5);
       return;
     }
@@ -1103,7 +1104,8 @@
       virusProgress = 0;
       virusDone = false;
       tutorialTripHit = false;
-      releaseTutorialSecurity();
+      armTutorialTripwire();
+      queueMsg('TRIPWIRE ARMED — CONSOLE ENTRANCE HALLWAY', 'amber', 4);
       advanceTutorial(5);
       return;
     }
@@ -1195,8 +1197,8 @@
       bestT = lt; color = C_YELLOW; life = 8;
     }
 
-    // the Custodian — red returns, fast decay (absent in early tutorial)
-    var sph = (tutorialMode && tutorialStation < 5) ? [] : EN.spheres();
+    // the Custodian — red returns, fast decay (absent until tutorial tripwire)
+    var sph = (tutorialMode && !tutorialTripHit) ? [] : EN.spheres();
     for (var i = 0; i < sph.length; i++) {
       var t = raySphere(ox, oy, oz, dx, dy, dz, sph[i]);
       if (t > 0 && t < bestT) { bestT = t; color = C_RED; life = ENEMY_POINT_LIFE; }
@@ -1824,15 +1826,17 @@
     laserCooldown[hit.id] = LASER_COOLDOWN;
     var mx = (hit.x0 + hit.x1) * 0.5, mz = (hit.z0 + hit.z1) * 0.5;
     A.securityAlarm();
-    EN.hear(mx, mz, NOISE_LASER, now, false);
-    EN.forceInvestigate(mx, mz, 2);
+    if (tutorialMode && !tutorialTripHit) {
+      tutorialTripHit = true;
+      spawnTutorialSecurityInHarbor();
+      queueMsg('SECURITY ALARM — GUARD SPAWNED IN HARBOR', 'amber', 4);
+    } else {
+      EN.hear(mx, mz, NOISE_LASER, now, false);
+      EN.forceInvestigate(mx, mz, 2);
+      queueMsg('SECURITY ALARM — ' + hit.id + (tutorialMode ? ' — TRAINING RESPONSE' : ' — NEAREST UNITS RESPONDING'), 'amber', 4);
+    }
     recentLoud = Math.max(recentLoud, NOISE_LASER);
     auxLoud = Math.max(auxLoud, 0.95);
-    queueMsg('SECURITY ALARM — ' + hit.id + (tutorialMode ? ' — TRAINING RESPONSE' : ' — NEAREST UNITS RESPONDING'), 'amber', 4);
-    if (tutorialMode) {
-      tutorialTripHit = true;
-      if (EN.wakeFromStill) EN.wakeFromStill();
-    }
     // brief yellow paint of the single low beam
     var by = (hit.y0 + hit.y1) * 0.5;
     for (var i = 0; i < 48; i++) {
@@ -2137,7 +2141,7 @@
     }
 
     // MOTION radar contacts: security + POW (rescue path)
-    var radarContacts = (tutorialMode && tutorialStation < 5)
+    var radarContacts = (tutorialMode && !tutorialTripHit)
       ? []
       : (EN.contacts ? EN.contacts() : [{ x: EN.state.x, z: EN.state.z, state: EN.state.state }]);
     if (missionBranch === 'RESCUE' && pow) {
@@ -2286,8 +2290,8 @@
         updateExfil(dt);
         updateTutorial(dt);
         if (NS.mic && !tutorialMode) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
-        // No security until tutorial circuit is cleared
-        if (!(tutorialMode && tutorialStation < 5)) {
+        // No security until tutorial tripwire fires
+        if (!(tutorialMode && !tutorialTripHit)) {
           EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
         }
         updateHeartbeat(dt);

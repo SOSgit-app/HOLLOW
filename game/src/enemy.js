@@ -107,8 +107,8 @@
     U.investigateDwell = 4;
   }
 
-  var suppressed = false; // tutorial: gone until circuit clears
-  var heldStill = false;  // tutorial: visible but frozen until tripwire
+  var suppressed = false; // tutorial: gone until tripwire
+  var heldStill = false;
 
   function setSuppressed(v) {
     suppressed = !!v;
@@ -123,20 +123,26 @@
       E.x = -999;
       E.z = -999;
       SECONDARIES = [];
-    } else if (currentDiff === 'tutorial') {
-      // Appear at lair, frozen — tripwire wakes them
-      heldStill = true;
-      E.x = lairX; E.z = lairZ;
-      unstick(E);
-      E.state = 'DORMANT';
-      E.agitation = 0;
-      E.agitationFloor = 0;
-      wakeTimer = 0;
-      path = null;
-      bodyCache = null;
     } else {
       heldStill = false;
     }
+  }
+
+  // Tutorial: materialize security in the first room when the wire trips
+  function spawnTutorial(x, z) {
+    suppressed = false;
+    heldStill = false;
+    SECONDARIES = [];
+    E.x = x;
+    E.z = z;
+    unstick(E);
+    E.state = 'PATROL';
+    E.agitation = Math.max(E.agitation, 28);
+    E.agitationFloor = Math.max(E.agitationFloor, 12);
+    wakeTimer = 0;
+    path = null;
+    bodyCache = null;
+    chaseLeft = 0;
   }
 
   function wakeFromStill() {
@@ -162,7 +168,7 @@
     lairZ = M.markers.C ? M.markers.C.z : 4.5;
     E.x = lairX; E.z = lairZ;
     E.patrolHalf = currentDiff === 'tutorial' ? 'W' : 'E';
-    // Tutorial starts with no guard — released after circuit puzzle
+    // Tutorial starts with no guard — spawns on tripwire
     suppressed = currentDiff === 'tutorial';
     heldStill = false;
     E.state = suppressed ? 'DORMANT' : 'PATROL';
@@ -187,9 +193,6 @@
     if (suppressed) {
       E.x = -999; E.z = -999;
       bodyCache = null;
-    } else if (currentDiff === 'tutorial') {
-      E.x = lairX; E.z = lairZ;
-      unstick(E);
     } else {
       unstick(E);
       unstick(B);
@@ -1016,6 +1019,7 @@
     forceInvestigate: forceInvestigate,
     convergeOn: convergeOn,
     setSuppressed: setSuppressed,
+    spawnTutorial: spawnTutorial,
     wakeFromStill: wakeFromStill,
     isHeldStill: isHeldStill,
     noiseBand: noiseBand,
