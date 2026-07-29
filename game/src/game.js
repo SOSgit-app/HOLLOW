@@ -582,7 +582,7 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 trip, 4 security, 5 circuit, 6 done
+  var tutorialStation = 0; // 0 move, 1 door, 2 key, 3 trip, 4 security, 5 circuit
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
@@ -590,12 +590,18 @@
 
   var TUTORIAL_MSGS = [
     'TUTORIAL: WALK (WASD) · SPRINT (SHIFT / LEFT GRIP) · CROUCH (CTRL)',
-    'TUTORIAL: SCAN THE AMBER KEY ORB · PRESS E / A TO PICK IT UP',
-    'TUTORIAL: APPROACH THE BLAST DOOR · PRESS E / A TO UNLOCK',
+    'TUTORIAL: APPROACH THE BLAST DOOR · PRESS E / A TO OPEN IT',
+    'TUTORIAL: ENTER THE NEXT ROOM · SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
     'TUTORIAL: CROSS THE YELLOW TRIPWIRE — ALARM BRINGS SECURITY',
     'TUTORIAL: CHECK WRISTLINK RADAR — RED/AMBER = SECURITY. STAY QUIET.',
-    'TUTORIAL: OPEN CONSOLE · JACK-IN · ROTATE TILES (LISTEN TO CALLS) · CLEAR 1 BOARD'
+    'TUTORIAL: USE THE KEY ON THE CONSOLE DOOR · JACK-IN · CLEAR 1 BOARD'
   ];
+
+  function doorKeysNeeded(door) {
+    if (!door) return 1;
+    if (door.keysRequired != null) return door.keysRequired;
+    return door.console ? 3 : 1;
+  }
 
   function endTutorial(success) {
     tutorialMode = false;
@@ -627,11 +633,11 @@
     if (tutorialStation === 0) {
       if (tutorialMoveDist > 8) advanceTutorial(1);
     } else if (tutorialStation === 1) {
-      if (keysCollected >= 1) advanceTutorial(2);
+      // First door opened (into key room)
+      var d1 = M.markers.doors[0];
+      if (d1 && !d1.locked) advanceTutorial(2);
     } else if (tutorialStation === 2) {
-      if (doorsOpen >= 1 || (M.markers.doors[0] && !M.markers.doors[0].locked)) {
-        advanceTutorial(3);
-      }
+      if (keysCollected >= 1) advanceTutorial(3);
     } else if (tutorialStation === 3) {
       if (tutorialTripHit) advanceTutorial(4);
     } else if (tutorialStation === 4) {
@@ -1682,10 +1688,14 @@
       if (pick && pick.kind === 'door' && pick.dist <= range + 0.8) {
         // fall through to door unlock using that door via near() — force proximity by using door coords
         var aimed = M.markers.doors[pick.i];
-        var needAim = aimed.keysRequired || (aimed.console ? 3 : 1);
+        var needAim = doorKeysNeeded(aimed);
         if (keysCollected < needAim) {
           if (aimed.console || aimed.id === 'D3') {
-            pushMsg('CONSOLE DOOR — NEED ALL 3 KEYS (' + keysCollected + '/3)', 'amber');
+            pushMsg(tutorialMode
+              ? 'CONSOLE DOOR — NEED THE KEY YOU FOUND'
+              : 'CONSOLE DOOR — NEED ALL 3 KEYS (' + keysCollected + '/3)', 'amber');
+          } else if (needAim <= 0) {
+            pushMsg('BLAST DOOR — PRESS E / A TO OPEN', 'amber');
           } else {
             pushMsg('BLAST DOOR LOCKED — NEED ACCESS KEY', 'amber');
           }
@@ -1715,10 +1725,12 @@
       var door = M.markers.doors[i];
       if (!door.locked) continue;
       if (!near(door.x, door.z, range + 0.8)) continue;
-      var need = door.keysRequired || (door.console ? 3 : 1);
+      var need = doorKeysNeeded(door);
       if (keysCollected < need) {
         if (door.console || door.id === 'D3') {
-          pushMsg('CONSOLE DOOR — NEED ALL 3 KEYS (' + keysCollected + '/3)', 'amber');
+          pushMsg(tutorialMode
+            ? 'CONSOLE DOOR — NEED THE KEY YOU FOUND'
+            : 'CONSOLE DOOR — NEED ALL 3 KEYS (' + keysCollected + '/3)', 'amber');
         } else {
           pushMsg('BLAST DOOR LOCKED — NEED ACCESS KEY', 'amber');
         }
@@ -1807,7 +1819,7 @@
           hint = btn + ' RECOVER ACCESS KEY';
         } else if (aim && aim.kind === 'door' && aim.dist <= hintRange + 0.8) {
           var ad = M.markers.doors[aim.i];
-          var an = ad.keysRequired || (ad.console ? 3 : 1);
+          var an = doorKeysNeeded(ad);
           if (keysCollected < an) {
             hint = (ad.console || ad.id === 'D3')
               ? 'CONSOLE DOOR — NEED 3 KEYS (' + keysCollected + '/3)'
@@ -1827,7 +1839,7 @@
       for (i = 0; i < M.markers.doors.length; i++) {
         var hd = M.markers.doors[i];
         if (hd.locked && near(hd.x, hd.z, hintRange + 0.8)) {
-          var needH = hd.keysRequired || (hd.console ? 3 : 1);
+          var needH = doorKeysNeeded(hd);
           if (keysCollected < needH) {
             hint = (hd.console || hd.id === 'D3')
               ? 'CONSOLE DOOR — NEED 3 KEYS (' + keysCollected + '/3)'

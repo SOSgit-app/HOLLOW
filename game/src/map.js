@@ -48,14 +48,15 @@
     "################################################"
   ];
 
-  // Compact linear tutorial arena (stations: move → key → door → tripwire → security → circuit)
+  // Compact tutorial arena: harbor → free door → key room → keyed door → console
+  // Stations: move → open door → pick key → tripwire → security → circuit
   var TUTORIAL_ASCII = [
     "########################",
-    "#SSSSSS#################",
-    "#SSPSSS#.......#.......#",
-    "#SSSSSS#...1...D.......#",
-    "#SSSSSS#.......#...G...#",
-    "########.......#.......#",
+    "#SSSSSS#.......#.......#",
+    "#SSPSSS................#",
+    "#SSSSSS#...1...#...G...#",
+    "#SSSSSS#.......#.......#",
+    "########.......#########",
     "#..............#########",
     "#......................#",
     "#..........C...........#",
@@ -140,9 +141,10 @@
       markers.lasers = [
         { x0: 1 * CELL + IN, z0: 6.5 * CELL, x1: 14 * CELL - IN, z1: 6.5 * CELL, y0: TY - TH, y1: TY + TH, id: 'L-TRAIN' }
       ];
-      // One practice door into console alcove (1 key)
+      // D1: free practice door into key room. D2: keyed console door.
       markers.doors = [
-        { id: 'D1', c: 15, r: 3, locked: true, keysRequired: 1, console: true }
+        { id: 'D1', c: 7, r: 2, locked: true, keysRequired: 0 },
+        { id: 'D2', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
       if (!markers.X && markers.P) markers.X = { x: markers.P.x, z: markers.P.z };
     } else {
