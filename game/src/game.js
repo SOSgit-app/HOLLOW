@@ -6,15 +6,12 @@
 
   // ---- tuning constants (GDD §3) ----
   var EYE_STAND = 1.85, EYE_CROUCH = 1.15;
-  var SPEED_WALK = 3.2, SPEED_SPRINT = 7.4, SPEED_CROUCH = 1.6; // sprint > chase (6.0)
+  var SPEED_WALK = 3.2, SPEED_SPRINT = 7.4, SPEED_SPRINT_COMFORT = 4.2, SPEED_CROUCH = 1.6;
   var PLAYER_RADIUS = 0.35;
   var NOISE_CROUCH = 2, NOISE_WALK = 7, NOISE_SPRINT = 22;
   var STAMINA_MAX = 1, STAMINA_DRAIN = 0.32, STAMINA_RECOVER = 0.24, STAMINA_MIN_SPRINT = 0.12;
   var NOISE_TRICKLE = 9, NOISE_BURST = 34, NOISE_INTERACT = 12;
   var TRICKLE_RAYS = 220, TRICKLE_CONE = 14 * Math.PI / 180;
-  var BURST_TIME = 1.4, BURST_COOLDOWN = 6.0;
-  var BURST_HALF_FOV = 75 * Math.PI / 180, BURST_COL_STEP = 0.55 * Math.PI / 180;
-  var BURST_V_SAMPLES = 26, BURST_V_SPREAD = 0.95; // radians, ± around aim pitch
   var POINT_LIFE = 90, ENEMY_POINT_LIFE = 2.5;
   var SCAN_RANGE = 60;
   var INTERACT_RANGE = 2.4;
@@ -25,16 +22,16 @@
 
   var GFX = {
     low: {
-      trickleRays: 90, burstColStep: 1.1 * Math.PI / 180, burstVSamples: 12,
-      pointLife: 40, xrMaxPoints: 120000, fboScale: 0.55, vrScale: 0.55, crt: 0.45
+      trickleRays: 90,
+      pointLife: 40, xrMaxPoints: 120000, fboScale: 0.55, vrScale: 0.55
     },
     medium: {
-      trickleRays: 220, burstColStep: 0.55 * Math.PI / 180, burstVSamples: 26,
-      pointLife: 90, xrMaxPoints: 300000, fboScale: 0.85, vrScale: 0.8, crt: 0.75
+      trickleRays: 220,
+      pointLife: 90, xrMaxPoints: 300000, fboScale: 0.85, vrScale: 0.8
     },
     high: {
-      trickleRays: 360, burstColStep: 0.35 * Math.PI / 180, burstVSamples: 40,
-      pointLife: 140, xrMaxPoints: 520000, fboScale: 1.0, vrScale: 1.0, crt: 1.0
+      trickleRays: 360,
+      pointLife: 140, xrMaxPoints: 520000, fboScale: 1.0, vrScale: 1.0
     }
   };
 
@@ -42,12 +39,58 @@
     var g = GFX[level] || GFX.medium;
     gfxQuality = GFX[level] ? level : 'medium';
     TRICKLE_RAYS = g.trickleRays;
-    BURST_COL_STEP = g.burstColStep;
-    BURST_V_SAMPLES = g.burstVSamples;
     POINT_LIFE = g.pointLife;
-    if (R && R.setQuality) R.setQuality({ xrMaxPoints: g.xrMaxPoints, fboScale: g.fboScale, crt: g.crt });
+    if (R && R.setQuality) R.setQuality({ xrMaxPoints: g.xrMaxPoints, fboScale: g.fboScale });
     if (VR && VR.setFramebufferScale) VR.setFramebufferScale(g.vrScale);
     try { localStorage.setItem('hollow_gfx', gfxQuality); } catch (err) { void err; }
+  }
+
+  function applyComfort() {
+    if (R && R.setComfort) {
+      R.setComfort({
+        grid: comfortGrid,
+        vignette: comfortVignette ? moveVignette : 0
+      });
+    }
+  }
+
+  function loadComfortSettings() {
+    try {
+      comfortGrid = localStorage.getItem('hollow_comfort_grid') === '1';
+      comfortVignette = localStorage.getItem('hollow_comfort_vignette') === '1';
+      comfortSlowSprint = localStorage.getItem('hollow_comfort_sprint') === '1';
+    } catch (e) { void e; }
+    var g = $('opt-comfort-grid');
+    var v = $('opt-comfort-vignette');
+    var s = $('opt-comfort-sprint');
+    if (g) g.checked = comfortGrid;
+    if (v) v.checked = comfortVignette;
+    if (s) s.checked = comfortSlowSprint;
+    if (comfortGrid && R && R.buildComfortGrid && M) {
+      R.buildComfortGrid(M.COLS(), M.ROWS(), M.CELL);
+    }
+    applyComfort();
+  }
+
+  function saveComfortFlag(key, on) {
+    try { localStorage.setItem(key, on ? '1' : '0'); } catch (e) { void e; }
+  }
+
+  var currentDifficulty = 'medium';
+  function applyDifficulty(diff) {
+    currentDifficulty = diff || 'medium';
+    try { localStorage.setItem('hollow_difficulty', currentDifficulty); } catch (e) { void e; }
+    if (NS.mic && NS.mic.setProfile) {
+      if (currentDifficulty === 'easy') NS.mic.setProfile('off');
+      else if (currentDifficulty === 'medium') NS.mic.setProfile('low');
+      else NS.mic.setProfile('high');
+    }
+    var buttons = document.querySelectorAll('.diff-btn');
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      if (b.getAttribute('data-diff') === currentDifficulty) b.classList.add('active');
+      else b.classList.remove('active');
+    }
   }
 
   // ---- palette (GDD §3.2) — wall tones kept mid so additive LiDAR does not blow out ----
@@ -152,7 +195,6 @@
   var trickleOn = false;
   var vrScanOrigin = null, vrScanDirection = null;
   var trickleNoiseTimer = 0;
-  var burst = { active: false, t: 0, cooldown: 0 };
   var accessKeys = [];
   var keysCollected = 0, doorsOpen = 0;
   var vrHudHint = '';
@@ -181,6 +223,8 @@
   var runTime = 0;
   var now = 0, lastFrame = 0;
   var sens = 0.0022, reducedFlash = false;
+  var comfortGrid = false, comfortVignette = false, comfortSlowSprint = false;
+  var moveVignette = 0;
   var deathCause = 'quiet';
   var clickTickFade = 0;
   var laserCooldown = {};
@@ -202,13 +246,14 @@
 
     el.canvas = $('glcanvas');
     el.hud = $('hud');
-    el.timer = $('hud-timer'); el.pts = $('hud-pts'); el.chg = $('hud-chg'); el.obj = $('hud-obj');
+    el.timer = $('hud-timer'); el.pts = $('hud-pts'); el.obj = $('hud-obj');
     el.auxFill = $('aux-fill'); el.auxTick = $('aux-tick');
     el.staFill = $('sta-fill');
     el.vcrClock = $('vcr-clock');
     el.eventline = $('eventline');
     el.boot = $('boot-screen'); el.bootText = $('boot-text'); el.bootCont = $('boot-continue');
     el.controls = $('controls-screen');
+    el.settings = $('settings-screen');
     el.death = $('death-screen'); el.epitaph = $('death-epitaph');
     el.win = $('win-screen'); el.winText = $('win-text');
     el.clone = $('clone-screen');
@@ -239,7 +284,7 @@
 
   function isMenuControl(el) {
     if (!el || !el.closest) return false;
-    return !!(el.closest('input, select, textarea, button, label, a, .gfx-row, .opt-row, .menu-actions'));
+    return !!(el.closest('input, select, textarea, button, label, a, .gfx-row, .diff-row, .opt-row, .menu-actions'));
   }
 
   function startDesktop() {
@@ -257,6 +302,14 @@
       keys[e.code] = true;
       if (e.code === 'Enter') {
         if (state === 'BOOT') { finishBoot(); }
+        else if (state === 'SETTINGS') {
+          if (settingsReturn === 'boot') {
+            state = 'BOOT'; showScreen('boot');
+            if (el.bootCont) el.bootCont.style.display = 'block';
+          } else {
+            state = 'CONTROLS'; showScreen('controls');
+          }
+        }
         else if (state === 'CONTROLS') { startDesktop(); }
         else if (state === 'DEAD' || state === 'LEFT') { showScreen('controls'); state = 'CONTROLS'; }
         else if (state === 'WIN') { state = 'BOOT'; startBootType(); }
@@ -271,9 +324,6 @@
         if (e.code === 'Digit2' || e.code === 'Numpad2' || e.code === 'ArrowDown') {
           cloneChoiceIdx = 1; updateCloneDesktopChoice();
         }
-      }
-      if (e.code === 'Space') {
-        if (state === 'PLAY' && !(CIR && CIR.isActive()) && !cloneUiActive()) { e.preventDefault(); tryBurst(); }
       }
       if (e.code === 'KeyE' && state === 'PLAY') {
         if (e.repeat) return;
@@ -293,7 +343,6 @@
     el.canvas.addEventListener('mousedown', function (e) {
       if (state !== 'PLAY') return;
       if (e.button === 0) trickleOn = true;
-      if (e.button === 2) tryBurst();
     });
     window.addEventListener('mouseup', function (e) {
       if (e.button === 0) trickleOn = false;
@@ -375,29 +424,94 @@
     $('opt-flash').addEventListener('change', function (e) { reducedFlash = e.target.checked; });
 
     function syncSmoothTurnUI(on) {
-      var a = $('opt-smooth'), b = $('opt-smooth-controls');
+      var a = $('opt-smooth');
       if (a) a.checked = !!on;
-      if (b) b.checked = !!on;
     }
     function applySmoothTurn(on) {
       if (VR && VR.setSmoothTurn) VR.setSmoothTurn(on);
       syncSmoothTurnUI(on);
     }
     var smoothBoot = $('opt-smooth');
-    var smoothCtrl = $('opt-smooth-controls');
     if (smoothBoot) {
       smoothBoot.addEventListener('change', function (e) { applySmoothTurn(e.target.checked); });
     }
-    if (smoothCtrl) {
-      smoothCtrl.addEventListener('change', function (e) { applySmoothTurn(e.target.checked); });
-    }
     applySmoothTurn(VR && VR.getSmoothTurn ? VR.getSmoothTurn() : false);
+
+    var optGrid = $('opt-comfort-grid');
+    var optVig = $('opt-comfort-vignette');
+    var optSprint = $('opt-comfort-sprint');
+    if (optGrid) {
+      optGrid.addEventListener('change', function (e) {
+        comfortGrid = e.target.checked;
+        saveComfortFlag('hollow_comfort_grid', comfortGrid);
+        if (comfortGrid && R.buildComfortGrid) R.buildComfortGrid(M.COLS(), M.ROWS(), M.CELL);
+        applyComfort();
+      });
+    }
+    if (optVig) {
+      optVig.addEventListener('change', function (e) {
+        comfortVignette = e.target.checked;
+        saveComfortFlag('hollow_comfort_vignette', comfortVignette);
+        if (!comfortVignette) moveVignette = 0;
+        applyComfort();
+      });
+    }
+    if (optSprint) {
+      optSprint.addEventListener('change', function (e) {
+        comfortSlowSprint = e.target.checked;
+        saveComfortFlag('hollow_comfort_sprint', comfortSlowSprint);
+      });
+    }
+
+    function openSettings(from) {
+      settingsReturn = from || 'controls';
+      state = 'SETTINGS';
+      showScreen('settings');
+    }
+    var btnSettingsBoot = $('btn-settings-boot');
+    var btnSettingsCtrl = $('btn-settings-controls');
+    var btnSettingsBack = $('btn-settings-back');
+    if (btnSettingsBoot) {
+      btnSettingsBoot.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openSettings('boot');
+      });
+    }
+    if (btnSettingsCtrl) {
+      btnSettingsCtrl.addEventListener('click', function (e) {
+        e.stopPropagation();
+        openSettings('controls');
+      });
+    }
+    if (btnSettingsBack) {
+      btnSettingsBack.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (settingsReturn === 'boot') {
+          state = 'BOOT';
+          showScreen('boot');
+          if (el.bootCont) el.bootCont.style.display = 'block';
+        } else {
+          state = 'CONTROLS';
+          showScreen('controls');
+        }
+      });
+    }
+    if (el.settings) {
+      el.settings.addEventListener('click', function (e) {
+        if (isMenuControl(e.target)) return;
+      });
+    }
 
     var saved = 'medium';
     try { saved = localStorage.getItem('hollow_gfx') || 'medium'; } catch (err) { void err; }
     if (!GFX[saved]) saved = 'medium';
     applyGraphics(saved);
     syncGfxButtons();
+
+    var savedDiff = 'medium';
+    try { savedDiff = localStorage.getItem('hollow_difficulty') || 'medium'; } catch (err) { void err; }
+    applyDifficulty(savedDiff);
+    loadComfortSettings();
 
     var gfxButtons = document.querySelectorAll('.gfx-btn');
     for (var gi = 0; gi < gfxButtons.length; gi++) {
@@ -409,15 +523,27 @@
         syncGfxButtons();
       });
     }
+
+    var diffButtons = document.querySelectorAll('.diff-btn');
+    for (var di = 0; diffButtons && di < diffButtons.length; di++) {
+      diffButtons[di].addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        applyDifficulty(e.currentTarget.getAttribute('data-diff'));
+      });
+    }
   }
 
+  var settingsReturn = 'controls';
+
   function showScreen(name) {
-    [el.boot, el.controls, el.death, el.win, el.clone].forEach(function (s) {
+    [el.boot, el.controls, el.settings, el.death, el.win, el.clone].forEach(function (s) {
       if (s) s.classList.remove('visible');
     });
     el.hud.style.display = (name === null) ? 'block' : 'none';
     if (name === 'boot') el.boot.classList.add('visible');
     if (name === 'controls') el.controls.classList.add('visible');
+    if (name === 'settings' && el.settings) el.settings.classList.add('visible');
     if (name === 'death') el.death.classList.add('visible');
     if (name === 'win') el.win.classList.add('visible');
     if (name === 'clone' && el.clone) el.clone.classList.add('visible');
@@ -465,7 +591,7 @@
     if (A.stopAllTransient) A.stopAllTransient();
     if (CIR) CIR.close();
     R.clearPoints();
-    EN.reset();
+    EN.reset(currentDifficulty);
     M.resetDoors();
     math.srand(0x1988 ^ (Date.now() & 0xffff));
     player.x = M.markers.P.x; player.z = M.markers.P.z;
@@ -480,7 +606,6 @@
     virusProgress = 0; virusDone = false; virusNoiseTimer = 0;
     virusHolding = false; virusWristActive = false;
     pow = null;
-    burst.active = false; burst.t = 0; burst.cooldown = 0;
     trickleOn = false; auxLoud = 0; recentLoud = 0;
     stamina = STAMINA_MAX; staminaExhausted = false;
     floodLevel = 0; runTime = 0; deathCause = 'quiet';
@@ -489,6 +614,9 @@
     missionWarnAt = { m2: false, m1: false, s30: false };
     circuitPanelModel = null;
     msgQueue = []; curMsg = null;
+    moveVignette = 0;
+    if (R.buildComfortGrid) R.buildComfortGrid(M.COLS(), M.ROWS(), M.CELL);
+    applyComfort();
     queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 10:00.', '');
   }
 
@@ -498,8 +626,7 @@
     dieTimer = 0;
     A.death();
     // epitaph by how loud you were (GDD §2.2)
-    if (burst.active) deathCause = 'sweep';
-    else if (recentLoud > 12) deathCause = 'loud';
+    if (recentLoud > 12) deathCause = 'loud';
     else if (recentLoud > 4) deathCause = 'steps';
     else deathCause = 'quiet';
   }
@@ -517,7 +644,6 @@
       }
     }, 4200);
     var lines = {
-      sweep: 'MID-SWEEP. SECURITY LOCKED YOUR SIGNATURE.',
       loud: 'YOU LIT THE DARK. THE GRID ANSWERED.',
       steps: 'FOOTSTEPS GAVE YOU AWAY THREE HALLS OUT.',
       quiet: 'YOU WERE QUIET. IT STILL HEARD YOUR HEART.'
@@ -953,7 +1079,7 @@
 
   function updateScanner(dt) {
     // trickle
-    if (trickleOn && !burst.active) {
+    if (trickleOn) {
       var fwd = vrScanDirection || math.dirFromYawPitch(player.yaw, player.pitch);
       for (var i = 0; i < TRICKLE_RAYS; i++) {
         var d = coneRay(fwd);
@@ -966,46 +1092,6 @@
         emitNoise(NOISE_TRICKLE);
       }
     }
-
-    // burst sweep
-    if (burst.active) {
-      var baseYaw = vrScanDirection
-        ? Math.atan2(vrScanDirection[0], -vrScanDirection[2])
-        : player.yaw;
-      var basePitch = vrScanDirection
-        ? Math.asin(math.clamp(vrScanDirection[1], -1, 1))
-        : player.pitch;
-      var t0 = burst.t;
-      burst.t += dt;
-      var t1 = Math.min(burst.t, BURST_TIME);
-      var a0 = -BURST_HALF_FOV + (t0 / BURST_TIME) * 2 * BURST_HALF_FOV;
-      var a1 = -BURST_HALF_FOV + (t1 / BURST_TIME) * 2 * BURST_HALF_FOV;
-      for (var a = a0; a < a1; a += BURST_COL_STEP) {
-        var yaw = baseYaw + a;
-        for (var v = 0; v < BURST_V_SAMPLES; v++) {
-          var pitch = basePitch - BURST_V_SPREAD + (v / (BURST_V_SAMPLES - 1)) * 2 * BURST_V_SPREAD
-                    + (math.rand() - 0.5) * 0.03;
-          pitch = math.clamp(pitch, -1.5, 1.5);
-          var dd = math.dirFromYawPitch(yaw, pitch);
-          castScanRay(dd[0], dd[1], dd[2]);
-        }
-      }
-      if (burst.t >= BURST_TIME) {
-        burst.active = false;
-        burst.cooldown = BURST_COOLDOWN;
-      }
-    } else if (burst.cooldown > 0) {
-      burst.cooldown -= dt;
-      A.setCharge(1 - Math.max(0, burst.cooldown) / BURST_COOLDOWN, burst.cooldown > 0);
-    }
-  }
-
-  function tryBurst() {
-    if (burst.active || burst.cooldown > 0) return;
-    burst.active = true;
-    burst.t = 0;
-    A.burstSweep();
-    emitNoise(NOISE_BURST);
   }
 
   // ------------------------------------------------------------------
@@ -1701,7 +1787,9 @@
       stamina = Math.min(STAMINA_MAX, stamina + STAMINA_RECOVER * dt * (moving ? 0.7 : 1));
     }
 
-    var speed = crouch ? SPEED_CROUCH : (sprint ? SPEED_SPRINT : SPEED_WALK);
+    var speed = crouch
+      ? SPEED_CROUCH
+      : (sprint ? (comfortSlowSprint ? SPEED_SPRINT_COMFORT : SPEED_SPRINT) : SPEED_WALK);
 
     var targetEye = crouch ? EYE_CROUCH : EYE_STAND;
     player.eye += (targetEye - player.eye) * Math.min(1, dt * 10);
@@ -1726,6 +1814,17 @@
         A.footstep(loud / NOISE_SPRINT);
       }
     }
+
+    // Movement comfort vignette: ramp with locomotion / sprint
+    if (comfortVignette) {
+      var targetVig = 0;
+      if (moving) targetVig = sprint ? 0.85 : 0.45;
+      var vigRate = moving ? 4.5 : 3.0;
+      moveVignette += (targetVig - moveVignette) * Math.min(1, dt * vigRate);
+    } else {
+      moveVignette = 0;
+    }
+    applyComfort();
   }
 
   // ------------------------------------------------------------------
@@ -1781,12 +1880,6 @@
     var em = Math.floor((elapsed % 3600) / 60), es = elapsed % 60;
     el.vcrClock.textContent = 'T+' + pad(eh, 2) + ':' + pad(em, 2) + ':' + pad(es, 2);
     el.pts.textContent = 'PTS ' + pad(R.pointCount(), 6) + ' / ' + R.CAPACITY;
-
-    var charge = burst.active ? 0 : (1 - Math.max(0, burst.cooldown) / BURST_COOLDOWN);
-    var blocks = Math.round(charge * 8);
-    var s = '';
-    for (var i = 0; i < 8; i++) s += i < blocks ? '\u25AE' : '\u25AF';
-    el.chg.textContent = s;
 
     el.obj.innerHTML = (function () {
       if (clonePhase === 'CLONING') {
@@ -1866,7 +1959,6 @@
         stamina: stamina,
         exhausted: staminaExhausted,
         timer: el.timer.textContent,
-        chg: el.chg.textContent,
         contacts: radarContacts,
         yaw: player.yaw,
         px: player.x,
@@ -1931,7 +2023,7 @@
           if (vrInput.navX) CIR.moveSelection(vrInput.navX, 0);
           if (vrInput.navY) CIR.moveSelection(0, vrInput.navY);
           if (vrInput.interactPressed) CIR.rotateSelected();
-          if (vrInput.burstPressed && CIR.nextTile) CIR.nextTile();
+          if (vrInput.secondaryPressed && CIR.nextTile) CIR.nextTile();
           if (vrInput.tricklePressed) CIR.rotateSelected();
           if (R.setWristModel) {
             R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
@@ -1977,7 +2069,6 @@
           if (R.setWristModel) {
             R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
           }
-          if (vrInput.burstPressed) tryBurst();
           if (vrInput.interactPressed) interact();
         } else {
           vrScanOrigin = null;
@@ -2040,10 +2131,7 @@
       var fwd = math.dirFromYawPitch(player.yaw + swayYaw, player.pitch + swayPitch);
       var eye = [player.x, player.eye, player.z];
       var view = math.mat4LookAt(eye, [eye[0] + fwd[0], eye[1] + fwd[1], eye[2] + fwd[2]], [0, 1, 0]);
-      var glitch = Math.min(1, glitchLevel + glitchPop);
-      if (state === 'DYING') glitch = 1;
-      if (reducedFlash) glitch *= 0.35;
-      R.render(proj, view, now, { tear: tear, flood: floodLevel, glitch: glitch });
+      R.render(proj, view, now, { flood: floodLevel });
     }
   }
 
@@ -2085,7 +2173,6 @@
     debug: {
       start: function () { startRun(); state = 'PLAY'; showScreen(null); },
       setTrickle: function (v) { trickleOn = v; },
-      burst: function () { tryBurst(); },
       snapshot: function () {
         return {
           state: state,

@@ -5,7 +5,7 @@
   var CAPACITY = 700000;     // points (GDD §3.2)
   var STRIDE = 8;            // x y z r g b birth life
   var BYTES = STRIDE * 4;
-  var quality = { xrMaxPoints: 300000, fboScale: 0.85, crt: 0.75 };
+  var quality = { xrMaxPoints: 300000, fboScale: 0.85 };
 
   var gl = null, canvas = null;
   var pointProg = null, postProg = null;
@@ -105,78 +105,60 @@
     'void main(){ vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }'
   ].join('\n');
 
-  // VHS camcorder pass: barrel, tracking wobble, chroma bleed, line tears,
-  // dropouts, head-switching band, scanlines, grain, vignette, cheap bloom,
-  // agitation tear (GDD §8.3). uGlitch drives interference intensity.
+  // Clean passthrough (no CRT). Optional death flood + movement comfort vignette.
   var POST_FS = [
     'precision mediump float;',
     'varying vec2 vUv;',
     'uniform sampler2D uTex;',
-    'uniform vec2 uRes;',
-    'uniform float uTime;',
-    'uniform float uTear;',     // 0..1, single-frame horizontal tear
-    'uniform float uFlood;',    // death flood 0..1
-    'uniform float uGlitch;',   // 0..1, tape interference level
-    'float hash(vec2 p){ return fract(sin(dot(p, vec2(127.1, 311.7))) * 43758.5453); }',
+    'uniform float uFlood;',
+    'uniform float uVignette;',
     'void main(){',
-    '  vec2 cc = vUv - 0.5;',
-    '  float r2 = dot(cc, cc);',
-    '  vec2 uv = vUv + cc * r2 * 0.12;',                 // barrel
-    // vertical hold slip: whole picture rolls when interference spikes
-    '  float slip = step(0.965, hash(vec2(floor(uTime * 6.0), 5.0))) * uGlitch;',
-    '  uv.y = fract(uv.y + slip * (hash(vec2(floor(uTime * 6.0), 9.0)) - 0.5) * 0.3);',
-    // tape tracking wobble: slow horizontal weave, worse with glitch
-    '  uv.x += sin(uv.y * 9.0 + uTime * 2.1) * 0.0012 * (1.0 + uGlitch * 4.0);',
-    // line-tear bands: random rows yank sideways
-    '  float row = floor(uv.y * uRes.y / 4.0);',
-    '  float ln = hash(vec2(row, floor(uTime * 13.0)));',
-    '  float band = step(0.992 - uGlitch * 0.10, ln);',
-    '  uv.x += band * (hash(vec2(ln, fract(uTime))) - 0.5) * (0.02 + uGlitch * 0.10);',
-    '  if (uTear > 0.5) {',
-    '    float tb = step(0.45, vUv.y) * step(vUv.y, 0.47);',
-    '    uv.x += tb * 0.03;',
-    '  }',
-    // head-switching noise at the bottom of the frame
-    '  float hs = 1.0 - smoothstep(0.0, 0.022, uv.y);',
-    '  uv.x += hs * (hash(vec2(floor(uv.y * 600.0), floor(uTime * 47.0))) - 0.5) * 0.18;',
-    '  if (uv.x < 0.0 || uv.x > 1.0 || uv.y < 0.0 || uv.y > 1.0) {',
-    '    gl_FragColor = vec4(0.0, 0.0, 0.0, 1.0); return;',
-    '  }',
-    // chroma bleed: R and B smear apart like a worn tape
-    '  vec2 cab = vec2((1.2 + uGlitch * 5.0) / uRes.x, 0.0);',
-    '  vec3 col;',
-    '  col.r = texture2D(uTex, uv + cab).r;',
-    '  col.g = texture2D(uTex, uv).g;',
-    '  col.b = texture2D(uTex, uv - cab).b;',
-    '  vec2 px = 1.0 / uRes;',
-    '  vec3 nb = texture2D(uTex, uv + vec2(px.x * 2.0, 0.0)).rgb',
-    '          + texture2D(uTex, uv - vec2(px.x * 2.0, 0.0)).rgb',
-    '          + texture2D(uTex, uv + vec2(0.0, px.y * 2.0)).rgb',
-    '          + texture2D(uTex, uv - vec2(0.0, px.y * 2.0)).rgb;',
-    '  col += nb * 0.06;',                               // bloom approximation (kept mild)
-    '  float scan = 0.88 + 0.12 * sin(uv.y * uRes.y * 3.14159);',
-    '  col *= scan;',
-    // tape noise: base grain plus interference static
-    '  float grain = (hash(uv * uRes + fract(uTime) * 61.7) - 0.5) * (0.06 + uGlitch * 0.22);',
-    '  col += grain;',
-    // dropout streaks: a scanline flares white for one frame
-    '  float drop = step(0.9994 - uGlitch * 0.004, hash(vec2(floor(uv.y * uRes.y), floor(uTime * 24.0))));',
-    '  col += drop * 0.35;',
-    // torn bands read as raw static, not picture
-    '  col = mix(col, vec3(hash(uv * uRes + uTime * 31.0)) * 0.5, band * uGlitch * 0.8);',
-    '  col += hs * hash(uv * uRes + uTime * 53.0) * 0.18;',
-    '  float vig = 1.0 - r2 * 1.35;',
-    '  col *= max(vig, 0.0);',
-    '  col += vec3(0.012, 0.022, 0.014) * max(vig, 0.0);', // faint phosphor base glow
-    // soft-cap stacked LiDAR returns so walls do not blow out to white
+    '  vec3 col = texture2D(uTex, vUv).rgb;',
     '  float peak = max(col.r, max(col.g, col.b));',
     '  col *= 1.05 / (1.0 + peak * 0.85);',
     '  col = mix(col, vec3(0.9, 0.05, 0.05), uFlood);',
+    '  float r = length(vUv - 0.5);',
+    '  float vig = smoothstep(0.22, 0.92, r) * uVignette;',
+    '  col *= 1.0 - vig * 0.92;',
     '  gl_FragColor = vec4(col, 1.0);',
     '}'
   ].join('\n');
 
+  // World-space comfort reference: dim floor grid + horizon ticks
+  var GRID_VS = [
+    'attribute vec3 aPos;',
+    'uniform mat4 uProj;',
+    'uniform mat4 uView;',
+    'void main(){ gl_Position = uProj * uView * vec4(aPos, 1.0); }'
+  ].join('\n');
+  var GRID_FS = [
+    'precision mediump float;',
+    'uniform vec3 uColor;',
+    'void main(){ gl_FragColor = vec4(uColor, 1.0); }'
+  ].join('\n');
+
+  // XR screen-space comfort vignette (NDC full-screen)
+  var VIG_VS = [
+    'attribute vec2 aPos;',
+    'varying vec2 vUv;',
+    'void main(){ vUv = aPos * 0.5 + 0.5; gl_Position = vec4(aPos, 0.0, 1.0); }'
+  ].join('\n');
+  var VIG_FS = [
+    'precision mediump float;',
+    'varying vec2 vUv;',
+    'uniform float uVignette;',
+    'void main(){',
+    '  float r = length(vUv - 0.5);',
+    '  float a = smoothstep(0.22, 0.92, r) * uVignette * 0.85;',
+    '  gl_FragColor = vec4(0.0, 0.0, 0.0, a);',
+    '}'
+  ].join('\n');
+
   var attrs = {}, unis = {}, postAttrs = {}, postUnis = {};
+  var gridProg = null, gridAttrs = {}, gridUnis = {};
+  var vigProg = null, vigAttrs = {}, vigUnis = {};
+  var gridVbo = null, gridCount = 0;
+  var comfortOpts = { grid: false, vignette: 0 };
   var hudProg = null, hudAttrs = {}, hudUnis = {};
   var hudCanvas = null, hudCtx = null, hudTex = null, hudVbo = null;
   var hudState = { hint: '', obj: '', aux: 0, stamina: 1, exhausted: false, timer: '', chg: '', contacts: [], yaw: 0, px: 0, pz: 0 };
@@ -200,6 +182,8 @@
     pointProg = program(POINT_VS, POINT_FS);
     postProg = program(POST_VS, POST_FS);
     hudProg = program(HUD_VS, HUD_FS);
+    gridProg = program(GRID_VS, GRID_FS);
+    vigProg = program(VIG_VS, VIG_FS);
 
     attrs.aPos = gl.getAttribLocation(pointProg, 'aPos');
     attrs.aCol = gl.getAttribLocation(pointProg, 'aCol');
@@ -211,11 +195,16 @@
 
     postAttrs.aPos = gl.getAttribLocation(postProg, 'aPos');
     postUnis.uTex = gl.getUniformLocation(postProg, 'uTex');
-    postUnis.uRes = gl.getUniformLocation(postProg, 'uRes');
-    postUnis.uTime = gl.getUniformLocation(postProg, 'uTime');
-    postUnis.uTear = gl.getUniformLocation(postProg, 'uTear');
     postUnis.uFlood = gl.getUniformLocation(postProg, 'uFlood');
-    postUnis.uGlitch = gl.getUniformLocation(postProg, 'uGlitch');
+    postUnis.uVignette = gl.getUniformLocation(postProg, 'uVignette');
+
+    gridAttrs.aPos = gl.getAttribLocation(gridProg, 'aPos');
+    gridUnis.uProj = gl.getUniformLocation(gridProg, 'uProj');
+    gridUnis.uView = gl.getUniformLocation(gridProg, 'uView');
+    gridUnis.uColor = gl.getUniformLocation(gridProg, 'uColor');
+
+    vigAttrs.aPos = gl.getAttribLocation(vigProg, 'aPos');
+    vigUnis.uVignette = gl.getUniformLocation(vigProg, 'uVignette');
 
     hudAttrs.aPos = gl.getAttribLocation(hudProg, 'aPos');
     hudAttrs.aUv = gl.getAttribLocation(hudProg, 'aUv');
@@ -229,6 +218,8 @@
     quadVbo = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([-1, -1, 3, -1, -1, 3]), gl.STATIC_DRAW);
+
+    gridVbo = gl.createBuffer();
 
     // Unit quad in local space (scaled by wrist model). x=width, y=height, z=0 face.
     hudVbo = gl.createBuffer();
@@ -294,9 +285,72 @@
   function setQuality(q) {
     quality.xrMaxPoints = q.xrMaxPoints || quality.xrMaxPoints;
     quality.fboScale = q.fboScale != null ? q.fboScale : quality.fboScale;
-    quality.crt = q.crt != null ? q.crt : quality.crt;
     fboW = 0; fboH = 0; // force FBO rebuild
     if (canvas) resize();
+  }
+
+  function setComfort(opts) {
+    opts = opts || {};
+    comfortOpts.grid = !!opts.grid;
+    comfortOpts.vignette = Math.max(0, Math.min(1, opts.vignette || 0));
+  }
+
+  // Dim world-stable floor grid + cardinal horizon ticks (comfort reference).
+  function buildComfortGrid(cols, rows, cell) {
+    if (!gl || !gridVbo) return;
+    var verts = [];
+    var y = 0.04;
+    var w = cols * cell, d = rows * cell;
+    var step = cell;
+    var c, r, x, z;
+    for (c = 0; c <= cols; c++) {
+      x = c * step;
+      verts.push(x, y, 0, x, y, d);
+    }
+    for (r = 0; r <= rows; r++) {
+      z = r * step;
+      verts.push(0, y, z, w, y, z);
+    }
+    // Horizon ticks at mid-height around map bounds (cardinal + diagonals)
+    var hy = 1.55, cx = w * 0.5, cz = d * 0.5, rad = Math.max(w, d) * 0.55;
+    var tick = 0.55;
+    for (var i = 0; i < 8; i++) {
+      var ang = (i / 8) * Math.PI * 2;
+      var hx = cx + Math.cos(ang) * rad;
+      var hz = cz + Math.sin(ang) * rad;
+      verts.push(hx, hy - tick, hz, hx, hy + tick, hz);
+    }
+    gridCount = verts.length / 3;
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridVbo);
+    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
+  }
+
+  function drawComfortGrid(proj, view) {
+    if (!comfortOpts.grid || !gridProg || gridCount <= 0) return;
+    gl.useProgram(gridProg);
+    gl.uniformMatrix4fv(gridUnis.uProj, false, proj);
+    gl.uniformMatrix4fv(gridUnis.uView, false, view);
+    gl.uniform3f(gridUnis.uColor, 0.07, 0.20, 0.11);
+    gl.bindBuffer(gl.ARRAY_BUFFER, gridVbo);
+    gl.enableVertexAttribArray(gridAttrs.aPos);
+    gl.vertexAttribPointer(gridAttrs.aPos, 3, gl.FLOAT, false, 0, 0);
+    gl.disable(gl.BLEND);
+    gl.drawArrays(gl.LINES, 0, gridCount);
+    gl.disableVertexAttribArray(gridAttrs.aPos);
+  }
+
+  function drawComfortVignette() {
+    if (!vigProg || comfortOpts.vignette <= 0.001) return;
+    gl.useProgram(vigProg);
+    gl.uniform1f(vigUnis.uVignette, comfortOpts.vignette);
+    gl.enable(gl.BLEND);
+    gl.blendFunc(gl.SRC_ALPHA, gl.ONE_MINUS_SRC_ALPHA);
+    gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
+    gl.enableVertexAttribArray(vigAttrs.aPos);
+    gl.vertexAttribPointer(vigAttrs.aPos, 2, gl.FLOAT, false, 0, 0);
+    gl.drawArrays(gl.TRIANGLES, 0, 3);
+    gl.disableVertexAttribArray(vigAttrs.aPos);
+    gl.disable(gl.BLEND);
   }
 
   function densHash(x, y, z) {
@@ -421,8 +475,9 @@
     gl.blendFunc(gl.ONE, gl.ONE);
 
     drawPoints(proj, view, now, quality.xrMaxPoints);
+    drawComfortGrid(proj, view);
 
-    // pass 2: fbo -> screen with CRT
+    // pass 2: fbo -> screen (clean + optional comfort vignette / death flood)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
     gl.viewport(0, 0, canvas.width, canvas.height);
     gl.disable(gl.BLEND);
@@ -430,11 +485,8 @@
     gl.activeTexture(gl.TEXTURE0);
     gl.bindTexture(gl.TEXTURE_2D, fboTex);
     gl.uniform1i(postUnis.uTex, 0);
-    gl.uniform2f(postUnis.uRes, canvas.width, canvas.height);
-    gl.uniform1f(postUnis.uTime, now);
-    gl.uniform1f(postUnis.uTear, (opts.tear ? 1 : 0) * (quality.crt || 1));
     gl.uniform1f(postUnis.uFlood, opts.flood || 0);
-    gl.uniform1f(postUnis.uGlitch, (opts.glitch || 0) * (0.35 + 0.65 * (quality.crt || 1)));
+    gl.uniform1f(postUnis.uVignette, comfortOpts.vignette || 0);
     gl.bindBuffer(gl.ARRAY_BUFFER, quadVbo);
     gl.enableVertexAttribArray(postAttrs.aPos);
     gl.vertexAttribPointer(postAttrs.aPos, 2, gl.FLOAT, false, 0, 0);
@@ -651,7 +703,6 @@
       stamina: state.stamina == null ? 1 : state.stamina,
       exhausted: !!state.exhausted,
       timer: state.timer || '',
-      chg: state.chg || '',
       contacts: state.contacts || [],
       yaw: state.yaw || 0,
       px: state.px || 0,
@@ -731,7 +782,9 @@
       // Circuit panel first so world laser points stay visible in front of it
       drawCircuitPanel(v.projection, v.view);
       drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
+      drawComfortGrid(v.projection, v.view);
       drawVRHud(v.projection, v.view);
+      drawComfortVignette();
     }
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
@@ -747,7 +800,8 @@
     addPoint: addPoint, pointCount: pointCount, clearPoints: clearPoints,
     expirePointsNear: expirePointsNear,
     render: render, renderXR: renderXR,
-    setVRHud: setVRHud, setWristModel: setWristModel, setCircuitPanel: setCircuitPanel, setQuality: setQuality,
+    setVRHud: setVRHud, setWristModel: setWristModel, setCircuitPanel: setCircuitPanel,
+    setQuality: setQuality, setComfort: setComfort, buildComfortGrid: buildComfortGrid,
     getContext: function () { return gl; },
     makeXRCompatible: makeXRCompatible
   };

@@ -91,13 +91,13 @@
   }
   select#opt-gfx:focus{ outline:1px solid var(--ph); }
   .gfx-row, .menu-actions{ margin-top:12px; pointer-events:auto; }
-  .gfx-btn, .menu-btn{
+  .gfx-btn, .menu-btn, .diff-btn{
     font:inherit; letter-spacing:.14em; text-transform:uppercase;
     padding:10px 16px; margin:4px; cursor:pointer; pointer-events:auto;
     color:var(--ph); background:#031007; border:1px solid var(--ph-dim);
     box-shadow:0 0 10px rgba(124,255,155,.12);
   }
-  .gfx-btn.active, .menu-btn.primary{
+  .gfx-btn.active, .menu-btn.primary, .diff-btn.active{
     border-color:var(--ph); color:#031007; background:var(--ph);
     box-shadow:0 0 14px rgba(124,255,155,.35);
   }
@@ -156,11 +156,14 @@
   #vcr-mode{ top:44px; right:22px; font-size:12px; }
   #vcr-date{ bottom:44px; right:22px; font-size:12px; text-align:right; line-height:1.6; }
 
-  /* CSS-level CRT dressing on top of everything (the heavy lifting is in the GL post pass) */
-  #crt-frame{ position:absolute; inset:0; pointer-events:none; z-index:9;
-    box-shadow:inset 0 0 180px rgba(0,0,0,.85);
-    border-radius:18px;
+  /* Soft edge frame (no CRT look) */
+  #view-frame{ position:absolute; inset:0; pointer-events:none; z-index:9;
+    box-shadow:inset 0 0 120px rgba(0,0,0,.55);
   }
+  .settings-block{ margin-top:16px; text-align:left; max-width:520px; margin-left:auto; margin-right:auto; }
+  .settings-block .dim{ margin-bottom:6px; }
+  .settings-block .opt-row{ text-align:left; }
+  .settings-block .opt-row label{ display:inline-block; margin:6px 12px 6px 0; }
 </style>
 </head>
 <body>
@@ -169,7 +172,6 @@
 <div id="hud">
   <div class="hud-corner" id="hud-tl">RD-9 RANGING ACTIVE<br><span id="hud-timer">T+00:00</span></div>
   <div class="hud-corner" id="hud-tr"><span id="hud-pts">PTS 000000 / 700000</span></div>
-  <div class="hud-corner" id="hud-bl">CHG <span id="hud-chg">&#9646;&#9646;&#9646;&#9646;&#9646;&#9646;&#9646;&#9646;</span></div>
   <div class="hud-corner" id="hud-br"><span id="hud-obj">KEY 0/3</span></div>
   <div id="sta">STAMINA<div id="sta-bar"><div id="sta-fill"></div></div></div>
   <div id="aux">AUX EMISSION<div id="aux-bar"><div id="aux-fill"></div></div><div id="aux-tick">&#9650;</div><div id="aux-legend">GREEN SAFE · YELLOW CHECK · RED CHASE</div></div>
@@ -187,22 +189,11 @@
       <h1>HOLLOW</h1>
       <div class="sub">CYBER INFILTRATION — RD-9 LiDAR / MOTION TRACKER<br>
       HOSTILE AI CORE · EMP BLACKOUT · CLONE · EXTRACT</div>
-      <div class="opt-row">
-        <label>SENS <input type="range" id="opt-sens" min="2" max="20" value="8"></label>
-        <label>VOL <input type="range" id="opt-vol" min="0" max="100" value="70"></label>
-        <label><input type="checkbox" id="opt-flash"> REDUCED FLASH</label>
-        <label><input type="checkbox" id="opt-smooth"> SMOOTH TURN</label>
-      </div>
-      <div class="gfx-row">
-        <div class="dim" style="margin-bottom:6px">GRAPHICS</div>
-        <button type="button" class="gfx-btn" data-gfx="low">LOW</button>
-        <button type="button" class="gfx-btn active" data-gfx="medium">MEDIUM</button>
-        <button type="button" class="gfx-btn" data-gfx="high">HIGH</button>
-      </div>
       <div class="menu-actions">
         <button type="button" class="menu-btn primary" id="btn-boot-continue">CONTINUE</button>
+        <button type="button" class="menu-btn" id="btn-settings-boot">SETTINGS</button>
       </div>
-      <p style="margin-top:18px" class="dim">SET GRAPHICS, THEN TAP CONTINUE</p>
+      <p style="margin-top:18px" class="dim">TAP CONTINUE FOR OPERATOR BRIEF</p>
     </div>
   </div>
 </div>
@@ -211,18 +202,18 @@
   <div class="screen-inner">
     <div class="sub">RD-9 OPERATOR BRIEF</div>
     <div class="print-links">
-      <a href="map-print.html?v=70" target="_blank" rel="noopener">MAP DOWNLOAD</a>
-      <a href="circuit-print.html?v=70" target="_blank" rel="noopener">CIRCUIT DOWNLOAD</a>
+      <a href="map-print.html?v=71" target="_blank" rel="noopener">MAP DOWNLOAD</a>
+      <a href="circuit-print.html?v=71" target="_blank" rel="noopener">CIRCUIT DOWNLOAD</a>
     </div>
     <div class="dim" style="margin-bottom:12px;font-size:10px">MISSION DIRECTOR: PRINT MAP + CIRCUIT · VOICE-DIRECT THE OPERATOR</div>
     <div class="menu-actions" style="margin-top:0;margin-bottom:14px">
       <button type="button" class="menu-btn primary" id="btn-start-desktop">START DESKTOP</button>
       <button id="enter-vr" type="button" class="menu-btn" disabled>CHECKING WEBXR...</button>
+      <button type="button" class="menu-btn" id="btn-settings-controls">SETTINGS</button>
     </div>
     <pre>
   MOUSE ............ AIM LiDAR HEAD
   HOLD LMB ......... TRICKLE SCAN          <span class="dim">(QUIET, NARROW)</span>
-  RMB / SPACE ...... BURST SWEEP           <span class="red">(LOUD. SECURITY HEARS.)</span>
   W A S D .......... MOVE
   SHIFT ............ SPRINT                <span class="red">(LOUD · DRAINS STAMINA)</span>
   CTRL ............. CROUCH                <span class="dim">(NEAR-SILENT)</span>
@@ -234,16 +225,54 @@
   <span style="color:#0f0">HARBOR GREEN</span> = SAFE ROOM · <span class="amber">YELLOW</span> = TRIPWIRE · <span style="color:#4a6cff">DARK BLUE</span> = BLAST DOORS
   <span class="red">RED / AMBER RADAR = SECURITY</span> · <span style="color:#3cdc5a">GREEN RADAR = POW</span> (RESCUE PATH)
   <span class="dim">VR: LEFT GRIP SPRINT · RAISE LEFT WRISTLINK · A/X INTERACT · TRIGGER SCAN</span></pre>
-    <div class="opt-row" style="margin-top:8px">
-      <label><input type="checkbox" id="opt-smooth-controls"> SMOOTH TURN (VR)</label>
+    <div id="vr-note">QUEST: HOLD LEFT GRIP TO SPRINT · RAISE LEFT FOR WRISTLINK · JACK-IN: POINT LASER + A/X ROTATE · RIGHT STICK TURN · TRIGGER SCAN · A/X INTERACT</div>
+  </div>
+</div>
+
+<div class="screen" id="settings-screen">
+  <div class="screen-inner">
+    <div class="sub">SETTINGS</div>
+    <div class="settings-block">
+      <div class="dim">CONTROLS</div>
+      <div class="opt-row">
+        <label>SENS <input type="range" id="opt-sens" min="2" max="20" value="8"></label>
+        <label>VOL <input type="range" id="opt-vol" min="0" max="100" value="70"></label>
+      </div>
+      <div class="opt-row">
+        <label><input type="checkbox" id="opt-flash"> REDUCED FLASH</label>
+        <label><input type="checkbox" id="opt-smooth"> SMOOTH TURN (VR)</label>
+      </div>
     </div>
-    <div class="gfx-row">
-      <div class="dim" style="margin-bottom:6px">GRAPHICS</div>
-      <button type="button" class="gfx-btn" data-gfx="low">LOW</button>
-      <button type="button" class="gfx-btn active" data-gfx="medium">MEDIUM</button>
-      <button type="button" class="gfx-btn" data-gfx="high">HIGH</button>
+    <div class="settings-block">
+      <div class="dim">GRAPHICS</div>
+      <div class="gfx-row" style="margin-top:0">
+        <button type="button" class="gfx-btn" data-gfx="low">LOW</button>
+        <button type="button" class="gfx-btn active" data-gfx="medium">MEDIUM</button>
+        <button type="button" class="gfx-btn" data-gfx="high">HIGH</button>
+      </div>
     </div>
-    <div id="vr-note">QUEST: HOLD LEFT GRIP TO SPRINT · RAISE LEFT FOR WRISTLINK · JACK-IN: POINT LASER + A/X ROTATE · RIGHT STICK TURN · TRIGGER SCAN · RIGHT GRIP BURST · A/X INTERACT</div>
+    <div class="settings-block">
+      <div class="dim">DIFFICULTY — MIC + SECURITY PRESSURE</div>
+      <div class="gfx-row diff-row" style="margin-top:0">
+        <button type="button" class="diff-btn" data-diff="easy">EASY</button>
+        <button type="button" class="diff-btn active" data-diff="medium">MEDIUM</button>
+        <button type="button" class="diff-btn" data-diff="hard">HARD</button>
+      </div>
+    </div>
+    <div class="settings-block">
+      <div class="dim">COMFORT</div>
+      <div class="opt-row">
+        <label><input type="checkbox" id="opt-comfort-grid"> REFERENCE GRID</label>
+        <label><input type="checkbox" id="opt-comfort-vignette"> MOVE VIGNETTE</label>
+        <label><input type="checkbox" id="opt-comfort-sprint"> SLOW SPRINT</label>
+      </div>
+      <p class="dim" style="margin-top:8px;font-size:10px;line-height:1.5">
+        GRID = dim floor / horizon lines · VIGNETTE = tunnel while moving · SLOW SPRINT = softer VR speed
+      </p>
+    </div>
+    <div class="menu-actions" style="margin-top:22px">
+      <button type="button" class="menu-btn primary" id="btn-settings-back">BACK</button>
+    </div>
   </div>
 </div>
 
@@ -277,16 +306,16 @@
   </div>
 </div>
 
-<div id="crt-frame"></div>
+<div id="view-frame"></div>
 
-<script src="src/math.js?v=70"></script>
-<script src="src/map.js?v=70"></script>
-<script src="src/render.js?v=70"></script>
-<script src="src/audio.js?v=70"></script>
-<script src="src/mic.js?v=70"></script>
-<script src="src/enemy.js?v=70"></script>
-<script src="src/circuit.js?v=70"></script>
-<script src="src/vr.js?v=70"></script>
-<script src="src/game.js?v=70"></script>
+<script src="src/math.js?v=71"></script>
+<script src="src/map.js?v=71"></script>
+<script src="src/render.js?v=71"></script>
+<script src="src/audio.js?v=71"></script>
+<script src="src/mic.js?v=71"></script>
+<script src="src/enemy.js?v=71"></script>
+<script src="src/circuit.js?v=71"></script>
+<script src="src/vr.js?v=71"></script>
+<script src="src/game.js?v=71"></script>
 </body>
 </html>
