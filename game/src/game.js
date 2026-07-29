@@ -1035,11 +1035,11 @@
   function armTutorialTripwire() {
     var cell = M.CELL || 3;
     var IN = 0.08, TY = 0.22, TH = 0.03;
-    // Hallway entrance into 3rd room (door D2 at col 15) — armed only after circuit
+    // Hallway entrance into 3rd room (door at col 15) — N/S beam, armed after circuit
     M.markers.lasers = [
       {
-        x0: 15 * cell + IN, z0: 2.5 * cell,
-        x1: 16 * cell - IN, z1: 2.5 * cell,
+        x0: 15.5 * cell, z0: 2 * cell + IN,
+        x1: 15.5 * cell, z1: 3 * cell - IN,
         y0: TY - TH, y1: TY + TH,
         id: 'L-TRAIN'
       }
