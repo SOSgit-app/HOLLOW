@@ -48,7 +48,6 @@
   function applyComfort() {
     if (R && R.setComfort) {
       R.setComfort({
-        grid: comfortGrid,
         vignette: comfortVignette ? moveVignette : 0
       });
     }
@@ -56,19 +55,13 @@
 
   function loadComfortSettings() {
     try {
-      comfortGrid = localStorage.getItem('hollow_comfort_grid') === '1';
       comfortVignette = localStorage.getItem('hollow_comfort_vignette') === '1';
       comfortSlowSprint = localStorage.getItem('hollow_comfort_sprint') === '1';
     } catch (e) { void e; }
-    var g = $('opt-comfort-grid');
     var v = $('opt-comfort-vignette');
     var s = $('opt-comfort-sprint');
-    if (g) g.checked = comfortGrid;
     if (v) v.checked = comfortVignette;
     if (s) s.checked = comfortSlowSprint;
-    if (comfortGrid && R && R.buildComfortGrid && M) {
-      R.buildComfortGrid(M.COLS(), M.ROWS(), M.CELL);
-    }
     applyComfort();
   }
 
@@ -223,7 +216,7 @@
   var runTime = 0;
   var now = 0, lastFrame = 0;
   var sens = 0.0022, reducedFlash = false;
-  var comfortGrid = false, comfortVignette = false, comfortSlowSprint = false;
+  var comfortVignette = false, comfortSlowSprint = false;
   var moveVignette = 0;
   var deathCause = 'quiet';
   var clickTickFade = 0;
@@ -364,7 +357,15 @@
     if (btnDesktop) {
       btnDesktop.addEventListener('click', function (e) {
         e.stopPropagation();
+        pendingTutorial = false;
         startDesktop();
+      });
+    }
+    var btnTutorial = $('btn-tutorial');
+    if (btnTutorial) {
+      btnTutorial.addEventListener('click', function (e) {
+        e.stopPropagation();
+        startTutorialDesktop();
       });
     }
 
@@ -411,6 +412,10 @@
         showScreen(null);
       } else if (!locked && state === 'PLAY') {
         if (cloneUiActive()) return; // choosing path — stay in PLAY
+        if (tutorialMode) {
+          endTutorial(false);
+          return;
+        }
         state = 'CONTROLS';
         trickleOn = false;
         showScreen('controls');
@@ -437,17 +442,8 @@
     }
     applySmoothTurn(VR && VR.getSmoothTurn ? VR.getSmoothTurn() : false);
 
-    var optGrid = $('opt-comfort-grid');
     var optVig = $('opt-comfort-vignette');
     var optSprint = $('opt-comfort-sprint');
-    if (optGrid) {
-      optGrid.addEventListener('change', function (e) {
-        comfortGrid = e.target.checked;
-        saveComfortFlag('hollow_comfort_grid', comfortGrid);
-        if (comfortGrid && R.buildComfortGrid) R.buildComfortGrid(M.COLS(), M.ROWS(), M.CELL);
-        applyComfort();
-      });
-    }
     if (optVig) {
       optVig.addEventListener('change', function (e) {
         comfortVignette = e.target.checked;
@@ -585,18 +581,104 @@
   // ------------------------------------------------------------------
   // run lifecycle
   // ------------------------------------------------------------------
+  var tutorialMode = false;
+  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 trip, 4 security, 5 circuit, 6 done
+  var tutorialMoveDist = 0;
+  var tutorialTripHit = false;
+  var tutorialSecTimer = 0;
+  var pendingTutorial = false;
+
+  var TUTORIAL_MSGS = [
+    'TUTORIAL: WALK (WASD) · SPRINT (SHIFT / LEFT GRIP) · CROUCH (CTRL)',
+    'TUTORIAL: SCAN THE AMBER KEY ORB · PRESS E / A TO PICK IT UP',
+    'TUTORIAL: APPROACH THE BLAST DOOR · PRESS E / A TO UNLOCK',
+    'TUTORIAL: CROSS THE YELLOW TRIPWIRE — ALARM BRINGS SECURITY',
+    'TUTORIAL: CHECK WRISTLINK RADAR — RED/AMBER = SECURITY. STAY QUIET.',
+    'TUTORIAL: OPEN CONSOLE · JACK-IN · ROTATE TILES (LISTEN TO CALLS) · CLEAR 1 BOARD'
+  ];
+
+  function endTutorial(success) {
+    tutorialMode = false;
+    pendingTutorial = false;
+    runActive = false;
+    if (CIR) CIR.close();
+    if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+    if (A.sting) A.sting(false);
+    if (A.chopperStop) A.chopperStop();
+    document.exitPointerLock();
+    if (VR && VR.active()) VR.end();
+    M.loadLayout('mission');
+    state = 'CONTROLS';
+    showScreen('controls');
+    if (success) queueMsg('TUTORIAL COMPLETE — START THE RAID WHEN READY', 'amber', 5);
+  }
+
+  function advanceTutorial(next) {
+    tutorialStation = next;
+    if (tutorialStation >= 6) {
+      endTutorial(true);
+      return;
+    }
+    queueMsg(TUTORIAL_MSGS[tutorialStation], 'amber', 6);
+  }
+
+  function updateTutorial(dt) {
+    if (!tutorialMode || state !== 'PLAY') return;
+    if (tutorialStation === 0) {
+      if (tutorialMoveDist > 8) advanceTutorial(1);
+    } else if (tutorialStation === 1) {
+      if (keysCollected >= 1) advanceTutorial(2);
+    } else if (tutorialStation === 2) {
+      if (doorsOpen >= 1 || (M.markers.doors[0] && !M.markers.doors[0].locked)) {
+        advanceTutorial(3);
+      }
+    } else if (tutorialStation === 3) {
+      if (tutorialTripHit) advanceTutorial(4);
+    } else if (tutorialStation === 4) {
+      tutorialSecTimer += dt;
+      if (tutorialSecTimer > 10) advanceTutorial(5);
+    }
+  }
+
+  function startTutorialDesktop() {
+    pendingTutorial = true;
+    A.ensure();
+    A.startAmbient();
+    // Mic off for tutorial clarity
+    if (NS.mic && NS.mic.setProfile) NS.mic.setProfile('off');
+    el.canvas.requestPointerLock();
+  }
+
   var runActive = false;
   function startRun() {
     runActive = true;
     if (A.stopAllTransient) A.stopAllTransient();
     if (CIR) CIR.close();
     R.clearPoints();
-    EN.reset(currentDifficulty);
+
+    if (pendingTutorial || tutorialMode) {
+      tutorialMode = true;
+      pendingTutorial = false;
+      M.loadLayout('tutorial');
+      EN.reset('tutorial');
+    } else {
+      tutorialMode = false;
+      M.loadLayout('mission');
+      EN.reset(currentDifficulty);
+      if (NS.mic && NS.mic.setProfile) {
+        if (currentDifficulty === 'easy') NS.mic.setProfile('off');
+        else if (currentDifficulty === 'medium') NS.mic.setProfile('low');
+        else NS.mic.setProfile('high');
+      }
+    }
+
     M.resetDoors();
     math.srand(0x1988 ^ (Date.now() & 0xffff));
     player.x = M.markers.P.x; player.z = M.markers.P.z;
     player.yaw = 0; player.pitch = 0; player.eye = EYE_STAND;
-    accessKeys = M.markers.fuses.map(function (f) { return { x: f.x, z: f.z, taken: false }; });
+    accessKeys = M.markers.fuses.filter(Boolean).map(function (f) {
+      return { x: f.x, z: f.z, taken: false };
+    });
     keysCollected = 0; doorsOpen = 0;
     uplinkDone = false;
     jackInCooldownUntil = 0;
@@ -615,13 +697,29 @@
     circuitPanelModel = null;
     msgQueue = []; curMsg = null;
     moveVignette = 0;
-    if (R.buildComfortGrid) R.buildComfortGrid(M.COLS(), M.ROWS(), M.CELL);
+    tutorialMoveDist = 0;
+    tutorialTripHit = false;
+    tutorialSecTimer = 0;
+    tutorialStation = 0;
     applyComfort();
-    queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 10:00.', '');
+    if (tutorialMode) {
+      queueMsg(TUTORIAL_MSGS[0], 'amber', 6);
+    } else {
+      queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 10:00.', '');
+    }
   }
 
   function onKill() {
     if (state !== 'PLAY') return;
+    if (tutorialMode) {
+      // Soft fail — respawn in harbor with a tip
+      if (A.stopAllTransient) A.stopAllTransient();
+      player.x = M.markers.P.x; player.z = M.markers.P.z;
+      player.yaw = 0; player.pitch = 0;
+      EN.reset('tutorial');
+      queueMsg('CAUGHT — RESPAWNED IN HARBOR. QUIETER NEXT TIME.', 'red', 4);
+      return;
+    }
     state = 'DYING';
     dieTimer = 0;
     A.death();
@@ -638,6 +736,10 @@
     if (A.sting) A.sting(false);
     document.exitPointerLock();
     if (VR.active()) VR.end();
+    if (tutorialMode) {
+      tutorialMode = false;
+      M.loadLayout('mission');
+    }
     setTimeout(function () {
       if (state === 'DEAD' || state === 'CONTROLS' || state === 'BOOT' || state === 'LEFT') {
         if (A.stopAllTransient) A.stopAllTransient();
@@ -694,6 +796,7 @@
   }
 
   function updateMissionClock(dt) {
+    if (tutorialMode) return;
     if (state !== 'PLAY' || !runActive) return;
     var left = missionTimeLeft();
     if (left <= 0) {
@@ -917,10 +1020,22 @@
   }
 
   function onCircuitStageClear(clearedStage, total) {
+    if (tutorialMode) {
+      if (CIR) CIR.close();
+      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+      queueMsg('BOARD CLEAR — TUTORIAL COMPLETE', 'amber', 3);
+      setTimeout(function () { endTutorial(true); }, 1200);
+      return;
+    }
     queueMsg('MATRIX STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT BOARD', 'amber', 3);
   }
 
   function onCircuitTimeout() {
+    if (tutorialMode) {
+      jackInCooldownUntil = now + JACKIN_RETRY_S;
+      queueMsg('LOCKOUT — TRY AGAIN. ROTATE TILES TO MATCH YOUR SOLVER.', 'amber', 4);
+      return;
+    }
     jackInCooldownUntil = now + JACKIN_RETRY_S;
     queueMsg('ROUTING LOCKOUT — RETRY IN ' + JACKIN_RETRY_S + 's · SECURITY RUSHING', 'red', 4);
     A.securityAlarm();
@@ -931,6 +1046,10 @@
   }
 
   function onJackInSuccess() {
+    if (tutorialMode) {
+      endTutorial(true);
+      return;
+    }
     beginCloneSequence();
   }
 
@@ -1261,8 +1380,12 @@
       return;
     }
     pushMsg(inVR()
-      ? 'JACK-IN — 3 BOARDS · 60s EACH · POINT LASER / A ROTATE'
-      : 'JACK-IN SEQUENCE — THREE ROUTING MATRICES', 'amber');
+      ? (tutorialMode
+        ? 'PRACTICE JACK-IN — 1 BOARD · POINT LASER / A ROTATE'
+        : 'JACK-IN — 3 BOARDS · 60s EACH · POINT LASER / A ROTATE')
+      : (tutorialMode
+        ? 'PRACTICE JACK-IN — CLEAR ONE BOARD'
+        : 'JACK-IN SEQUENCE — THREE ROUTING MATRICES'), 'amber');
     CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear);
   }
 
@@ -1634,7 +1757,8 @@
     EN.forceInvestigate(mx, mz, 2);
     recentLoud = Math.max(recentLoud, NOISE_LASER);
     auxLoud = Math.max(auxLoud, 0.95);
-    queueMsg('SECURITY ALARM — ' + hit.id + ' — NEAREST UNITS RESPONDING', 'amber', 4);
+    queueMsg('SECURITY ALARM — ' + hit.id + (tutorialMode ? ' — TRAINING RESPONSE' : ' — NEAREST UNITS RESPONDING'), 'amber', 4);
+    if (tutorialMode) tutorialTripHit = true;
     // brief yellow paint of the single low beam
     var by = (hit.y0 + hit.y1) * 0.5;
     for (var i = 0; i < 48; i++) {
@@ -1737,6 +1861,7 @@
   }
 
   function updateExfil(dt) {
+    if (tutorialMode) return;
     if (exfilPhase === 'INBOUND') {
       exfilTimer -= dt;
       if (exfilTimer <= 0) {
@@ -1804,6 +1929,7 @@
       var moved = M.moveWithCollision(player.x, player.z, player.x + dx, player.z + dz, PLAYER_RADIUS);
       var actual = Math.sqrt((moved.x - player.x) * (moved.x - player.x) + (moved.z - player.z) * (moved.z - player.z));
       player.x = moved.x; player.z = moved.z;
+      if (tutorialMode) tutorialMoveDist += actual;
 
       strideAcc += actual;
       var stride = crouch ? 1.6 : (sprint ? 2.4 : 2.2);
@@ -2082,7 +2208,8 @@
         updatePow(dt);
         updateItems(dt);
         updateExfil(dt);
-        if (NS.mic) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
+        updateTutorial(dt);
+        if (NS.mic && !tutorialMode) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
         EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
         updateHeartbeat(dt);
         updateMsg(dt);
@@ -2156,6 +2283,11 @@
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
       if (R.setWristModel) R.setWristModel(null);
       if (NS.mic) NS.mic.stop();
+      if (tutorialMode) {
+        endTutorial(false);
+        lastFrame = performance.now();
+        return;
+      }
       if (state === 'PLAY') {
         state = 'CONTROLS';
         showScreen('controls');

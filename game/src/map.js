@@ -7,7 +7,7 @@
 
   // Legend: '#'/' ' solid · '.' floor · S safe/harbor · P spawn · C lair
   //         1 2 3 fuses · G generator · X exit · W POW
-  var ASCII = [
+  var MISSION_ASCII = [
     "################################################",
     "#......#..........#...........#......#.........#",
     "#......#..........#.....2.....#......#....3....#",
@@ -24,7 +24,7 @@
     "#..1...#..##..##................##..##..##..#..#",
     "#......#..##..##....#.........#..............#.#"
   ];
-  var ASCII2 = [
+  var MISSION_ASCII2 = [
     "#...#..#............#.........#..##..##..##..#.#",
     "#...#..#..##W.##....#.........#..##..##..##....#",
     "#...#......##..##...#....#######...............#",
@@ -48,6 +48,25 @@
     "################################################"
   ];
 
+  // Compact linear tutorial arena (stations: move → key → door → tripwire → security → circuit)
+  var TUTORIAL_ASCII = [
+    "########################",
+    "#SSSSSS#################",
+    "#SSPSSS#.......#.......#",
+    "#SSSSSS#...1...D.......#",
+    "#SSSSSS#.......#...G...#",
+    "########.......#.......#",
+    "#..............#########",
+    "#......................#",
+    "#..........C...........#",
+    "#......................#",
+    "########################"
+  ];
+
+  var currentLayout = 'mission';
+  var ASCII = MISSION_ASCII;
+  var ASCII2 = MISSION_ASCII2;
+
   // grid[row][col] => true if solid; safe[row][col] => acoustic harbor
   var grid = [];
   var safe = [];
@@ -68,7 +87,16 @@
   }
 
   function parse() {
-    var rows = ASCII.concat(ASCII2);
+    var rows = currentLayout === 'tutorial' ? TUTORIAL_ASCII : MISSION_ASCII.concat(MISSION_ASCII2);
+    markers.fuses = [];
+    markers.P = null;
+    markers.C = null;
+    markers.G = null;
+    markers.X = null;
+    markers.W = null;
+    markers.safes = [];
+    markers.lasers = [];
+    markers.doors = [];
     ROWS = rows.length;
     COLS = rows[0].length;
     grid = [];
@@ -98,36 +126,44 @@
       grid.push(row);
       safe.push(srow);
     }
-    // One Faraday sanctuary = the spawn / infil room (around P)
-    for (var sr = 20; sr <= 25; sr++) {
-      for (var sc = 8; sc <= 19; sc++) placeSafe(sc, sr);
+
+    var IN = 0.08;
+    var TY = 0.22;
+    var TH = 0.03;
+
+    if (currentLayout === 'tutorial') {
+      // Harbor around spawn (cols 1-6, rows 1-4)
+      for (var sr = 1; sr <= 4; sr++) {
+        for (var sc = 1; sc <= 6; sc++) placeSafe(sc, sr);
+      }
+      // Tripwire across corridor south of key room (row 5 gap is wall; trip in open hall at row 6)
+      markers.lasers = [
+        { x0: 1 * CELL + IN, z0: 6.5 * CELL, x1: 14 * CELL - IN, z1: 6.5 * CELL, y0: TY - TH, y1: TY + TH, id: 'L-TRAIN' }
+      ];
+      // One practice door into console alcove (1 key)
+      markers.doors = [
+        { id: 'D1', c: 15, r: 3, locked: true, keysRequired: 1, console: true }
+      ];
+      if (!markers.X && markers.P) markers.X = { x: markers.P.x, z: markers.P.z };
+    } else {
+      // One Faraday sanctuary = the spawn / infil room (around P)
+      for (var mr = 20; mr <= 25; mr++) {
+        for (var mc = 8; mc <= 19; mc++) placeSafe(mc, mr);
+      }
+      markers.lasers = [
+        { x0: 3 * CELL + IN, z0: 10.5 * CELL, x1: 4 * CELL - IN, z1: 10.5 * CELL, y0: TY - TH, y1: TY + TH, id: 'L-STORAGE' },
+        { x0: 18.5 * CELL, z0: 6 * CELL + IN, x1: 18.5 * CELL, z1: 7 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-LAB' },
+        { x0: 15.5 * CELL, z0: 15 * CELL + IN, x1: 15.5 * CELL, z1: 16 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-MID' },
+        { x0: 31.5 * CELL, z0: 23 * CELL + IN, x1: 31.5 * CELL, z1: 24 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-GEN' },
+        { x0: 5.5 * CELL, z0: 34 * CELL + IN, x1: 5.5 * CELL, z1: 35 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-EXIT' }
+      ];
+      markers.doors = [
+        { id: 'D1', c: 17, r: 10, locked: true, keysRequired: 1 },
+        { id: 'D2', c: 26, r: 27, locked: true, keysRequired: 1 },
+        { id: 'D3', c: 34, r: 23, locked: true, keysRequired: 3, console: true }
+      ];
     }
 
-    // Yellow tripwires — single ankle-height beams across hallway / entrance chokes.
-    // Endpoints sit just inside wall faces; y band is thin so LiDAR paints one line.
-    var IN = 0.08;
-    var TY = 0.22;   // metres above floor (ankle)
-    var TH = 0.03;   // half-height — keep as one laser, not a stacked ribbon
-    markers.lasers = [
-      // fuse-1 NS hallway choke (walls east/west at col 3)
-      { x0: 3 * CELL + IN, z0: 10.5 * CELL, x1: 4 * CELL - IN, z1: 10.5 * CELL, y0: TY - TH, y1: TY + TH, id: 'L-STORAGE' },
-      // lab hallway entrance (walls north/south)
-      { x0: 18.5 * CELL, z0: 6 * CELL + IN, x1: 18.5 * CELL, z1: 7 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-LAB' },
-      // mid approach entrance near D1
-      { x0: 15.5 * CELL, z0: 15 * CELL + IN, x1: 15.5 * CELL, z1: 16 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-MID' },
-      // jack-in hallway entrance west of D3
-      { x0: 31.5 * CELL, z0: 23 * CELL + IN, x1: 31.5 * CELL, z1: 24 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-GEN' },
-      // exit corridor entrance near LZ
-      { x0: 5.5 * CELL, z0: 34 * CELL + IN, x1: 5.5 * CELL, z1: 35 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-EXIT' }
-    ];
-
-    // Blast doors — start locked (must sit in real wall gaps / chokes)
-    // D3 is the console-room door (needs all 3 keys). D1/D2 are optional shortcuts.
-    markers.doors = [
-      { id: 'D1', c: 17, r: 10, locked: true, keysRequired: 1 },
-      { id: 'D2', c: 26, r: 27, locked: true, keysRequired: 1 },
-      { id: 'D3', c: 34, r: 23, locked: true, keysRequired: 3, console: true }
-    ];
     doorSolid = {};
     markers.doors.forEach(function (d) {
       if (!grid[d.r] || grid[d.r][d.c]) {
@@ -148,6 +184,13 @@
       markers.safes.push({ x: (c + 0.5) * CELL, z: (r + 0.5) * CELL, c: c, r: r });
     }
   }
+
+  function loadLayout(name) {
+    currentLayout = (name === 'tutorial') ? 'tutorial' : 'mission';
+    parse();
+    return currentLayout;
+  }
+
   parse();
 
   function isSafeCell(c, r) {
@@ -159,7 +202,7 @@
   }
 
   function asciiRows() {
-    return ASCII.concat(ASCII2);
+    return currentLayout === 'tutorial' ? TUTORIAL_ASCII.slice() : MISSION_ASCII.concat(MISSION_ASCII2);
   }
 
   function isSolidCell(c, r) {
@@ -426,7 +469,8 @@
     moveWithCollision: moveWithCollision, patrolWaypoints: patrolWaypoints,
     rayLaser: rayLaser, laserHitPlayer: laserHitPlayer, asciiRows: asciiRows,
     unlockDoor: unlockDoor, resetDoors: resetDoors, doorsOpenCount: doorsOpenCount,
-    consoleDoor: consoleDoor, isConsoleSealed: isConsoleSealed
+    consoleDoor: consoleDoor, isConsoleSealed: isConsoleSealed,
+    loadLayout: loadLayout, layout: function () { return currentLayout; }
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})
                                  : (global.HOLLOW = global.HOLLOW || {}));

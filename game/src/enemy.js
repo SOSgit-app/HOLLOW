@@ -109,7 +109,8 @@
 
   function reset(difficulty) {
     currentDiff = difficulty || 'medium';
-    if (currentDiff === 'easy') SECONDARIES = [B];
+    if (currentDiff === 'tutorial') SECONDARIES = [];
+    else if (currentDiff === 'easy') SECONDARIES = [B];
     else if (currentDiff === 'medium') SECONDARIES = [B, C];
     else SECONDARIES = [B, C, D];
 
@@ -117,9 +118,9 @@
     // SEC-1 east (old lair), SEC-2/4 west, SEC-3 east — 2 per half
     lairX = M.markers.C.x; lairZ = M.markers.C.z;
     E.x = lairX; E.z = lairZ;
-    E.patrolHalf = 'E';
+    E.patrolHalf = currentDiff === 'tutorial' ? 'W' : 'E';
     E.state = 'PATROL';
-    E.agitation = 12;
+    E.agitation = currentDiff === 'tutorial' ? 4 : 12;
     E.agitationFloor = 0;
     path = null; pathIdx = 0; repathTimer = 0;
     investigateTarget = null; dwellTimer = 0;
@@ -137,6 +138,10 @@
     resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
     resetUnit(C, 106.5, 28.5, 'E', 2.8, 8);
     resetUnit(D, 16.5, 73.5, 'W', 3.2, 8);
+    if (currentDiff === 'tutorial') {
+      // Keep the single unit near the training lair marker
+      E.x = lairX; E.z = lairZ;
+    }
     unstick(E);
     unstick(B);
     unstick(C);

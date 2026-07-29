@@ -158,7 +158,7 @@
   var gridProg = null, gridAttrs = {}, gridUnis = {};
   var vigProg = null, vigAttrs = {}, vigUnis = {};
   var gridVbo = null, gridCount = 0;
-  var comfortOpts = { grid: false, vignette: 0 };
+  var comfortOpts = { vignette: 0 };
   var hudProg = null, hudAttrs = {}, hudUnis = {};
   var hudCanvas = null, hudCtx = null, hudTex = null, hudVbo = null;
   var hudState = { hint: '', obj: '', aux: 0, stamina: 1, exhausted: false, timer: '', chg: '', contacts: [], yaw: 0, px: 0, pz: 0 };
@@ -291,52 +291,7 @@
 
   function setComfort(opts) {
     opts = opts || {};
-    comfortOpts.grid = !!opts.grid;
     comfortOpts.vignette = Math.max(0, Math.min(1, opts.vignette || 0));
-  }
-
-  // Dim world-stable floor grid + cardinal horizon ticks (comfort reference).
-  function buildComfortGrid(cols, rows, cell) {
-    if (!gl || !gridVbo) return;
-    var verts = [];
-    var y = 0.04;
-    var w = cols * cell, d = rows * cell;
-    var step = cell;
-    var c, r, x, z;
-    for (c = 0; c <= cols; c++) {
-      x = c * step;
-      verts.push(x, y, 0, x, y, d);
-    }
-    for (r = 0; r <= rows; r++) {
-      z = r * step;
-      verts.push(0, y, z, w, y, z);
-    }
-    // Horizon ticks at mid-height around map bounds (cardinal + diagonals)
-    var hy = 1.55, cx = w * 0.5, cz = d * 0.5, rad = Math.max(w, d) * 0.55;
-    var tick = 0.55;
-    for (var i = 0; i < 8; i++) {
-      var ang = (i / 8) * Math.PI * 2;
-      var hx = cx + Math.cos(ang) * rad;
-      var hz = cz + Math.sin(ang) * rad;
-      verts.push(hx, hy - tick, hz, hx, hy + tick, hz);
-    }
-    gridCount = verts.length / 3;
-    gl.bindBuffer(gl.ARRAY_BUFFER, gridVbo);
-    gl.bufferData(gl.ARRAY_BUFFER, new Float32Array(verts), gl.STATIC_DRAW);
-  }
-
-  function drawComfortGrid(proj, view) {
-    if (!comfortOpts.grid || !gridProg || gridCount <= 0) return;
-    gl.useProgram(gridProg);
-    gl.uniformMatrix4fv(gridUnis.uProj, false, proj);
-    gl.uniformMatrix4fv(gridUnis.uView, false, view);
-    gl.uniform3f(gridUnis.uColor, 0.07, 0.20, 0.11);
-    gl.bindBuffer(gl.ARRAY_BUFFER, gridVbo);
-    gl.enableVertexAttribArray(gridAttrs.aPos);
-    gl.vertexAttribPointer(gridAttrs.aPos, 3, gl.FLOAT, false, 0, 0);
-    gl.disable(gl.BLEND);
-    gl.drawArrays(gl.LINES, 0, gridCount);
-    gl.disableVertexAttribArray(gridAttrs.aPos);
   }
 
   function drawComfortVignette() {
@@ -475,7 +430,6 @@
     gl.blendFunc(gl.ONE, gl.ONE);
 
     drawPoints(proj, view, now, quality.xrMaxPoints);
-    drawComfortGrid(proj, view);
 
     // pass 2: fbo -> screen (clean + optional comfort vignette / death flood)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -782,7 +736,6 @@
       // Circuit panel first so world laser points stay visible in front of it
       drawCircuitPanel(v.projection, v.view);
       drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
-      drawComfortGrid(v.projection, v.view);
       drawVRHud(v.projection, v.view);
       drawComfortVignette();
     }
@@ -801,7 +754,7 @@
     expirePointsNear: expirePointsNear,
     render: render, renderXR: renderXR,
     setVRHud: setVRHud, setWristModel: setWristModel, setCircuitPanel: setCircuitPanel,
-    setQuality: setQuality, setComfort: setComfort, buildComfortGrid: buildComfortGrid,
+    setQuality: setQuality, setComfort: setComfort,
     getContext: function () { return gl; },
     makeXRCompatible: makeXRCompatible
   };
