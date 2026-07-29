@@ -24,6 +24,7 @@
     navX: 0, navY: 0,
     aimOrigin: null, aimDirection: null,
     holdB: false,
+    holdUpload: false,
     wrist: null // left-controller grip pose in XR local space
   };
 
@@ -131,10 +132,11 @@
   }
 
   function interactRising(id, gp, isLeft) {
-    // Quest Touch: 4 = A/X for interact. B/Y (5) is reserved for hold actions (virus plant).
-    var press = rising(id + '-i4', pressed(gp, 4));
-    if (!isLeft) press = press || rising(id + '-i3', pressed(gp, 3)) || rising(id + '-i2', pressed(gp, 2));
-    return press;
+    // Right A (4) = interact / rotate. Left X (4) is reserved for virus hold-upload.
+    if (isLeft) return false;
+    return rising(id + '-i4', pressed(gp, 4)) ||
+      rising(id + '-i3', pressed(gp, 3)) ||
+      rising(id + '-i2', pressed(gp, 2));
   }
 
   function rising(key, value) {
@@ -169,6 +171,7 @@
     currentInput.tricklePressed = false;
     currentInput.sprint = false;
     currentInput.holdB = false;
+    currentInput.holdUpload = false;
     currentInput.navX = 0;
     currentInput.navY = 0;
     currentInput.aimOrigin = null;
@@ -187,6 +190,8 @@
       var axes = axesFor(gp);
       if (source.handedness === 'left') {
         leftSource = source;
+        // Left X (index 4) — continuous hold for virus plant
+        if (pressed(gp, 4)) currentInput.holdUpload = true;
         if (!panelLock) {
           currentInput.moveX = axes[0];
           currentInput.moveY = -axes[1];
@@ -194,8 +199,6 @@
         }
       } else if (source.handedness === 'right') {
         rightSource = source;
-        // Right B (index 5) — continuous hold for virus plant / confirm holds
-        if (pressed(gp, 5)) currentInput.holdB = true;
         if (panelLock) {
           // Right stick navigates circuit tiles / clone choice (latched)
           if (Math.abs(axes[0]) > 0.65 && !navLatchX) {

@@ -621,7 +621,7 @@
       ctx.fillText(active ? '⚠ UPLOADING VIRUS' : 'VIRUS PAYLOAD', w * 0.5, 78);
       ctx.font = '18px Consolas, monospace';
       ctx.fillStyle = 'rgba(255,200,160,0.85)';
-      ctx.fillText(active ? 'HOLD B — DO NOT RELEASE' : 'HOLD B AT CONSOLE TO UPLOAD', w * 0.5, 112);
+      ctx.fillText(active ? 'HOLD X — DO NOT RELEASE' : 'HOLD X AT CONSOLE TO UPLOAD', w * 0.5, 112);
 
       var ubx = 80, uby = 170, ubw = w - 160, ubh = 36;
       ctx.strokeStyle = 'rgba(255,120,60,0.95)';

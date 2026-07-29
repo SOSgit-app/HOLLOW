@@ -607,6 +607,7 @@
   var tutorialSecTimer = 0;
   var pendingTutorial = false;
   var pendingEasyRaid = false;
+  var pendingPostTutorial = false; // show offer after VR session fully ends
 
   var TUTORIAL_STEPS = [
     {
@@ -635,9 +636,9 @@
     },
     {
       title: 'UPLOAD THE VIRUS',
-      lines: ['Puzzle clear — return to the console.', 'Hold B to upload the virus.', 'Tripwire is armed at the entrance.'],
-      buttons: ['HOLD B — upload virus', 'RIGHT TRIGGER — scan console', 'STAY QUIET — no sprint if close'],
-      msg: 'TUTORIAL: HOLD B AT CONSOLE — UPLOAD VIRUS'
+      lines: ['Puzzle clear — return to the console.', 'Hold X to upload the virus.', 'Tripwire is armed at the entrance.'],
+      buttons: ['HOLD X — upload virus', 'RIGHT TRIGGER — scan console', 'STAY QUIET — no sprint if close'],
+      msg: 'TUTORIAL: HOLD X AT CONSOLE — UPLOAD VIRUS'
     },
     {
       title: 'TRIP THE YELLOW WIRE',
@@ -732,6 +733,18 @@
     }, buildCoachModel());
   }
 
+  function finishEndTutorial(success) {
+    M.loadLayout('mission');
+    if (success) {
+      state = 'POST_TUTORIAL';
+      showScreen('post-tutorial');
+      queueMsg('TUTORIAL COMPLETE — START EASY RAID?', 'amber', 8);
+    } else {
+      state = 'CONTROLS';
+      showScreen('controls');
+    }
+  }
+
   function endTutorial(success) {
     tutorialMode = false;
     pendingTutorial = false;
@@ -743,16 +756,13 @@
     if (A.sting) A.sting(false);
     if (A.chopperStop) A.chopperStop();
     document.exitPointerLock();
-    if (VR && VR.active()) VR.end();
-    M.loadLayout('mission');
-    if (success) {
-      state = 'POST_TUTORIAL';
-      showScreen('post-tutorial');
-      queueMsg('TUTORIAL COMPLETE — START EASY RAID?', 'amber', 8);
-    } else {
-      state = 'CONTROLS';
-      showScreen('controls');
+    // Immersive VR hides DOM — wait for session end before showing the offer
+    if (VR && VR.active()) {
+      pendingPostTutorial = !!success;
+      VR.end();
+      return;
     }
+    finishEndTutorial(!!success);
   }
 
   function startEasyRaid() {
@@ -1590,8 +1600,8 @@
         pushMsg('VIRUS ARMED — ASK MAP GUIDE FOR LZ', 'amber');
       } else {
         pushMsg(inVR()
-          ? 'HOLD B AT CONSOLE — WRISTLINK UPLOAD'
-          : 'HOLD E AT CONSOLE — UPLOAD VIRUS', 'amber');
+          ? 'HOLD X AT CONSOLE — WRISTLINK UPLOAD'
+          : 'HOLD X / E AT CONSOLE — UPLOAD VIRUS', 'amber');
       }
       return;
     }
@@ -1694,8 +1704,8 @@
     if (!atConsole) return;
     virusWristActive = true;
     var holding = vrInput
-      ? !!vrInput.holdB
-      : !!(keys['KeyE'] || keys['KeyB'] || keys['KeyV']);
+      ? !!vrInput.holdUpload
+      : !!(keys['KeyX'] || keys['KeyE']);
     if (!holding) return;
     virusHolding = true;
     virusProgress = Math.min(1, virusProgress + dt / VIRUS_DURATION_S);
@@ -2048,7 +2058,7 @@
       } else if (missionBranch === 'VIRUS' && !virusDone && near(M.markers.G.x, M.markers.G.z, hintRange + 0.5)) {
         hint = virusHolding
           ? ('UPLOADING VIRUS ' + Math.floor(virusProgress * 100) + '%')
-          : (inVR() ? 'HOLD B — UPLOAD VIRUS' : 'HOLD E — UPLOAD VIRUS');
+          : (inVR() ? 'HOLD X — UPLOAD VIRUS' : 'HOLD X / E — UPLOAD VIRUS');
       }
       if (inVR()) {
         var aim = vrAimPick();
@@ -2557,6 +2567,14 @@
       if (R.setWristModel) R.setWristModel(null);
       clearCoachPanel();
       if (NS.mic) NS.mic.stop();
+      // Tutorial LZ success — show Easy-raid offer now that DOM is visible again
+      if (pendingPostTutorial) {
+        var offer = pendingPostTutorial;
+        pendingPostTutorial = false;
+        finishEndTutorial(offer);
+        lastFrame = performance.now();
+        return;
+      }
       if (tutorialMode) {
         endTutorial(false);
         lastFrame = performance.now();
