@@ -589,14 +589,49 @@
   var tutorialSecTimer = 0;
   var pendingTutorial = false;
 
-  var TUTORIAL_MSGS = [
-    'TUTORIAL: WALK (WASD) · SPRINT (SHIFT / LEFT GRIP) · CROUCH (CTRL)',
-    'TUTORIAL: SCAN THE AMBER KEY · PRESS E / A TO PICK IT UP',
-    'TUTORIAL: USE THE KEY ON THE BLAST DOOR — ENTER THE CONSOLE ROOM',
-    'TUTORIAL: JACK INTO THE CONSOLE · SOLVE 1 CIRCUIT BOARD',
-    'TUTORIAL: YELLOW TRIPWIRE AT CONSOLE ENTRANCE — CROSS IT',
-    'TUTORIAL: SECURITY SPAWNED IN HARBOR — HOLD B/E · UPLOAD VIRUS',
-    'TUTORIAL: STAND ON THE YELLOW LZ — BOARD THE CHOPPER'
+  var TUTORIAL_STEPS = [
+    {
+      title: 'LEARN TO MOVE',
+      lines: ['Walk the green harbor.', 'Sprint, then crouch quietly.', 'Hold trigger to scan the dark.'],
+      buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan'],
+      msg: 'TUTORIAL: MOVE · SPRINT (GRIP) · SCAN (TRIGGER)'
+    },
+    {
+      title: 'PICK UP THE KEY',
+      lines: ['Leave the harbor into the next room.', 'Scan for the amber key orb.', 'Press A / X to pick it up.'],
+      buttons: ['RIGHT TRIGGER — scan', 'A / X — interact / pick up', 'LEFT STICK — move'],
+      msg: 'TUTORIAL: SCAN AMBER KEY · A/X TO PICK UP'
+    },
+    {
+      title: 'OPEN THE BLAST DOOR',
+      lines: ['Find the dark-blue blast door.', 'You need the key you just took.', 'Press A / X to unlock and open it.'],
+      buttons: ['A / X — open door', 'RIGHT TRIGGER — scan door', 'WALK THROUGH — enter console room'],
+      msg: 'TUTORIAL: A/X ON BLAST DOOR — ENTER CONSOLE ROOM'
+    },
+    {
+      title: 'JACK INTO THE CONSOLE',
+      lines: ['Stand at the amber console pyramid.', 'Press A / X to jack in.', 'Point laser + A/X to rotate tiles.'],
+      buttons: ['A / X — jack in / rotate tile', 'POINT CONTROLLER — aim laser', 'CLEAR 1 BOARD TO CONTINUE'],
+      msg: 'TUTORIAL: JACK IN · SOLVE 1 CIRCUIT BOARD'
+    },
+    {
+      title: 'TRIP THE YELLOW WIRE',
+      lines: ['A yellow tripwire armed at the entrance.', 'Walk through it on purpose.', 'Security will spawn in the harbor.'],
+      buttons: ['WALK THROUGH — yellow beam', 'RIGHT TRIGGER — scan beam', 'THEN RETURN FOR VIRUS'],
+      msg: 'TUTORIAL: CROSS YELLOW TRIPWIRE AT CONSOLE ENTRANCE'
+    },
+    {
+      title: 'UPLOAD THE VIRUS',
+      lines: ['Security is live — stay quiet.', 'Return to the console.', 'Hold B to upload the virus.'],
+      buttons: ['HOLD B — upload virus', 'RIGHT TRIGGER — scan console', 'CROUCH — quieter steps'],
+      msg: 'TUTORIAL: HOLD B AT CONSOLE — UPLOAD VIRUS'
+    },
+    {
+      title: 'BOARD THE LZ',
+      lines: ['Chopper is inbound.', 'Find the yellow floor pad south.', 'Stand on it when the bird arrives.'],
+      buttons: ['FOLLOW YELLOW FLOOR — LZ', 'STAND ON PAD — extract', 'A / X — board if prompted'],
+      msg: 'TUTORIAL: STAND ON YELLOW LZ — BOARD CHOPPER'
+    }
   ];
 
   function doorKeysNeeded(door) {
@@ -605,10 +640,58 @@
     return door.console ? 3 : 1;
   }
 
+  function clearCoachPanel() {
+    if (R.setCoachPanel) R.setCoachPanel(null, null);
+  }
+
+  function buildCoachModel() {
+    var yaw = player.yaw;
+    var sy = Math.sin(yaw), cy = Math.cos(yaw);
+    var dist = 1.45;
+    var px = player.x + sy * dist;
+    var py = player.eye + 0.18;
+    var pz = player.z - cy * dist;
+    var nx = -sy, ny = 0, nz = cy;
+    var right = math.vnorm(math.vcross([0, 1, 0], [nx, ny, nz]));
+    var up = math.vnorm(math.vcross([nx, ny, nz], right));
+    var sx = 1.05, sy2 = 0.66;
+    var m = new Float32Array(16);
+    m[0] = right[0] * sx; m[1] = right[1] * sx; m[2] = right[2] * sx; m[3] = 0;
+    m[4] = up[0] * sy2; m[5] = up[1] * sy2; m[6] = up[2] * sy2; m[7] = 0;
+    m[8] = nx; m[9] = ny; m[10] = nz; m[11] = 0;
+    m[12] = px; m[13] = py; m[14] = pz; m[15] = 1;
+    return m;
+  }
+
+  function syncCoachPanel() {
+    if (!R.setCoachPanel) return;
+    if (!tutorialMode || state !== 'PLAY' || !inVR()) {
+      clearCoachPanel();
+      return;
+    }
+    if (CIR && CIR.isActive()) {
+      clearCoachPanel();
+      return;
+    }
+    var step = TUTORIAL_STEPS[tutorialStation];
+    if (!step) {
+      clearCoachPanel();
+      return;
+    }
+    R.setCoachPanel({
+      title: step.title,
+      lines: step.lines,
+      buttons: step.buttons,
+      step: tutorialStation + 1,
+      total: TUTORIAL_STEPS.length
+    }, buildCoachModel());
+  }
+
   function endTutorial(success) {
     tutorialMode = false;
     pendingTutorial = false;
     runActive = false;
+    clearCoachPanel();
     if (CIR) CIR.close();
     if (R.setCircuitPanel) R.setCircuitPanel(null, null);
     if (A.sting) A.sting(false);
@@ -623,11 +706,13 @@
 
   function advanceTutorial(next) {
     tutorialStation = next;
-    if (tutorialStation >= 7) {
+    if (tutorialStation >= TUTORIAL_STEPS.length) {
       endTutorial(true);
       return;
     }
-    queueMsg(TUTORIAL_MSGS[tutorialStation], 'amber', 6);
+    var step = TUTORIAL_STEPS[tutorialStation];
+    queueMsg(step.msg || step.title, 'amber', 7);
+    syncCoachPanel();
   }
 
   function updateTutorial(dt) {
@@ -719,7 +804,9 @@
     tutorialStation = 0;
     applyComfort();
     if (tutorialMode) {
-      queueMsg(TUTORIAL_MSGS[0], 'amber', 6);
+      var s0 = TUTORIAL_STEPS[0];
+      queueMsg(s0.msg || s0.title, 'amber', 7);
+      syncCoachPanel();
     } else {
       queueMsg('RD-9 RAID OVERLAY ACTIVE. BLACKOUT WINDOW: 10:00.', '');
     }
@@ -1947,6 +2034,9 @@
       vrHudHint = hint;
       if (hint) { el.eventline.textContent = hint; el.eventline.className = ''; }
       else if (!msgQueue.length) el.eventline.textContent = '';
+    } else if (tutorialMode && TUTORIAL_STEPS[tutorialStation]) {
+      var ts = TUTORIAL_STEPS[tutorialStation];
+      vrHudHint = 'STEP ' + (tutorialStation + 1) + '/' + TUTORIAL_STEPS.length + ' · ' + ts.title;
     } else if (curMsg) {
       vrHudHint = curMsg.text || '';
     } else {
@@ -2254,6 +2344,7 @@
         }
         CIR.update(dt);
         if (inVR()) syncCircuitPanel();
+        clearCoachPanel();
         updateExfil(dt);
         updateMsg(dt);
         updateHUD(dt);
@@ -2304,6 +2395,7 @@
         updateItems(dt);
         updateExfil(dt);
         updateTutorial(dt);
+        syncCoachPanel();
         if (NS.mic && !tutorialMode) NS.mic.tick(dt, state === 'PLAY', function (loud) { emitNoise(loud); });
         // No security until tutorial tripwire fires
         if (!(tutorialMode && !tutorialTripHit)) {
@@ -2382,6 +2474,7 @@
       clonePhase = 'NONE';
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
       if (R.setWristModel) R.setWristModel(null);
+      clearCoachPanel();
       if (NS.mic) NS.mic.stop();
       if (tutorialMode) {
         endTutorial(false);

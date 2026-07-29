@@ -168,6 +168,10 @@
   var circuitSrc = null;
   var circuitTex = null;
   var circuitDirty = true;
+  var coachCanvas = null, coachCtx = null, coachTex = null;
+  var coachModel = null;
+  var coachDirty = true;
+  var coachState = { title: '', lines: [], buttons: [], step: 0, total: 0 };
 
   function init(cnv) {
     canvas = cnv;
@@ -244,6 +248,18 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 640, 400, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
+
+    coachCanvas = document.createElement('canvas');
+    coachCanvas.width = 768;
+    coachCanvas.height = 480;
+    coachCtx = coachCanvas.getContext('2d');
+    coachTex = gl.createTexture();
+    gl.bindTexture(gl.TEXTURE_2D, coachTex);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 768, 480, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
     circuitTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, circuitTex);
@@ -677,6 +693,86 @@
     circuitDirty = true;
   }
 
+  function paintCoach() {
+    if (!coachCtx) return;
+    var ctx = coachCtx;
+    var w = coachCanvas.width, h = coachCanvas.height;
+    ctx.clearRect(0, 0, w, h);
+
+    ctx.fillStyle = 'rgba(4, 12, 8, 0.94)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = 'rgba(255,179,71,0.92)';
+    ctx.lineWidth = 8;
+    ctx.strokeRect(10, 10, w - 20, h - 20);
+    ctx.strokeStyle = 'rgba(124,255,155,0.35)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(22, 22, w - 44, h - 44);
+
+    ctx.textAlign = 'left';
+    ctx.textBaseline = 'middle';
+    ctx.fillStyle = 'rgba(255,179,71,0.95)';
+    ctx.font = 'bold 26px Consolas, monospace';
+    var stepLabel = (coachState.step && coachState.total)
+      ? ('STEP ' + coachState.step + ' / ' + coachState.total)
+      : 'TUTORIAL';
+    ctx.fillText(stepLabel, 44, 52);
+
+    ctx.fillStyle = 'rgba(124,255,155,0.98)';
+    ctx.font = 'bold 40px Consolas, monospace';
+    ctx.fillText((coachState.title || '').slice(0, 28), 44, 108);
+
+    ctx.fillStyle = 'rgba(210,255,220,0.92)';
+    ctx.font = '26px Consolas, monospace';
+    var lines = coachState.lines || [];
+    var y = 168;
+    for (var i = 0; i < lines.length && i < 4; i++) {
+      ctx.fillText(String(lines[i] || '').slice(0, 42), 44, y);
+      y += 36;
+    }
+
+    ctx.fillStyle = 'rgba(255,179,71,0.12)';
+    ctx.fillRect(36, h - 168, w - 72, 132);
+    ctx.strokeStyle = 'rgba(255,179,71,0.55)';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(36, h - 168, w - 72, 132);
+
+    ctx.fillStyle = 'rgba(255,179,71,0.95)';
+    ctx.font = 'bold 22px Consolas, monospace';
+    ctx.fillText('CONTROLS', 52, h - 138);
+
+    ctx.fillStyle = 'rgba(255,220,160,0.95)';
+    ctx.font = '22px Consolas, monospace';
+    var buttons = coachState.buttons || [];
+    var by = h - 104;
+    for (var b = 0; b < buttons.length && b < 3; b++) {
+      ctx.fillText('· ' + String(buttons[b] || '').slice(0, 40), 52, by);
+      by += 30;
+    }
+    coachDirty = false;
+  }
+
+  function setCoachPanel(state, model) {
+    if (!state) {
+      coachModel = null;
+      return;
+    }
+    coachState = {
+      title: state.title || '',
+      lines: state.lines || [],
+      buttons: state.buttons || [],
+      step: state.step || 0,
+      total: state.total || 0
+    };
+    coachModel = model || null;
+    coachDirty = true;
+  }
+
+  function drawCoachPanel(proj, view) {
+    if (!coachModel || !coachTex || !coachCanvas) return;
+    if (coachDirty) paintCoach();
+    drawTexturedQuad(proj, view, coachModel, coachTex, coachCanvas, true);
+  }
+
   function drawTexturedQuad(proj, view, model, tex, srcCanvas, forceUpload) {
     if (!hudProg || !tex || !model || !srcCanvas) return;
     if (forceUpload) {
@@ -733,7 +829,8 @@
     for (var i = 0; i < views.length; i++) {
       var v = views[i];
       gl.viewport(v.viewport.x, v.viewport.y, v.viewport.width, v.viewport.height);
-      // Circuit panel first so world laser points stay visible in front of it
+      // Coach behind circuit so jack-in stays readable
+      drawCoachPanel(v.projection, v.view);
       drawCircuitPanel(v.projection, v.view);
       drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
       drawVRHud(v.projection, v.view);
@@ -754,6 +851,7 @@
     expirePointsNear: expirePointsNear,
     render: render, renderXR: renderXR,
     setVRHud: setVRHud, setWristModel: setWristModel, setCircuitPanel: setCircuitPanel,
+    setCoachPanel: setCoachPanel,
     setQuality: setQuality, setComfort: setComfort,
     getContext: function () { return gl; },
     makeXRCompatible: makeXRCompatible
