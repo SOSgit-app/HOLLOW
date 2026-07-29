@@ -258,6 +258,7 @@
     el.cloneIntel = $('clone-intel');
     el.btnRescue = $('btn-rescue');
     el.btnVirus = $('btn-virus');
+    el.postTutorial = $('post-tutorial-screen');
 
     R.init(el.canvas);
     VR.init($('enter-vr'));
@@ -305,6 +306,7 @@
           }
         }
         else if (state === 'CONTROLS') { startDesktop(); }
+        else if (state === 'POST_TUTORIAL') { startEasyRaid(); }
         else if (state === 'DEAD' || state === 'LEFT') { showScreen('controls'); state = 'CONTROLS'; }
         else if (state === 'WIN') { state = 'BOOT'; startBootType(); }
         else if (clonePhase === 'CHOICE' && !inVR()) {
@@ -367,6 +369,21 @@
       btnTutorial.addEventListener('click', function (e) {
         e.stopPropagation();
         startTutorial();
+      });
+    }
+    var btnStartEasy = $('btn-start-easy');
+    if (btnStartEasy) {
+      btnStartEasy.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (state === 'POST_TUTORIAL') startEasyRaid();
+      });
+    }
+    var btnPostTutMenu = $('btn-post-tut-menu');
+    if (btnPostTutMenu) {
+      btnPostTutMenu.addEventListener('click', function (e) {
+        e.stopPropagation();
+        state = 'CONTROLS';
+        showScreen('controls');
       });
     }
 
@@ -534,7 +551,7 @@
   var settingsReturn = 'controls';
 
   function showScreen(name) {
-    [el.boot, el.controls, el.settings, el.death, el.win, el.clone].forEach(function (s) {
+    [el.boot, el.controls, el.settings, el.death, el.win, el.clone, el.postTutorial].forEach(function (s) {
       if (s) s.classList.remove('visible');
     });
     el.hud.style.display = (name === null) ? 'block' : 'none';
@@ -544,6 +561,7 @@
     if (name === 'death') el.death.classList.add('visible');
     if (name === 'win') el.win.classList.add('visible');
     if (name === 'clone' && el.clone) el.clone.classList.add('visible');
+    if (name === 'post-tutorial' && el.postTutorial) el.postTutorial.classList.add('visible');
   }
 
   // ------------------------------------------------------------------
@@ -583,16 +601,17 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 tripwire, 5 virus, 6 exfil
+  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 virus, 5 tripwire, 6 exfil
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
   var pendingTutorial = false;
+  var pendingEasyRaid = false;
 
   var TUTORIAL_STEPS = [
     {
       title: 'LEARN TO MOVE',
-      lines: ['Walk the green harbor.', 'Sprint, then crouch quietly.', 'Hold trigger to scan the dark.'],
+      lines: ['Walk the green harbor.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.'],
       buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan'],
       msg: 'TUTORIAL: MOVE · SPRINT (GRIP) · SCAN (TRIGGER)'
     },
@@ -615,16 +634,16 @@
       msg: 'TUTORIAL: JACK IN · SOLVE 1 CIRCUIT BOARD'
     },
     {
-      title: 'TRIP THE YELLOW WIRE',
-      lines: ['A yellow tripwire armed at the entrance.', 'Walk through it on purpose.', 'Security will spawn in the harbor.'],
-      buttons: ['WALK THROUGH — yellow beam', 'RIGHT TRIGGER — scan beam', 'THEN RETURN FOR VIRUS'],
-      msg: 'TUTORIAL: CROSS YELLOW TRIPWIRE AT CONSOLE ENTRANCE'
+      title: 'UPLOAD THE VIRUS',
+      lines: ['Puzzle clear — return to the console.', 'Hold B to upload the virus.', 'Tripwire is armed at the entrance.'],
+      buttons: ['HOLD B — upload virus', 'RIGHT TRIGGER — scan console', 'STAY QUIET — no sprint if close'],
+      msg: 'TUTORIAL: HOLD B AT CONSOLE — UPLOAD VIRUS'
     },
     {
-      title: 'UPLOAD THE VIRUS',
-      lines: ['Security is live — stay quiet.', 'Return to the console.', 'Hold B to upload the virus.'],
-      buttons: ['HOLD B — upload virus', 'RIGHT TRIGGER — scan console', 'CROUCH — quieter steps'],
-      msg: 'TUTORIAL: HOLD B AT CONSOLE — UPLOAD VIRUS'
+      title: 'TRIP THE YELLOW WIRE',
+      lines: ['Cross the yellow tripwire on purpose.', 'Security will spawn in the harbor.', 'Then head for the yellow LZ.'],
+      buttons: ['WALK THROUGH — yellow beam', 'RIGHT TRIGGER — scan beam', 'LEFT GRIP — sprint if needed'],
+      msg: 'TUTORIAL: CROSS YELLOW TRIPWIRE — SECURITY SPAWNS'
     },
     {
       title: 'BOARD THE LZ',
@@ -646,6 +665,8 @@
 
   var lastVrBodyYaw = 0;
   var coachAnchor = null; // world-locked panel pose
+  var coachReanchorAt = 0;
+  var COACH_REANCHOR_S = 10;
 
   function panelYaw() {
     return inVR() ? lastVrBodyYaw : player.yaw;
@@ -664,13 +685,14 @@
       px: player.x,
       pz: player.z
     };
+    coachReanchorAt = now + COACH_REANCHOR_S;
   }
 
   function buildCoachModel() {
     if (!coachAnchor || coachAnchor.station !== tutorialStation) placeCoachAnchor();
-    // Re-anchor if player walked away from where it was placed
+    // Reappear at the player every 10s (and if they walk far away)
     var adx = player.x - coachAnchor.px, adz = player.z - coachAnchor.pz;
-    if (adx * adx + adz * adz > 3.5 * 3.5) placeCoachAnchor();
+    if (now >= coachReanchorAt || adx * adx + adz * adz > 3.5 * 3.5) placeCoachAnchor();
 
     var yaw = coachAnchor.yaw;
     var sy = Math.sin(yaw), cy = Math.cos(yaw);
@@ -715,6 +737,7 @@
     pendingTutorial = false;
     runActive = false;
     clearCoachPanel();
+    coachAnchor = null;
     if (CIR) CIR.close();
     if (R.setCircuitPanel) R.setCircuitPanel(null, null);
     if (A.sting) A.sting(false);
@@ -722,9 +745,34 @@
     document.exitPointerLock();
     if (VR && VR.active()) VR.end();
     M.loadLayout('mission');
-    state = 'CONTROLS';
-    showScreen('controls');
-    if (success) queueMsg('TUTORIAL COMPLETE — START THE RAID WHEN READY', 'amber', 5);
+    if (success) {
+      state = 'POST_TUTORIAL';
+      showScreen('post-tutorial');
+      queueMsg('TUTORIAL COMPLETE — START EASY RAID?', 'amber', 8);
+    } else {
+      state = 'CONTROLS';
+      showScreen('controls');
+    }
+  }
+
+  function startEasyRaid() {
+    applyDifficulty('easy');
+    pendingTutorial = false;
+    tutorialMode = false;
+    pendingEasyRaid = true;
+    A.ensure();
+    A.startAmbient();
+    if (VR && VR.enter && VR.supported && VR.supported()) {
+      VR.enter().then(function (ok) {
+        if (!ok) {
+          pendingEasyRaid = false;
+          startDesktop();
+        }
+      });
+      return;
+    }
+    pendingEasyRaid = false;
+    startDesktop();
   }
 
   function advanceTutorial(next) {
@@ -749,12 +797,12 @@
       var d1 = M.markers.doors[0];
       if (d1 && !d1.locked) advanceTutorial(3);
     } else if (tutorialStation === 4) {
-      if (tutorialTripHit) advanceTutorial(5);
-    } else if (tutorialStation === 5) {
       if (virusDone) {
-        advanceTutorial(6);
+        advanceTutorial(5);
         startExfil();
       }
+    } else if (tutorialStation === 5) {
+      if (tutorialTripHit) advanceTutorial(6);
     }
   }
 
@@ -783,11 +831,13 @@
     if (pendingTutorial || tutorialMode) {
       tutorialMode = true;
       pendingTutorial = false;
+      pendingEasyRaid = false;
       M.loadLayout('tutorial');
       EN.reset('tutorial');
       if (EN.setSuppressed) EN.setSuppressed(true);
     } else {
       tutorialMode = false;
+      pendingEasyRaid = false;
       M.loadLayout('mission');
       EN.reset(currentDifficulty);
       if (NS.mic && NS.mic.setProfile) {
@@ -1187,7 +1237,7 @@
     if (tutorialMode) {
       if (CIR) CIR.close();
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-      // Arm entrance tripwire only — security spawns when it trips
+      // Arm tripwire + unlock virus path — virus is next (not gated on the wire)
       uplinkDone = true;
       missionBranch = 'VIRUS';
       virusProgress = 0;
@@ -1196,7 +1246,7 @@
       virusWristActive = false;
       tutorialTripHit = false;
       armTutorialTripwire();
-      queueMsg('TRIPWIRE ARMED — CONSOLE ENTRANCE HALLWAY', 'amber', 4);
+      queueMsg('CIRCUIT CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
       advanceTutorial(4);
       return;
     }
@@ -1228,7 +1278,7 @@
       virusDone = false;
       tutorialTripHit = false;
       armTutorialTripwire();
-      queueMsg('TRIPWIRE ARMED — CONSOLE ENTRANCE HALLWAY', 'amber', 4);
+      queueMsg('CIRCUIT CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
       advanceTutorial(4);
       return;
     }
@@ -1640,8 +1690,6 @@
     virusHolding = false;
     virusWristActive = false;
     if (missionBranch !== 'VIRUS' || virusDone) return;
-    // Tutorial: finish tripwire station before virus upload
-    if (tutorialMode && !tutorialTripHit) return;
     var atConsole = near(M.markers.G.x, M.markers.G.z, interactRange() + 0.8);
     if (!atConsole) return;
     virusWristActive = true;
@@ -2486,6 +2534,12 @@
     clearTutorialPending: function () { pendingTutorial = false; },
     onVRStart: function () {
       if (A.stopAllTransient) A.stopAllTransient();
+      // Easy raid after tutorial — clear pendingEasyRaid into a normal mission start
+      if (pendingEasyRaid) {
+        pendingEasyRaid = false;
+        pendingTutorial = false;
+        tutorialMode = false;
+      }
       if (!runActive) startRun();
       state = 'PLAY';
       showScreen(null);
