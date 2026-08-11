@@ -70,13 +70,39 @@
   }
 
   var currentDifficulty = 'medium';
-  var DIFF_DESC = {
-    easy: '2 security units · slower patrol · quieter player noise · headset mic OFF',
-    medium: '3 security units · normal patrol/chase · headset mic ON (forgiving)',
-    hard: '4 security units · faster chase · headset mic ON (sensitive to voice)'
+  var DIFF_INFO = {
+    easy: {
+      label: 'EASY',
+      points: [
+        '<b>2</b> security units on the map',
+        'Patrols move <b>slower</b>',
+        'Your footsteps / noise register quieter',
+        'Headset mic is <b>OFF</b> — talking will not alert security'
+      ]
+    },
+    medium: {
+      label: 'MEDIUM',
+      points: [
+        '<b>3</b> security units on the map',
+        'Normal patrol and chase speed',
+        'Headset mic is <b>ON</b> but forgiving',
+        'Quiet talk is safer; loud speech can draw attention'
+      ]
+    },
+    hard: {
+      label: 'HARD',
+      points: [
+        '<b>4</b> security units on the map',
+        'Chase speed is <b>faster</b>',
+        'Headset mic is <b>ON</b> and sensitive',
+        'Voice near the mic raises your signature quickly'
+      ]
+    }
   };
   function applyDifficulty(diff) {
-    currentDifficulty = diff || 'medium';
+    var next = diff || 'medium';
+    var changed = next !== currentDifficulty;
+    currentDifficulty = next;
     try { localStorage.setItem('hollow_difficulty', currentDifficulty); } catch (e) { void e; }
     if (NS.mic && NS.mic.setProfile) {
       if (currentDifficulty === 'easy') NS.mic.setProfile('off');
@@ -89,8 +115,20 @@
       if (b.getAttribute('data-diff') === currentDifficulty) b.classList.add('active');
       else b.classList.remove('active');
     }
-    var desc = $('diff-desc');
-    if (desc) desc.textContent = DIFF_DESC[currentDifficulty] || DIFF_DESC.medium;
+    var info = DIFF_INFO[currentDifficulty] || DIFF_INFO.medium;
+    var label = $('diff-label');
+    var points = $('diff-points');
+    var panel = $('diff-panel');
+    if (label) label.textContent = info.label;
+    if (points) {
+      points.innerHTML = info.points.map(function (p) { return '<li>' + p + '</li>'; }).join('');
+    }
+    if (panel && changed) {
+      panel.classList.remove('flash');
+      // reflow so the animation can replay on each press
+      void panel.offsetWidth;
+      panel.classList.add('flash');
+    }
   }
 
   // ---- palette (GDD §3.2) — wall tones kept mid so additive LiDAR does not blow out ----
