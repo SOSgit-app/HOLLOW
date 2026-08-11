@@ -70,6 +70,11 @@
   }
 
   var currentDifficulty = 'medium';
+  var DIFF_DESC = {
+    easy: '2 security units · slower patrol · quieter player noise · headset mic OFF',
+    medium: '3 security units · normal patrol/chase · headset mic ON (forgiving)',
+    hard: '4 security units · faster chase · headset mic ON (sensitive to voice)'
+  };
   function applyDifficulty(diff) {
     currentDifficulty = diff || 'medium';
     try { localStorage.setItem('hollow_difficulty', currentDifficulty); } catch (e) { void e; }
@@ -84,6 +89,8 @@
       if (b.getAttribute('data-diff') === currentDifficulty) b.classList.add('active');
       else b.classList.remove('active');
     }
+    var desc = $('diff-desc');
+    if (desc) desc.textContent = DIFF_DESC[currentDifficulty] || DIFF_DESC.medium;
   }
 
   // ---- palette (GDD §3.2) — wall tones kept mid so additive LiDAR does not blow out ----
