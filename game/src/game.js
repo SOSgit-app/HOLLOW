@@ -162,25 +162,6 @@
   var POW_STOP_DIST = 1.25;
   var POW_RADIUS = 0.4;
 
-  var BOOT_LINES = [
-    "RD-9 RANGING PACKAGE — CYBER INFILTRATION LOADOUT",
-    "BUILD 0.9.3 / BLACKOUT OPERATIONS OVERLAY",
-    "",
-    "SELF TEST ............. OK",
-    "LiDAR GOGGLES ......... OK",
-    "MOTION TRACKER ........ OK",
-    "COMMS BAFFLE .......... DEGRADED",
-    "",
-    "SITUATION: HOSTILE SITE HOUSES A HIGH-RISK AI MODEL.",
-    "PRE-RAID EMP HAS CUT POWER. FACILITY IS DARK.",
-    "",
-    "MISSION: INFILTRATE. REACH THE AI CORE. CLONE THE MODEL.",
-    "         EXFIL BEFORE POWER RETURNS (10:00 BLACKOUT WINDOW).",
-    "",
-    "TOOLS: LiDAR MAPS THE DARK. WRIST RADAR TRACKS SECURITY.",
-    "EMCON: MINIMIZE EMISSIONS. THEY HEAR WHAT YOU LIGHT."
-  ];
-
   var WIN_LINES_RESCUE = [
     "UPLINK CONFIRMED. MODEL CLONE RECEIVED.",
     "POW EXTRACTED VIA LZ. CHOPPER AWAY.",
@@ -293,7 +274,7 @@
     el.staFill = $('sta-fill');
     el.vcrClock = $('vcr-clock');
     el.eventline = $('eventline');
-    el.boot = $('boot-screen'); el.bootText = $('boot-text'); el.bootCont = $('boot-continue');
+    el.boot = $('boot-screen'); el.bootCont = $('boot-continue');
     el.controls = $('controls-screen');
     el.settings = $('settings-screen');
     el.death = $('death-screen'); el.epitaph = $('death-epitaph');
@@ -343,6 +324,7 @@
   function bindInput() {
     window.addEventListener('keydown', function (e) {
       keys[e.code] = true;
+      if (state === 'BOOT' && NS.intro && NS.intro.finish()) return; // any key skips the intro
       if (e.code === 'Enter') {
         if (state === 'BOOT') { finishBoot(); }
         else if (state === 'SETTINGS') {
@@ -438,6 +420,7 @@
     // Boot screen: ignore option controls; CONTINUE / Enter advances
     el.boot.addEventListener('click', function (e) {
       if (isMenuControl(e.target)) return;
+      if (state === 'BOOT' && NS.intro) NS.intro.finish();
     });
     var btnBoot = $('btn-boot-continue');
     if (btnBoot) {
@@ -615,32 +598,28 @@
   // ------------------------------------------------------------------
   // boot / screens
   // ------------------------------------------------------------------
-  var bootInterval = null;
+  var introSeen = false;
   function startBootType() {
     state = 'BOOT';
     showScreen('boot');
     el.bootCont.style.display = 'none';
-    el.bootText.textContent = '';
-    var li = 0, ci = 0;
-    clearInterval(bootInterval);
-    bootInterval = setInterval(function () {
-      if (li >= BOOT_LINES.length) { finishBoot(); return; }
-      var line = BOOT_LINES[li];
-      if (ci <= line.length) {
-        el.bootText.textContent =
-          BOOT_LINES.slice(0, li).join('\n') + (li ? '\n' : '') + line.slice(0, ci);
-        ci += 2;
-        if (A && Math.random() < 0.3) A.teletype();
-      } else { li++; ci = 0; }
-    }, 16);
+    if (!NS.intro) { revealBootMenu(); return; }
+    NS.intro.play({
+      host: el.boot,
+      skipCards: introSeen, // the title cards are a first-launch thing only
+      blip: function () { if (A) A.teletype(); },
+      onDone: revealBootMenu
+    });
+  }
+  function revealBootMenu() {
+    introSeen = true;
+    el.bootCont.style.display = 'block';
   }
   function finishBoot() {
-    clearInterval(bootInterval);
-    el.bootText.textContent = BOOT_LINES.join('\n');
-    if (el.bootCont.style.display === 'none') {
-      el.bootCont.style.display = 'block';
-      return;
-    }
+    // First press cuts the intro short; the next one leaves the boot screen.
+    if (NS.intro && NS.intro.finish()) return;
+    if (el.bootCont.style.display === 'none') { revealBootMenu(); return; }
+    if (NS.intro) NS.intro.stop();
     state = 'CONTROLS';
     showScreen('controls');
   }

@@ -151,6 +151,11 @@
     .screen h1{ font-size:26px; letter-spacing:.28em; }
     .opt-row label{ display:inline-block; margin:4px 8px; }
   }
+  /* boot menu rides above the intro code-rain canvas */
+  #boot-screen .screen-inner{ position:relative; z-index:1; }
+  #boot-continue{ animation:boot-in .5s ease-out both; }
+  @keyframes boot-in{ from{ opacity:0; transform:translateY(10px); } to{ opacity:1; transform:none; } }
+
   #death-screen h1{ color:var(--red); text-shadow:0 0 18px rgba(255,68,68,.9); }
   #death-epitaph{ color:var(--ph-dim); margin:18px 0 26px; }
 
@@ -202,7 +207,6 @@
 
 <div class="screen visible" id="boot-screen">
   <div class="screen-inner">
-    <pre id="boot-text"></pre>
     <div id="boot-continue" style="display:none">
       <h1>HOLLOW</h1>
       <div class="sub">CYBER INFILTRATION — RD-9 LiDAR / MOTION TRACKER<br>
@@ -339,6 +343,7 @@
 <script src="src/enemy.js?v=100"></script>
 <script src="src/circuit.js?v=100"></script>
 <script src="src/vr.js?v=100"></script>
+<script src="src/intro.js?v=100"></script>
 <script src="src/game.js?v=100"></script>
 </body>
 </html>
