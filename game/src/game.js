@@ -2,7 +2,7 @@
 (function (NS) {
   'use strict';
 
-  var M, R, A, EN, VR, math;
+  var M, R, A, EN, VR, math, MK;
 
   // ---- tuning constants (GDD §3) ----
   var EYE_STAND = 1.85, EYE_CROUCH = 1.15;
@@ -14,6 +14,8 @@
   var TRICKLE_RAYS = 220, TRICKLE_CONE = 14 * Math.PI / 180;
   var POINT_LIFE = 90, ENEMY_POINT_LIFE = 2.5;
   var SCAN_RANGE = 60;
+  var MARK_SPRAY = 6;   // max stencil pixels lit per ray that lands on a wall code
+  var markPt = [0, 0, 0];
   var INTERACT_RANGE = 2.4;
   var INTERACT_RANGE_VR = 4.2;
   var VR_AIM_MAX = 5.5;
@@ -281,7 +283,7 @@
 
   function init() {
     M = NS.map; R = NS.render; A = NS.audio; EN = NS.enemy; VR = NS.vr; math = NS.math;
-    CIR = NS.circuit;
+    CIR = NS.circuit; MK = NS.marks;
 
     el.canvas = $('glcanvas');
     el.hud = $('hud');
@@ -658,7 +660,8 @@
   var TUTORIAL_STEPS = [
     {
       title: 'LEARN TO MOVE',
-      lines: ['Walk the green harbor.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.'],
+      lines: ['Walk the green harbor.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.',
+              'Blue wall codes = say where you are.'],
       buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan'],
       msg: 'TUTORIAL: MOVE · SPRINT (GRIP) · SCAN (TRIGGER)'
     },
@@ -1507,6 +1510,25 @@
     }
 
     if (color === null || bestT > SCAN_RANGE) return;
+
+    // Wall code stencils: a ray landing anywhere on the plate sprays a few of
+    // the glyph's lit pixels, so a code resolves after a short sweep instead
+    // of waiting for rays to happen to land on the strokes themselves.
+    if (hit && hit.type === 'wall' && bestT === hit.t) {
+      var mk = M.wallMarkFor(hit.openC, hit.openR, hit.wallC, hit.wallR);
+      if (mk && MK.locate(mk, mk.axis === 'X' ? hit.z : hit.x, hit.y)) {
+        var ink = MK.inkPixels(mk.code);
+        // far plates catch few rays, so sample them harder to keep them legible
+        var spray = Math.min(MARK_SPRAY, 1 + (bestT / 7) | 0);
+        for (var s = 0; s < spray; s++) {
+          var p = ink[(math.rand() * ink.length) | 0];
+          MK.pixelWorld(mk, p[0], p[1], markPt);
+          R.addPoint(markPt[0], markPt[1], markPt[2],
+                     MK.color[0], MK.color[1], MK.color[2], now, POINT_LIFE);
+        }
+      }
+    }
+
     var j = 0.02; // sensor jitter (GDD §8.2)
     R.addPoint(
       ox + dx * bestT + (math.rand() - 0.5) * j,

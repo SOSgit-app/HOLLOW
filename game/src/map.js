@@ -76,6 +76,16 @@
   var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], doors: [] };
   var doorSolid = {}; // key "c,r" -> true while locked
 
+  // Stencilled wall codes ("B4", "K2", ...) painted on wall faces so the
+  // Operator can read a location aloud and the Director can find it on the
+  // printed map. See buildWallMarks().
+  var wallMarks = [];
+  var wallMarkByCell = [];  // openR * COLS + openC -> mark (at most one per cell)
+  var MARK_SPACING = 6;     // cells between marks along a wall run
+  var MARK_PX = 0.09;       // stencil pixel size, metres
+  var MARK_H = MARK_PX * 7; // stencil height, metres (glyphs are 5x7)
+  var MARK_Y = 1.55;        // stencil centre height, metres
+
   function doorKey(c, r) { return c + ',' + r; }
 
   function setDoorSolid(c, r, locked) {
@@ -182,6 +192,8 @@
 
     placeLzPad();
 
+    buildWallMarks();
+
     doorSolid = {};
     markers.doors.forEach(function (d) {
       if (!grid[d.r] || grid[d.r][d.c]) {
@@ -202,6 +214,76 @@
       markers.safes.push({ x: (c + 0.5) * CELL, z: (r + 0.5) * CELL, c: c, r: r });
     }
   }
+
+  // ---------------------------------------------------------------
+  // Wall codes. Every open cell that backs onto a wall is a candidate face;
+  // we keep one every MARK_SPACING cells along the run so a sweep of any
+  // corridor turns up a code. The letter is a coarse zone (6x4 blocks over
+  // the map), the digit counts marks inside that zone, top-left to
+  // bottom-right — so "K3" narrows to a block before you even read the map.
+  // ---------------------------------------------------------------
+  var ZONE_LETTERS = 'ABCDEFGHJKLMNPQRSTUVWXYZ'; // no I/O: unreadable stencilled
+
+  function buildWallMarks() {
+    wallMarks = [];
+    wallMarkByCell = new Array(ROWS * COLS);
+    var zCols = Math.max(1, Math.round(COLS / 8));
+    var zRows = Math.max(1, Math.round(ROWS / 9));
+    if (zCols * zRows > ZONE_LETTERS.length) zCols = Math.max(1, Math.floor(ZONE_LETTERS.length / zRows));
+    var zw = COLS / zCols, zh = ROWS / zRows;
+    var counts = {};
+    // dc/dr point at the wall; along tells which axis the wall face runs on.
+    var DIRS = [
+      { dc: 0, dr: -1, axis: 'Z' }, { dc: 0, dr: 1, axis: 'Z' },
+      { dc: -1, dr: 0, axis: 'X' }, { dc: 1, dr: 0, axis: 'X' }
+    ];
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        if (grid[r][c]) continue;
+        for (var d = 0; d < DIRS.length; d++) {
+          var dir = DIRS[d];
+          var wc = c + dir.dc, wr = r + dir.dr;
+          if (wc < 0 || wr < 0 || wc >= COLS || wr >= ROWS) continue;
+          if (!grid[wr][wc]) continue;
+          // space marks out along the wall's own axis
+          if ((dir.axis === 'X' ? r : c) % MARK_SPACING !== 0) continue;
+          var zi = Math.min(zRows - 1, Math.floor(r / zh)) * zCols
+                 + Math.min(zCols - 1, Math.floor(c / zw));
+          var letter = ZONE_LETTERS[zi % ZONE_LETTERS.length];
+          counts[letter] = (counts[letter] || 0) + 1;
+          var code = letter + counts[letter];
+          // plane = shared cell boundary; along = centre of the open cell
+          var plane = (dir.axis === 'X' ? (dir.dc > 0 ? wc : c) : (dir.dr > 0 ? wr : r)) * CELL;
+          var along = (dir.axis === 'X' ? r + 0.5 : c + 0.5) * CELL;
+          var mark = {
+            code: code, zone: letter, axis: dir.axis,
+            c: c, r: r, wc: wc, wr: wr,
+            plane: plane, along: along,
+            x: dir.axis === 'X' ? plane : along,
+            z: dir.axis === 'X' ? along : plane,
+            y: MARK_Y,
+            faceC: dir.dc, faceR: dir.dr,
+            // text reads left-to-right for someone standing in the open cell
+            flip: dir.axis === 'X' ? dir.dc < 0 : dir.dr > 0,
+            w: (code.length * 6 - 1) * MARK_PX, h: MARK_H
+          };
+          wallMarks.push(mark);
+          wallMarkByCell[r * COLS + c] = mark;
+          break; // one code per cell keeps the printed map readable
+        }
+      }
+    }
+  }
+
+  // Look up the code painted on the face between an open cell and a wall cell.
+  // Called once per scan ray, so it stays allocation-free.
+  function wallMarkFor(openC, openR, wallC, wallR) {
+    if (openC < 0 || openR < 0 || openC >= COLS || openR >= ROWS) return null;
+    var m = wallMarkByCell[openR * COLS + openC];
+    return (m && m.wc === wallC && m.wr === wallR) ? m : null;
+  }
+
+  function wallMarkBox() { return { px: MARK_PX, h: MARK_H, y: MARK_Y }; }
 
   function loadLayout(name) {
     currentLayout = (name === 'tutorial') ? 'tutorial' : 'mission';
@@ -247,6 +329,7 @@
   // ---------------------------------------------------------------
   function raycast(ox, oy, oz, dx, dy, dz, maxDist) {
     var best = maxDist, type = null;
+    var hitAxis = null, hitC = 0, hitR = 0, openC = 0, openR = 0;
 
     if (dy < -1e-6) {                       // floor y=0
       var tf = -oy / dy;
@@ -270,21 +353,28 @@
       var nextVZ = (cz + (dz > 0 ? 1 : 0)) * CELL;
       var tMaxX = adx > 1e-9 ? (nextVX - ox) / dx : Infinity;
       var tMaxZ = adz > 1e-9 ? (nextVZ - oz) / dz : Infinity;
-      var t = 0;
+      var t = 0, axis = null;
       for (var i = 0; i < 256; i++) {
-        if (tMaxX < tMaxZ) { t = tMaxX; tMaxX += tDeltaX; cx += stepX; }
-        else { t = tMaxZ; tMaxZ += tDeltaZ; cz += stepZ; }
+        if (tMaxX < tMaxZ) { t = tMaxX; tMaxX += tDeltaX; cx += stepX; axis = 'X'; }
+        else { t = tMaxZ; tMaxZ += tDeltaZ; cz += stepZ; axis = 'Z'; }
         if (t >= best) break;
         if (isSolidCell(cx, cz)) {
           best = t;
           type = isDoorSolid(cx, cz) ? 'door' : 'wall';
+          hitAxis = axis;
+          hitC = cx; hitR = cz;
+          openC = axis === 'X' ? cx - stepX : cx;
+          openR = axis === 'Z' ? cz - stepZ : cz;
           break;
         }
       }
     }
 
     if (type === null) return null;
-    return { t: best, x: ox + dx * best, y: oy + dy * best, z: oz + dz * best, type: type };
+    return {
+      t: best, x: ox + dx * best, y: oy + dy * best, z: oz + dz * best, type: type,
+      axis: hitAxis, wallC: hitC, wallR: hitR, openC: openC, openR: openR
+    };
   }
 
   // ---------------------------------------------------------------
@@ -497,6 +587,8 @@
     rayLaser: rayLaser, laserHitPlayer: laserHitPlayer, asciiRows: asciiRows,
     unlockDoor: unlockDoor, resetDoors: resetDoors, doorsOpenCount: doorsOpenCount,
     consoleDoor: consoleDoor, isConsoleSealed: isConsoleSealed,
+    wallMarks: function () { return wallMarks; },
+    wallMarkFor: wallMarkFor, wallMarkBox: wallMarkBox,
     loadLayout: loadLayout, layout: function () { return currentLayout; }
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})

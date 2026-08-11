@@ -121,6 +121,16 @@
       </ul>
     </div>
     <div>
+      <h2>WALL CODES</h2>
+      <ul>
+        <li>Every wall is stencilled with a code the Operator can read on LiDAR.</li>
+        <li>Lost? Have them sweep a wall and call the code — the tick mark on
+            this sheet is the exact wall they are facing.</li>
+        <li>Letter = zone, digit = mark within it. Codes count left to right,
+            top to bottom, so <b>K1</b> is above and left of <b>K6</b>.</li>
+      </ul>
+    </div>
+    <div>
       <h2>THREAT &amp; CLOCK</h2>
       <ul>
         <li>Blackout window <b>10:00</b>, then site power returns.</li>
@@ -132,8 +142,8 @@
     </div>
   </div>
 
-<script src="src/math.js?v=93"></script>
-<script src="src/map.js?v=93"></script>
+<script src="src/math.js?v=96"></script>
+<script src="src/map.js?v=96"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -151,6 +161,7 @@
     key:    '#b3641b',
     core:   '#4a3fa6',
     sec:    '#b32530',
+    code:   '#1f6f8b',
     ink:    '#14181c',
     rule:   '#8a949e'
   };
@@ -218,6 +229,35 @@
   ctx.textAlign = 'right';
   ctx.textBaseline = 'middle';
   for (r = 0; r < ROWS; r += 5) ctx.fillText(String(r), PAD_L - 4, cy(r) + CELLPX / 2);
+
+  // wall codes — stencilled in the world, so the Operator can read one aloud
+  M.wallMarks().forEach(function (m) {
+    var ex = cx(m.c) + (m.faceC > 0 ? CELLPX : 0);
+    var ey = cy(m.r) + (m.faceR > 0 ? CELLPX : 0);
+    ctx.strokeStyle = C.code;
+    ctx.lineWidth = 1.6;
+    ctx.beginPath();
+    if (m.axis === 'X') {
+      ctx.moveTo(ex, cy(m.r) + CELLPX * 0.2);
+      ctx.lineTo(ex, cy(m.r) + CELLPX * 0.8);
+    } else {
+      ctx.moveTo(cx(m.c) + CELLPX * 0.2, ey);
+      ctx.lineTo(cx(m.c) + CELLPX * 0.8, ey);
+    }
+    ctx.stroke();
+
+    var tx = cx(m.c) + CELLPX / 2 + m.faceC * CELLPX * 0.18;
+    var ty = cy(m.r) + CELLPX / 2 + m.faceR * CELLPX * 0.18;
+    ctx.font = 'bold 6px Consolas, monospace';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.2;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeText(m.code, tx, ty);
+    ctx.fillStyle = C.code;
+    ctx.fillText(m.code, tx, ty);
+  });
 
   // tripwires
   M.markers.lasers.forEach(function (L) {
@@ -341,7 +381,8 @@
     ['dot', C.key, '1-3 — access keys'],
     ['sq', C.core, 'G — AI core (jack-in)'],
     ['sq', '#8a6100', 'X — landing zone'],
-    ['dot', C.sec, 'C — security start']
+    ['dot', C.sec, 'C — security start'],
+    ['sw', C.code, 'A1, B2 … — wall codes']
   ];
   var legendEl = document.getElementById('legend');
   legend.forEach(function (row) {
