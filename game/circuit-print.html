@@ -49,7 +49,7 @@
     Rotate 90° clockwise per step.
   </div>
   <div id="boards"></div>
-<script src="src/circuit.js?v=98"></script>
+<script src="src/circuit.js?v=99"></script>
 <script>
 (function () {
   var data = window.HOLLOW.circuit.getSheetData();
@@ -87,9 +87,12 @@
 
     var note = document.createElement('div');
     note.className = 'panel';
-    note.innerHTML = '<h2>CALLOUT</h2>“C3 — where is your dot?” · “Select C3, rotate twice.”<br>' +
-      'The dots below are the start state. They are all the Operator can see, so track ' +
-      'every rotation you call. Do not mark the solution path.';
+    note.innerHTML = '<h2>THE DOT</h2>The amber dot is the tile\u2019s orientation, and the only ' +
+      'thing the Operator can see. One rotate moves it one corner clockwise:<br>' +
+      '<b>NW</b> \u2192 <b>NE</b> \u2192 <b>SE</b> \u2192 <b>SW</b> \u2192 NW.' +
+      '<h2>CALLOUT</h2>“C3 — where is your dot?” · “Select C3, rotate twice.”<br>' +
+      'Dots below are the start state, so track every rotation you call. ' +
+      'Do not mark the solution path.';
     wrap.appendChild(note);
     host.appendChild(wrap);
 
@@ -155,34 +158,42 @@
         ctx.strokeRect(x + 4, y + 4, cell - 8, cell - 8);
         drawPipe(x + cell / 2, y + cell / 2, maskAt(c, r));
         // Orientation corner pip (0=NW 1=NE 2=SE 3=SW) — matches headset
+        var pipCorner = start[r * size + c] % 4;
         (function () {
-          var turns = start[r * size + c] % 4;
+          var turns = pipCorner;
           var inset = cell * 0.2;
           var ox, oy;
           if (turns === 0) { ox = x + inset; oy = y + inset; }
           else if (turns === 1) { ox = x + cell - inset; oy = y + inset; }
           else if (turns === 2) { ox = x + cell - inset; oy = y + cell - inset; }
           else { ox = x + inset; oy = y + cell - inset; }
-          ctx.fillStyle = '#b8860b';
+          // Sized and coloured to match the headset dot, since it is now the
+          // only thing the Operator can describe. Dark ring so it survives a
+          // black-and-white printer.
+          ctx.fillStyle = '#f0a81e';
           ctx.beginPath();
-          ctx.arc(ox, oy, 5, 0, Math.PI * 2);
+          ctx.arc(ox, oy, 9, 0, Math.PI * 2);
           ctx.fill();
           ctx.strokeStyle = '#111';
-          ctx.lineWidth = 1;
+          ctx.lineWidth = 1.4;
           ctx.beginPath();
-          ctx.arc(ox, oy, 6.5, 0, Math.PI * 2);
+          ctx.arc(ox, oy, 11.5, 0, Math.PI * 2);
           ctx.stroke();
         })();
-        // ID last, haloed — a NW pip would otherwise sit on top of it, and
-        // this is the name the Solver calls over voice
+        // ID last and haloed, tucked into whichever top corner the pip is not
+        // using — this is the name the Solver calls over voice, so it has to
+        // stay clean
+        var label = cols.charAt(c) + (r + 1);
+        var right = pipCorner === 0;
         ctx.font = 'bold 11px Consolas, monospace';
-        ctx.textAlign = 'left';
+        ctx.textAlign = right ? 'right' : 'left';
         ctx.lineJoin = 'round';
         ctx.lineWidth = 3;
         ctx.strokeStyle = '#fff';
-        ctx.strokeText(cols.charAt(c) + (r + 1), x + 8, y + 18);
+        var lx = right ? x + cell - 8 : x + 8;
+        ctx.strokeText(label, lx, y + 18);
         ctx.fillStyle = '#555';
-        ctx.fillText(cols.charAt(c) + (r + 1), x + 8, y + 18);
+        ctx.fillText(label, lx, y + 18);
         ctx.textAlign = 'center';
         ctx.fillStyle = '#111';
       }
