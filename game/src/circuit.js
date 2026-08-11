@@ -285,7 +285,7 @@
 
   // Operator-blind orientation marker: corner pip moves with tile rotation
   // turns 0=NW, 1=NE, 2=SE, 3=SW — matches print sheet
-  function drawOrientDot(cellX, cellY, turns, selectedTile) {
+  function drawOrientDot(cellX, cellY, turns, selectedTile, big) {
     var corner = ((turns % 4) + 4) % 4;
     var inset = CELL * 0.2;
     var ox, oy;
@@ -293,14 +293,16 @@
     else if (corner === 1) { ox = cellX + CELL - inset; oy = cellY + inset; }
     else if (corner === 2) { ox = cellX + CELL - inset; oy = cellY + CELL - inset; }
     else { ox = cellX + inset; oy = cellY + CELL - inset; }
+    // with the wires hidden this dot is the whole readout, so make it carry
+    var k = big ? 1.55 : 1;
     ctx.fillStyle = selectedTile ? '#ffcc66' : '#e0a030';
     ctx.beginPath();
-    ctx.arc(ox, oy, Math.max(3, CELL * 0.075), 0, Math.PI * 2);
+    ctx.arc(ox, oy, Math.max(3, CELL * 0.075) * k, 0, Math.PI * 2);
     ctx.fill();
     ctx.strokeStyle = selectedTile ? '#fff0c0' : 'rgba(255,200,100,0.55)';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(ox, oy, Math.max(4.5, CELL * 0.1), 0, Math.PI * 2);
+    ctx.arc(ox, oy, Math.max(4.5, CELL * 0.1) * k, 0, Math.PI * 2);
     ctx.stroke();
   }
 
@@ -335,6 +337,11 @@
 
   function render() {
     if (!active || !ctx) return;
+    // The Operator is deliberately blind in VR: wires, junctions and the
+    // powered state all live on the Solver's printed sheet, so the headset
+    // shows only the tile frame, its ID and the orientation dot. The tutorial
+    // board stays wired — it is solo practice with nobody on the sheet.
+    var blind = inVR() && !isTutorialPuzzle;
     ctx.fillStyle = '#020805';
     ctx.fillRect(0, 0, canvas.width, canvas.height);
     ctx.fillStyle = '#7cff9b';
@@ -348,8 +355,10 @@
     );
     ctx.fillStyle = '#3f8a55';
     ctx.font = '11px Consolas, monospace';
-    if (inVR()) {
-      ctx.fillText('LASER SELECT · X OR TRIGGER ROTATE · CORNER DOT TURNS WITH TILE', canvas.width / 2, 42);
+    if (blind) {
+      ctx.fillText('WIRES ARE ON THE SOLVER SHEET · CALL THE TILE ID AND ITS DOT CORNER', canvas.width / 2, 42);
+    } else if (inVR()) {
+      ctx.fillText('LASER SELECT · X OR TRIGGER ROTATE · REAL BOARDS HIDE THE WIRES', canvas.width / 2, 42);
     } else {
       ctx.fillText('CLICK TO ROTATE — CORNER DOT SHOWS ORIENTATION · TILE IDs A1…F6', canvas.width / 2, 42);
     }
@@ -359,14 +368,14 @@
     var live = liveSet();
     var ok = connected();
 
-    ctx.strokeStyle = live[idx(0, 0)] ? '#9fffbb' : '#ffb347';
+    ctx.strokeStyle = blind ? '#3f8a55' : (live[idx(0, 0)] ? '#9fffbb' : '#ffb347');
     ctx.lineWidth = 6;
     ctx.lineCap = 'round';
     ctx.beginPath();
     ctx.moveTo(PAD - 22, TOP + CELL * 0.5);
     ctx.lineTo(PAD + 6, TOP + CELL * 0.5);
     ctx.stroke();
-    ctx.strokeStyle = ok ? '#9fffbb' : '#ffb347';
+    ctx.strokeStyle = blind ? '#3f8a55' : (ok ? '#9fffbb' : '#ffb347');
     ctx.beginPath();
     ctx.moveTo(PAD + SIZE * CELL - 6, TOP + CELL * (SIZE - 0.5));
     ctx.lineTo(PAD + SIZE * CELL + 22, TOP + CELL * (SIZE - 0.5));
@@ -389,19 +398,32 @@
       for (c = 0; c < SIZE; c++) {
         var i = idx(c, r);
         var x = PAD + c * CELL, y = TOP + r * CELL;
-        var powered = !!live[i];
+        var powered = !blind && !!live[i];
         ctx.strokeStyle = i === selected ? '#ffb347' : (powered ? '#7cff9b' : '#3f8a55');
         ctx.lineWidth = i === selected ? 2.5 : 1;
         ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6);
-        var col = ok ? '#9fffbb' : (powered ? '#b8ffd0' : '#4a7a58');
-        drawPipe(x + CELL / 2, y + CELL / 2, maskAt(c, r), col, powered ? 8 : 6);
-        drawOrientDot(x, y, rot[i], i === selected);
+        if (!blind) {
+          var col = ok ? '#9fffbb' : (powered ? '#b8ffd0' : '#4a7a58');
+          drawPipe(x + CELL / 2, y + CELL / 2, maskAt(c, r), col, powered ? 8 : 6);
+        }
+        drawOrientDot(x, y, rot[i], i === selected, blind);
 
-        ctx.fillStyle = i === selected ? '#ffb347' : '#2a5a3a';
-        ctx.font = '9px Consolas, monospace';
-        ctx.textAlign = 'left';
-        ctx.fillText(tileLabel(c, r), x + 6, y + 14);
-        ctx.textAlign = 'center';
+        // The ID is how the Operator names a tile, so it has to carry once the
+        // wires are gone. Blind tiles are empty in the middle and the dot owns
+        // the corners, so centre it there instead of tucking it top-left.
+        if (blind) {
+          ctx.fillStyle = i === selected ? '#ffb347' : '#5aa877';
+          ctx.font = 'bold 13px Consolas, monospace';
+          ctx.fillText(tileLabel(c, r), x + CELL / 2, y + CELL / 2 + 5);
+        } else {
+          ctx.fillStyle = i === selected ? '#ffb347' : '#2a5a3a';
+          ctx.font = '9px Consolas, monospace';
+          ctx.textAlign = 'left';
+          ctx.fillText(tileLabel(c, r), x + 6, y + 14);
+          ctx.textAlign = 'center';
+        }
+
+        if (blind) continue; // junction pips would give the wiring away
 
         var m = maskAt(c, r);
         if ((m & 2) && c + 1 < SIZE && (maskAt(c + 1, r) & 8)) {
@@ -428,7 +450,10 @@
     } else {
       ctx.fillStyle = '#3f8a55';
       ctx.font = '10px Consolas, monospace';
-      ctx.fillText('LIT = POWERED FROM ENTRY · CALL OUT TILE IDs TO ROTATE', canvas.width / 2, canvas.height - 12);
+      ctx.fillText(blind
+        ? 'CALL OUT EACH TILE ID AND ITS DOT CORNER · THE SOLVER HAS THE WIRING'
+        : 'LIT = POWERED FROM ENTRY · CALL OUT TILE IDs TO ROTATE',
+        canvas.width / 2, canvas.height - 12);
     }
     drawPointer();
     dirty = true;

@@ -41,13 +41,15 @@
   </div>
   <div class="panel" style="max-width:720px;margin-bottom:16px">
     <h2>PURPOSE</h2>
-    Pre-solve all sheets offline. Operator must clear <b>stages 1–3</b>
-    (each has its own 60s lockout). Call out tile IDs and rotations over voice.
+    <b>The Operator cannot see the wires.</b> In the headset every tile is blank
+    except its ID and one amber corner dot, so these sheets are the only copy of
+    the wiring — you solve, they turn. Pre-solve all three offline. Operator must
+    clear <b>stages 1–3</b> (each has its own 60s lockout).
     <b>ENTRY</b> feeds west into <b>A1</b>. <b>CORE</b> exits east from <b>F6</b>.
     Rotate 90° clockwise per step.
   </div>
   <div id="boards"></div>
-<script src="src/circuit.js?v=70"></script>
+<script src="src/circuit.js?v=98"></script>
 <script>
 (function () {
   var data = window.HOLLOW.circuit.getSheetData();
@@ -85,8 +87,9 @@
 
     var note = document.createElement('div');
     note.className = 'panel';
-    note.innerHTML = '<h2>CALLOUT</h2>“Rotate C3 until the corner dots match.” · “Select F5, rotate once.”<br>' +
-      'Corner dots mark orientation — match the operator board. Do not mark the solution path.';
+    note.innerHTML = '<h2>CALLOUT</h2>“C3 — where is your dot?” · “Select C3, rotate twice.”<br>' +
+      'The dots below are the start state. They are all the Operator can see, so track ' +
+      'every rotation you call. Do not mark the solution path.';
     wrap.appendChild(note);
     host.appendChild(wrap);
 
@@ -170,9 +173,15 @@
           ctx.arc(ox, oy, 6.5, 0, Math.PI * 2);
           ctx.stroke();
         })();
-        ctx.fillStyle = '#555';
-        ctx.font = '11px Consolas, monospace';
+        // ID last, haloed — a NW pip would otherwise sit on top of it, and
+        // this is the name the Solver calls over voice
+        ctx.font = 'bold 11px Consolas, monospace';
         ctx.textAlign = 'left';
+        ctx.lineJoin = 'round';
+        ctx.lineWidth = 3;
+        ctx.strokeStyle = '#fff';
+        ctx.strokeText(cols.charAt(c) + (r + 1), x + 8, y + 18);
+        ctx.fillStyle = '#555';
         ctx.fillText(cols.charAt(c) + (r + 1), x + 8, y + 18);
         ctx.textAlign = 'center';
         ctx.fillStyle = '#111';
