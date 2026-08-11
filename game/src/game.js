@@ -16,6 +16,7 @@
   var SCAN_RANGE = 60;
   var MARK_SPRAY = 6;   // max stencil pixels lit per ray that lands on a wall code
   var markPt = [0, 0, 0];
+  var beadSphere = { x: 0, y: 0, z: 0, r: 0 };
   var INTERACT_RANGE = 2.4;
   var INTERACT_RANGE_VR = 4.2;
   var VR_AIM_MAX = 5.5;
@@ -1414,6 +1415,70 @@
     return tca - Math.sqrt(r2 - d2);
   }
 
+  // An access key should read as a key, not a blob. It is built from
+  // overlapping beads: a ring bow, a shaft, and two bits. The bow is two
+  // crossed rings so the silhouette holds up from any side, and nothing
+  // moves — returns live 90 s, so a spin would smear into a smudge.
+  var KEY_Y = 0.9;
+  var KEY_BOUND = 0.42;
+  var KEY_SPRAY = 5;
+  var KEY_BEADS = (function () {
+    var out = [];
+    var BOW_Y = 0.19, BOW_R = 0.165, BOW_T = 0.040, BOW_N = 14;
+    for (var i = 0; i < BOW_N; i++) {
+      var a = i / BOW_N * Math.PI * 2;
+      var off = Math.sin(a) * BOW_R, y = BOW_Y + Math.cos(a) * BOW_R;
+      out.push(off, y, 0, BOW_T);
+      out.push(0, y, off, BOW_T);
+    }
+    for (i = 0; i < 9; i++) out.push(0, 0.06 - i * 0.045, 0, 0.036);
+    var bits = [-0.12, -0.26];
+    for (i = 0; i < bits.length; i++) {
+      out.push(0.065, bits[i], 0, 0.034);
+      out.push(0.115, bits[i], 0, 0.034);
+      out.push(0, bits[i], 0.065, 0.034);
+      out.push(0, bits[i], 0.115, 0.034);
+    }
+    return new Float32Array(out);
+  })();
+
+  function rayKey(ox, oy, oz, dx, dy, dz, kx, ky, kz) {
+    var lx = kx - ox, ly = ky - oy, lz = kz - oz;
+    var l2 = lx * lx + ly * ly + lz * lz, b2 = KEY_BOUND * KEY_BOUND;
+    if (l2 > b2) {                       // outside: reject on the bound first
+      var tca = lx * dx + ly * dy + lz * dz;
+      if (tca < 0 || l2 - tca * tca > b2) return -1;
+    }
+    var best = -1;
+    for (var i = 0; i < KEY_BEADS.length; i += 4) {
+      beadSphere.x = kx + KEY_BEADS[i];
+      beadSphere.y = ky + KEY_BEADS[i + 1];
+      beadSphere.z = kz + KEY_BEADS[i + 2];
+      beadSphere.r = KEY_BEADS[i + 3];
+      var t = raySphere(ox, oy, oz, dx, dy, dz, beadSphere);
+      if (t > 0 && (best < 0 || t < best)) best = t;
+    }
+    return best;
+  }
+
+  // A key is mostly air, so a ray that finds one also lights a few points
+  // elsewhere on it — otherwise the shape would resolve far slower than the
+  // solid orb it replaced and the keys would be harder to find.
+  function sprayKey(kx, ky, kz, ox, oy, oz, dist) {
+    var n = Math.min(KEY_SPRAY, 1 + (dist / 8) | 0);
+    for (var s = 0; s < n; s++) {
+      var b = ((math.rand() * (KEY_BEADS.length / 4)) | 0) * 4;
+      var bx = kx + KEY_BEADS[b], by = ky + KEY_BEADS[b + 1], bz = kz + KEY_BEADS[b + 2];
+      var r = KEY_BEADS[b + 3];
+      var u = math.rand() * 2 - 1, ph = math.rand() * Math.PI * 2;
+      var sr = Math.sqrt(1 - u * u);
+      var nx = sr * Math.cos(ph), ny = u, nz = sr * Math.sin(ph);
+      if (nx * (bx - ox) + ny * (by - oy) + nz * (bz - oz) > 0) { nx = -nx; ny = -ny; nz = -nz; }
+      R.addPoint(bx + nx * r, by + ny * r, bz + nz * r,
+                 C_AMBER[0], C_AMBER[1], C_AMBER[2], now, POINT_LIFE);
+    }
+  }
+
   // Ray vs triangle (Möller–Trumbore). Returns t or -1.
   function rayTri(ox, oy, oz, dx, dy, dz, ax, ay, az, bx, by, bz, cx, cy, cz) {
     var e1x = bx - ax, e1y = by - ay, e1z = bz - az;
@@ -1491,10 +1556,14 @@
       if (t > 0 && t < bestT) { bestT = t; color = C_POW; life = ENEMY_POINT_LIFE; }
     }
     // items — access keys only (no memo/message orbs)
+    var keyHit = null, keyHitT = 0;
     for (i = 0; i < accessKeys.length; i++) {
       if (accessKeys[i].taken) continue;
-      t = raySphere(ox, oy, oz, dx, dy, dz, { x: accessKeys[i].x, y: 0.9, z: accessKeys[i].z, r: 0.45 });
-      if (t > 0 && t < bestT) { bestT = t; color = C_AMBER; life = POINT_LIFE; }
+      t = rayKey(ox, oy, oz, dx, dy, dz, accessKeys[i].x, KEY_Y, accessKeys[i].z);
+      if (t > 0 && t < bestT) {
+        bestT = t; color = C_AMBER; life = POINT_LIFE;
+        keyHit = accessKeys[i]; keyHitT = t;
+      }
     }
     // locked blast doors — dark blue slab (also fills gaps if ray grazes)
     for (i = 0; i < M.markers.doors.length; i++) {
@@ -1528,6 +1597,8 @@
         }
       }
     }
+
+    if (keyHit && bestT === keyHitT) sprayKey(keyHit.x, KEY_Y, keyHit.z, ox, oy, oz, bestT);
 
     var j = 0.02; // sensor jitter (GDD §8.2)
     R.addPoint(
