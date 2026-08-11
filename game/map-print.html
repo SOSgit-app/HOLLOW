@@ -5,181 +5,385 @@
 <title>HOLLOW — Mission Map (SOS)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  @page { size: landscape; margin: 12mm; }
+  @page { size: landscape; margin: 8mm; }
   * { box-sizing: border-box; }
+  html, body { background: #fff; }
   body {
-    margin: 0; padding: 16px;
+    margin: 0; padding: 18px;
     font-family: Consolas, "Lucida Console", monospace;
-    background: #fff; color: #111;
+    color: #14181c;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  h1 { font-size: 18px; letter-spacing: .2em; margin: 0 0 4px; }
-  .sub { font-size: 11px; color: #444; margin-bottom: 12px; }
-  .grid-wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; }
-  canvas { border: 1px solid #222; image-rendering: pixelated; }
-  .panel { max-width: 340px; font-size: 11px; line-height: 1.55; }
-  .panel h2 { font-size: 12px; letter-spacing: .12em; margin: 10px 0 4px; }
-  .swatch { display: inline-block; width: 12px; height: 12px; vertical-align: middle; margin-right: 4px; border: 1px solid #333; }
-  .actions { margin: 12px 0; }
+
+  header { display: flex; align-items: baseline; gap: 14px; border-bottom: 2px solid #14181c; padding-bottom: 6px; }
+  h1 { font-size: 17px; letter-spacing: .18em; margin: 0; }
+  header .sub { font-size: 10px; letter-spacing: .1em; color: #5a6570; }
+  header .tag { margin-left: auto; font-size: 10px; letter-spacing: .14em; color: #5a6570; }
+
+  .actions { margin: 12px 0 14px; }
   .actions button, .actions a {
     font: inherit; font-size: 12px; padding: 8px 12px; margin-right: 8px;
-    border: 1px solid #111; background: #f4f4f4; color: #111; cursor: pointer; text-decoration: none;
+    border: 1px solid #14181c; background: #f2f4f6; color: #14181c;
+    cursor: pointer; text-decoration: none;
   }
+
+  .sheet { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
+  canvas { border: 1px solid #14181c; display: block; }
+
+  aside { width: 262px; flex: none; font-size: 9.5px; line-height: 1.45; }
+  h2 {
+    font-size: 9.5px; letter-spacing: .16em; margin: 0 0 4px;
+    padding-bottom: 2px; border-bottom: 1px solid #c3cad1; color: #14181c;
+  }
+  section + section { margin-top: 10px; }
+
+  .legend { display: grid; grid-template-columns: 16px 1fr; gap: 2px 6px; align-items: center; }
+  .sw { width: 14px; height: 11px; border: 1px solid #6a7480; }
+  .glyph {
+    width: 14px; height: 14px; border-radius: 50%; display: flex;
+    align-items: center; justify-content: center;
+    font-size: 8px; font-weight: bold; color: #fff;
+  }
+  .glyph.sq { border-radius: 3px; }
+
+  table { border-collapse: collapse; width: 100%; font-size: 9px; }
+  th, td { text-align: left; padding: 0.5px 4px 0.5px 0; vertical-align: top; }
+  th { color: #5a6570; font-weight: normal; letter-spacing: .08em; }
+  td.ref { color: #5a6570; white-space: nowrap; }
+
+  .facts { display: flex; gap: 14px; margin-top: 10px; font-size: 9.5px; line-height: 1.45; }
+  .facts > div { flex: 1; }
+  .facts b { letter-spacing: .04em; }
+  ul { margin: 0; padding-left: 13px; }
+  li { margin-bottom: 2px; }
+
   @media print {
     .actions { display: none; }
     body { padding: 0; }
+    .sheet, .facts { page-break-inside: avoid; }
   }
 </style>
 </head>
 <body>
-  <h1>HOLLOW — HOSTILE AI SITE — MISSION MAP</h1>
-  <div class="sub">CYBER INFILTRATION · EMP BLACKOUT · CLONE &amp; CORRUPT</div>
+  <header>
+    <h1>HOLLOW — SITE C — MISSION MAP</h1>
+    <span class="sub">SUBLEVEL 2 · EMP BLACKOUT</span>
+    <span class="tag">MISSION DIRECTOR SHEET</span>
+  </header>
+
   <div class="actions">
     <button type="button" onclick="window.print()">PRINT / SAVE AS PDF</button>
+    <a href="circuit-print.html">CIRCUIT SHEET</a>
     <a href="index.html">BACK TO GAME</a>
   </div>
-  <div class="grid-wrap">
-    <canvas id="map" width="720" height="540"></canvas>
-    <div class="panel">
-      <h2>COMMANDER'S INTENT</h2>
-      Pre-raid EMP has blacked out the site. Operator maps with LiDAR goggles
-      and tracks security on the Wristlink motion radar. Recover 3 access keys,
-      open the console door, jack into the AI core and clone the model.
-      After clone the Operator locks an exfil path in VR. Support their call
-      and in-game flash traffic — do not read ahead on this sheet.
-      Minimize emissions. Four security units patrol from the start
-      (two west half / two east half). Tripwires pull only the nearest two.
-      If compromised, break to the Faraday harbor in the
-      start/infil room and reorient.
 
+  <div class="sheet">
+    <canvas id="map"></canvas>
+    <aside>
+      <section>
+        <h2>LEGEND</h2>
+        <div class="legend" id="legend"></div>
+      </section>
+
+      <section>
+        <h2>STATIONS</h2>
+        <table>
+          <thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead>
+          <tbody id="stations"></tbody>
+        </table>
+      </section>
+    </aside>
+  </div>
+
+  <div class="facts">
+    <div>
+      <h2>OBJECTIVE</h2>
+      An EMP has blacked out the site. Recover the <b>3 access keys</b>,
+      open the console door <b>D3</b>, jack into the AI core at <b>G</b>
+      and clone the model. The Operator then locks an exfil path in VR
+      and extracts from the landing zone at <b>X</b>.
+    </div>
+    <div>
       <h2>ROLES</h2>
-      <b>OPERATOR (VR):</b> LiDAR + radar. Keys, doors, AI jack-in, path choice, LZ.<br>
-      <b>MISSION DIRECTOR (MAP):</b> This sheet + voice. Routes Operator.<br>
-      <b>CIRCUIT SOLVER:</b> Print <a href="circuit-print.html">circuit-print.html</a> (3 unsolved boards · 60s each). Call tile IDs.
-
-      <h2>LEGEND</h2>
-      <span class="swatch" style="background:#111"></span> Wall<br>
-      <span class="swatch" style="background:#cfc"></span> Floor<br>
-      <span class="swatch" style="background:#0c0"></span> Faraday harbor (one room)<br>
-      <span class="swatch" style="background:#fc0"></span> Tripwire alarm<br>
-      <span class="swatch" style="background:#e67e00"></span> Blast door (D1–D3)<br>
-      <span class="swatch" style="background:#063;border-radius:50%"></span> <b>START</b> Infil (P)<br>
-      <b>1–3</b> Keys · <b>G</b> Jack-in · <b>X</b> LZ · <b>C</b> Security (4 units · 2/half)
-      <div style="margin-top:6px">Infil grid: col 10, row 23 (atrium west of center).</div>
-      <div style="margin-top:4px"><b>D3</b> console door needs all 3 keys. <b>D1/D2</b> optional (1 key).</div>
-      <div id="door-coords" style="margin-top:4px"></div>
-      <div id="trip-coords" style="margin-top:2px"></div>
-
-      <h2>EXFIL FORK</h2>
-      After clone: chopper clock starts when they confirm a path in VR.
-      <b>VIRUS PATH:</b> at <b>G</b>, hold <b>B</b> (Wristlink upload bar) until plant completes, then race to <b>X</b> alone.<br>
-      Other exfil details arrive via in-game traffic when the Operator locks their path.<br>
-      After uplink: inbound timer, then <b>1:30</b> on-station window.
-      Whole raid: <b>10:00</b> blackout — then site power returns (fail).
-      LZ does <b>not</b> paint on LiDAR — voice the Operator to <b>X</b>.
-      Miss the pad = left behind.
-
-      <h2>COMMS</h2>
-      Intent → backbrief → check-ins at keys/doors → report clone → call path choice → LZ.
-      Voice near mic raises signature (EMCON).
+      <ul>
+        <li><b>OPERATOR</b> — in VR. LiDAR goggles, Wristlink radar.</li>
+        <li><b>DIRECTOR</b> — this sheet. Holds the only full picture.</li>
+        <li><b>SOLVER</b> — circuit sheet, 3 boards, 60s each.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>ACCESS</h2>
+      <ul>
+        <li><b>D3</b> console door — needs all 3 keys.</li>
+        <li><b>D1 / D2</b> — 1 key each, optional shortcuts.</li>
+        <li>Jack-in is 3 routing boards, 60s lockout each.</li>
+        <li><b>X</b> does not paint on LiDAR — it must be voiced.</li>
+      </ul>
+    </div>
+    <div>
+      <h2>THREAT &amp; CLOCK</h2>
+      <ul>
+        <li>Blackout window <b>10:00</b>, then site power returns.</li>
+        <li>After uplink: chopper inbound, then <b>1:30</b> on station — miss it and the Operator is left behind.</li>
+        <li><b>4 security units</b> — 2 west half, 2 east half.</li>
+        <li>Tripwires pull only the nearest 2 units.</li>
+        <li>Harbor is the one Faraday room — noise is masked there.</li>
+      </ul>
     </div>
   </div>
-<script src="src/math.js?v=70"></script>
-<script src="src/map.js?v=70"></script>
+
+<script src="src/math.js?v=93"></script>
+<script src="src/map.js?v=93"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
-  var canvas = document.getElementById('map');
-  var ctx = canvas.getContext('2d');
   var ROWS = M.ROWS(), COLS = M.COLS();
-  var cellW = canvas.width / COLS, cellH = canvas.height / ROWS;
 
+  var C = {
+    wall:   '#333c46',
+    floor:  '#ffffff',
+    grid:   '#e4e8ec',
+    harbor: '#c9e9d5',
+    lz:     '#ffe9a3',
+    door:   '#e07b2c',
+    trip:   '#d4a017',
+    start:  '#1f7a44',
+    key:    '#b3641b',
+    core:   '#4a3fa6',
+    sec:    '#b32530',
+    ink:    '#14181c',
+    rule:   '#8a949e'
+  };
+
+  var CELLPX = 13;
+  var PAD_L = 20, PAD_T = 18, PAD_R = 8, PAD_B = 8;
+  var W = PAD_L + COLS * CELLPX + PAD_R;
+  var H = PAD_T + ROWS * CELLPX + PAD_B;
+  var SCALE = 3; // oversample so print stays sharp
+
+  var canvas = document.getElementById('map');
+  canvas.width = W * SCALE;
+  canvas.height = H * SCALE;
+  canvas.style.width = W + 'px';
+  canvas.style.height = H + 'px';
+  var ctx = canvas.getContext('2d');
+  ctx.scale(SCALE, SCALE);
+
+  function cx(c) { return PAD_L + c * CELLPX; }
+  function cy(r) { return PAD_T + r * CELLPX; }
+  function wx(x) { return PAD_L + (x / M.CELL) * CELLPX; }
+  function wy(z) { return PAD_T + (z / M.CELL) * CELLPX; }
+
+  var doorAt = {};
+  M.markers.doors.forEach(function (d) { doorAt[d.c + ',' + d.r] = d; });
+
+  ctx.fillStyle = '#fff';
+  ctx.fillRect(0, 0, W, H);
+
+  // floor / harbor / landing pad
   for (var r = 0; r < ROWS; r++) {
     for (var c = 0; c < COLS; c++) {
-      var solid = M.isSolidCell(c, r);
-      var harbor = M.isSafeCell(c, r);
-      ctx.fillStyle = solid ? '#1a1a1a' : (harbor ? '#66ee88' : '#e8f5e9');
-      ctx.fillRect(c * cellW, r * cellH, cellW + 0.5, cellH + 0.5);
+      if (M.isSolidCell(c, r) && !doorAt[c + ',' + r]) continue;
+      var fill = C.floor;
+      if (M.isSafeCell(c, r)) fill = C.harbor;
+      else if (M.isLzCell(c, r)) fill = C.lz;
+      ctx.fillStyle = fill;
+      ctx.fillRect(cx(c), cy(r), CELLPX, CELLPX);
     }
   }
 
-  // lasers — thick yellow tripwire strokes
-  ctx.strokeStyle = '#e6b800';
-  ctx.lineWidth = Math.max(3, cellW * 0.45);
-  ctx.lineCap = 'square';
+  // faint cell grid for coordinate reading
+  ctx.strokeStyle = C.grid;
+  ctx.lineWidth = 0.5;
+  ctx.beginPath();
+  for (var gc = 0; gc <= COLS; gc++) { ctx.moveTo(cx(gc), cy(0)); ctx.lineTo(cx(gc), cy(ROWS)); }
+  for (var gr = 0; gr <= ROWS; gr++) { ctx.moveTo(cx(0), cy(gr)); ctx.lineTo(cx(COLS), cy(gr)); }
+  ctx.stroke();
+
+  // walls
+  ctx.fillStyle = C.wall;
+  for (r = 0; r < ROWS; r++) {
+    for (c = 0; c < COLS; c++) {
+      if (!M.isSolidCell(c, r) || doorAt[c + ',' + r]) continue;
+      ctx.fillRect(cx(c) - 0.25, cy(r) - 0.25, CELLPX + 0.5, CELLPX + 0.5);
+    }
+  }
+
+  // rulers every 5 cells
+  ctx.fillStyle = C.rule;
+  ctx.font = '7px Consolas, monospace';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  for (c = 0; c < COLS; c += 5) ctx.fillText(String(c), cx(c) + CELLPX / 2, PAD_T - 3);
+  ctx.textAlign = 'right';
+  ctx.textBaseline = 'middle';
+  for (r = 0; r < ROWS; r += 5) ctx.fillText(String(r), PAD_L - 4, cy(r) + CELLPX / 2);
+
+  // tripwires
   M.markers.lasers.forEach(function (L) {
+    ctx.lineCap = 'round';
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = CELLPX * 0.62;
     ctx.beginPath();
-    ctx.moveTo(L.x0 / M.CELL * cellW, L.z0 / M.CELL * cellH);
-    ctx.lineTo(L.x1 / M.CELL * cellW, L.z1 / M.CELL * cellH);
+    ctx.moveTo(wx(L.x0), wy(L.z0));
+    ctx.lineTo(wx(L.x1), wy(L.z1));
+    ctx.stroke();
+    ctx.strokeStyle = C.trip;
+    ctx.lineWidth = CELLPX * 0.42;
+    ctx.beginPath();
+    ctx.moveTo(wx(L.x0), wy(L.z0));
+    ctx.lineTo(wx(L.x1), wy(L.z1));
     ctx.stroke();
   });
 
-  function label(p, text, color) {
-    if (!p) return;
-    var x = (p.x / M.CELL) * cellW, y = (p.z / M.CELL) * cellH;
-    ctx.fillStyle = color || '#000';
-    ctx.font = 'bold ' + Math.floor(cellW * 0.85) + 'px Consolas, monospace';
+  // blast doors — label sits in whichever neighbouring cell is open
+  M.markers.doors.forEach(function (d) {
+    ctx.fillStyle = C.door;
+    ctx.fillRect(cx(d.c), cy(d.r), CELLPX, CELLPX);
+    ctx.strokeStyle = C.ink;
+    ctx.lineWidth = 1;
+    ctx.strokeRect(cx(d.c) + 0.5, cy(d.r) + 0.5, CELLPX - 1, CELLPX - 1);
+
+    var spots = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+    var lc = d.c, lr = d.r;
+    for (var i = 0; i < spots.length; i++) {
+      var nc = d.c + spots[i][0], nr = d.r + spots[i][1];
+      if (!M.isSolidCell(nc, nr)) { lc = nc; lr = nr; break; }
+    }
+    ctx.font = 'bold 9px Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(text, x, y);
-  }
+    ctx.lineJoin = 'round';
+    ctx.lineWidth = 2.5;
+    ctx.strokeStyle = '#fff';
+    ctx.strokeText(d.id, cx(lc) + CELLPX / 2, cy(lr) + CELLPX / 2);
+    ctx.fillStyle = '#8a4408';
+    ctx.fillText(d.id, cx(lc) + CELLPX / 2, cy(lr) + CELLPX / 2);
+  });
 
-  // START / infil — high-visibility marker
-  (function () {
-    var P = M.markers.P;
-    if (!P) return;
-    var x = (P.x / M.CELL) * cellW, y = (P.z / M.CELL) * cellH;
-    var r = Math.max(cellW, cellH) * 0.85;
+  function disc(p, text, fill, square) {
+    if (!p) return;
+    var x = wx(p.x), y = wy(p.z);
+    var rad = CELLPX * 0.78;
     ctx.beginPath();
-    ctx.arc(x, y, r, 0, Math.PI * 2);
-    ctx.fillStyle = '#0a7a3e';
+    if (square) ctx.rect(x - rad, y - rad, rad * 2, rad * 2);
+    else ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.lineWidth = 2;
-    ctx.strokeStyle = '#003318';
+    ctx.lineWidth = 1.2;
+    ctx.strokeStyle = '#fff';
     ctx.stroke();
-    ctx.beginPath();
-    ctx.arc(x, y, r * 1.35, 0, Math.PI * 2);
-    ctx.strokeStyle = '#0a7a3e';
-    ctx.lineWidth = 1.5;
+    ctx.lineWidth = 0.6;
+    ctx.strokeStyle = C.ink;
     ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold ' + Math.floor(cellW * 0.95) + 'px Consolas, monospace';
+    ctx.font = 'bold ' + Math.round(CELLPX * 0.82) + 'px Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText('P', x, y);
-    ctx.fillStyle = '#003318';
-    ctx.font = 'bold ' + Math.max(9, Math.floor(cellW * 0.7)) + 'px Consolas, monospace';
-    ctx.textBaseline = 'top';
-    ctx.fillText('START', x, y + r * 1.45);
+    ctx.fillText(text, x, y + 0.5);
+  }
+
+  // dashed outline around the actual landing-pad cells
+  (function () {
+    var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity, any = false;
+    for (var r2 = 0; r2 < ROWS; r2++) {
+      for (var c2 = 0; c2 < COLS; c2++) {
+        if (!M.isLzCell(c2, r2)) continue;
+        any = true;
+        minC = Math.min(minC, c2); maxC = Math.max(maxC, c2);
+        minR = Math.min(minR, r2); maxR = Math.max(maxR, r2);
+      }
+    }
+    if (!any) return;
+    ctx.setLineDash([3, 3]);
+    ctx.strokeStyle = '#a8791a';
+    ctx.lineWidth = 1.2;
+    ctx.strokeRect(cx(minC) + 0.5, cy(minR) + 0.5,
+      (maxC - minC + 1) * CELLPX - 1, (maxR - minR + 1) * CELLPX - 1);
+    ctx.setLineDash([]);
   })();
 
-  label(M.markers.G, 'G', '#840');
-  label(M.markers.X, 'X', '#000');
-  label(M.markers.C, 'C', '#900');
-  M.markers.fuses.forEach(function (f, i) { label(f, String(i + 1), '#840'); });
-  M.markers.doors.forEach(function (d) {
-    ctx.fillStyle = '#e67e00';
-    ctx.fillRect(d.c * cellW + 1, d.r * cellH + 1, cellW - 2, cellH - 2);
-    ctx.fillStyle = '#000';
-    ctx.font = 'bold ' + Math.max(8, Math.floor(cellW * 0.7)) + 'px Consolas, monospace';
+  M.markers.fuses.forEach(function (f, i) { disc(f, String(i + 1), C.key); });
+  disc(M.markers.G, 'G', C.core, true);
+  disc(M.markers.C, 'C', C.sec);
+  disc(M.markers.X, 'X', '#8a6100', true);
+  disc(M.markers.P, 'P', C.start);
+
+  // harbor room label
+  (function () {
+    var s = M.markers.safes;
+    if (!s.length) return;
+    var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+    s.forEach(function (p) {
+      minC = Math.min(minC, p.c); maxC = Math.max(maxC, p.c);
+      minR = Math.min(minR, p.r); maxR = Math.max(maxR, p.r);
+    });
+    ctx.fillStyle = '#2c6b45';
+    ctx.font = 'bold 7.5px Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
-    ctx.fillText(d.id, (d.c + 0.5) * cellW, (d.r + 0.5) * cellH);
+    ctx.fillText('FARADAY HARBOR', cx((minC + maxC + 1) / 2), cy(minR) + CELLPX * 0.9);
+  })();
+
+  // ---- side panel, generated from the same map data -----------------
+  function gridRef(p) {
+    return Math.floor(p.x / M.CELL) + ',' + Math.floor(p.z / M.CELL);
+  }
+
+  var legend = [
+    ['sw', C.wall, 'Wall'],
+    ['sw', C.floor, 'Floor'],
+    ['sw', C.harbor, 'Faraday harbor'],
+    ['sw', C.lz, 'Landing pad'],
+    ['sw', C.door, 'Blast door'],
+    ['sw', C.trip, 'Tripwire'],
+    ['dot', C.start, 'P — infil / start'],
+    ['dot', C.key, '1-3 — access keys'],
+    ['sq', C.core, 'G — AI core (jack-in)'],
+    ['sq', '#8a6100', 'X — landing zone'],
+    ['dot', C.sec, 'C — security start']
+  ];
+  var legendEl = document.getElementById('legend');
+  legend.forEach(function (row) {
+    var mark = document.createElement('span');
+    if (row[0] === 'sw') {
+      mark.className = 'sw';
+      mark.style.background = row[1];
+    } else {
+      mark.className = 'glyph' + (row[0] === 'sq' ? ' sq' : '');
+      mark.style.background = row[1];
+    }
+    var text = document.createElement('span');
+    text.textContent = row[2];
+    legendEl.appendChild(mark);
+    legendEl.appendChild(text);
   });
 
-  var doorEl = document.getElementById('door-coords');
-  if (doorEl) {
-    doorEl.textContent = 'Doors: ' + M.markers.doors.map(function (d) {
-      return d.id + ' @ ' + d.c + ',' + d.r;
-    }).join(' · ');
-  }
-  var tripEl = document.getElementById('trip-coords');
-  if (tripEl) {
-    tripEl.textContent = 'Tripwires: ' + M.markers.lasers.map(function (L) {
-      var c = Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL);
-      var r = Math.floor(((L.z0 + L.z1) * 0.5) / M.CELL);
-      return L.id.replace('L-', '') + ' @ ' + c + ',' + r;
-    }).join(' · ');
-  }
+  var stations = [];
+  if (M.markers.P) stations.push(['P', 'Infil / start', gridRef(M.markers.P)]);
+  M.markers.fuses.forEach(function (f, i) {
+    stations.push([String(i + 1), 'Access key', gridRef(f)]);
+  });
+  M.markers.doors.forEach(function (d) {
+    stations.push([d.id, d.console ? 'Console door (3 keys)' : 'Blast door (1 key)', d.c + ',' + d.r]);
+  });
+  if (M.markers.G) stations.push(['G', 'AI core / jack-in', gridRef(M.markers.G)]);
+  if (M.markers.X) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
+  if (M.markers.C) stations.push(['C', 'Security start', gridRef(M.markers.C)]);
+  M.markers.lasers.forEach(function (L) {
+    stations.push([
+      'T',
+      'Tripwire ' + L.id.replace('L-', '').toLowerCase(),
+      Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL) + ',' + Math.floor(((L.z0 + L.z1) * 0.5) / M.CELL)
+    ]);
+  });
+
+  var body = document.getElementById('stations');
+  stations.forEach(function (s) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td><b>' + s[0] + '</b></td><td>' + s[1] + '</td><td class="ref">' + s[2] + '</td>';
+    body.appendChild(tr);
+  });
 })();
 </script>
 </body>
