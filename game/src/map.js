@@ -65,6 +65,7 @@
   ];
 
   var currentLayout = 'mission';
+  var laserSet = 'standard';
   var ASCII = MISSION_ASCII;
   var ASCII2 = MISSION_ASCII2;
 
@@ -74,7 +75,7 @@
   var lz = []; // yellow landing-zone pad
   var consoleRoom = []; // walkable cells of the jack-in room — security cannot enter
   var ROWS = 0, COLS = 0;
-  var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], doors: [] };
+  var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], lasersEasy: [], doors: [] };
   var doorSolid = {}; // key "c,r" -> true while locked
 
   // Stencilled wall codes ("B4", "K2", ...) painted on wall faces so the
@@ -111,6 +112,44 @@
         lz[r][c] = true;
       }
     }
+  }
+
+  function laserH(c0, c1, r, id, easyOnly) {
+    var IN = 0.08, TY = 0.22, TH = 0.03;
+    return {
+      x0: c0 * CELL + IN, z0: r * CELL, x1: c1 * CELL - IN, z1: r * CELL,
+      y0: TY - TH, y1: TY + TH, id: id, easyOnly: !!easyOnly
+    };
+  }
+  function laserV(c, r0, r1, id, easyOnly) {
+    var IN = 0.08, TY = 0.22, TH = 0.03;
+    return {
+      x0: c * CELL, z0: r0 * CELL + IN, x1: c * CELL, z1: r1 * CELL - IN,
+      y0: TY - TH, y1: TY + TH, id: id, easyOnly: !!easyOnly
+    };
+  }
+
+  // Same walls/keys/doors as the raid. Easy adds extra hallway beams so
+  // the three beacons have work to do without changing the printed geometry.
+  function missionLasersEasy() {
+    return [
+      laserH(9, 13, 26.5, 'L-HARBOR', true), // south bottleneck out of spawn
+      laserV(3.5, 17, 18, 'L-WEST', true),   // west spine toward key 1
+      laserH(8, 10, 16.5, 'L-POW', true),    // west of POW cell
+      laserV(24.5, 27, 29, 'L-D2', true),    // hall west of D2
+      laserH(14, 22, 34.5, 'L-LZ', true)     // south run into the LZ
+    ];
+  }
+  function missionLasers() {
+    var core = [
+      laserH(3, 4, 10.5, 'L-STORAGE'),
+      laserV(18.5, 6, 7, 'L-LAB'),
+      laserV(15.5, 15, 16, 'L-MID'),
+      laserV(31.5, 23, 24, 'L-GEN'),
+      laserV(5.5, 34, 35, 'L-EXIT')
+    ];
+    markers.lasersEasy = missionLasersEasy();
+    return laserSet === 'easy' ? core.concat(markers.lasersEasy) : core;
   }
 
   function parse() {
@@ -171,7 +210,7 @@
       }
       // Tripwire armed only after circuit (see armTutorialTripwire in game.js)
       markers.lasers = [];
-      // Open harbor → key room; one keyed door into the console room
+      markers.lasersEasy = [];
       markers.doors = [
         { id: 'D1', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
@@ -180,13 +219,7 @@
       for (var mr = 20; mr <= 25; mr++) {
         for (var mc = 8; mc <= 19; mc++) placeSafe(mc, mr);
       }
-      markers.lasers = [
-        { x0: 3 * CELL + IN, z0: 10.5 * CELL, x1: 4 * CELL - IN, z1: 10.5 * CELL, y0: TY - TH, y1: TY + TH, id: 'L-STORAGE' },
-        { x0: 18.5 * CELL, z0: 6 * CELL + IN, x1: 18.5 * CELL, z1: 7 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-LAB' },
-        { x0: 15.5 * CELL, z0: 15 * CELL + IN, x1: 15.5 * CELL, z1: 16 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-MID' },
-        { x0: 31.5 * CELL, z0: 23 * CELL + IN, x1: 31.5 * CELL, z1: 24 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-GEN' },
-        { x0: 5.5 * CELL, z0: 34 * CELL + IN, x1: 5.5 * CELL, z1: 35 * CELL - IN, y0: TY - TH, y1: TY + TH, id: 'L-EXIT' }
-      ];
+      markers.lasers = missionLasers();
       markers.doors = [
         { id: 'D1', c: 17, r: 10, locked: true, keysRequired: 1 },
         { id: 'D2', c: 26, r: 27, locked: true, keysRequired: 1 },
@@ -330,8 +363,9 @@
 
   function wallMarkBox() { return { px: MARK_PX, h: MARK_H, y: MARK_Y }; }
 
-  function loadLayout(name) {
+  function loadLayout(name, opts) {
     currentLayout = (name === 'tutorial') ? 'tutorial' : 'mission';
+    laserSet = (opts && opts.lasers) || 'standard';
     parse();
     return currentLayout;
   }

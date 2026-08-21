@@ -589,6 +589,24 @@
         ctx.arc(bx, by, chasing ? 7 : (dormant ? 3.5 : 5), 0, Math.PI * 2);
         ctx.fill();
       }
+      var label = Math.max(1, Math.round(dist)) + 'm';
+      var lx = bx + Math.sin(bearing) * 16;
+      var ly = by - Math.cos(bearing) * 16;
+      if (lx < 28) lx = 28;
+      if (lx > w - 28) lx = w - 28;
+      if (ly < 96) ly = 96;
+      if (ly > h - 78) ly = h - 78;
+      ctx.font = 'bold 12px Consolas, monospace';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round';
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = 'rgba(0,8,4,0.85)';
+      ctx.strokeText(label, lx, ly);
+      ctx.fillStyle = chasing
+        ? 'rgba(255,140,140,0.98)'
+        : (isPow ? 'rgba(180,255,190,0.98)' : 'rgba(255,230,160,0.98)');
+      ctx.fillText(label, lx, ly);
     }
 
     var bx2 = w * 0.56, bw2 = w * 0.38, bh2 = 20;

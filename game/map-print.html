@@ -143,7 +143,7 @@
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=101"></script>
+<script src="src/map.js?v=104"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -260,21 +260,25 @@
   });
 
   // tripwires
-  M.markers.lasers.forEach(function (L) {
+  function strokeTrip(L, dashed) {
     ctx.lineCap = 'round';
+    ctx.setLineDash(dashed ? [5, 4] : []);
     ctx.strokeStyle = C.ink;
     ctx.lineWidth = CELLPX * 0.62;
     ctx.beginPath();
     ctx.moveTo(wx(L.x0), wy(L.z0));
     ctx.lineTo(wx(L.x1), wy(L.z1));
     ctx.stroke();
-    ctx.strokeStyle = C.trip;
+    ctx.strokeStyle = dashed ? '#c9a227' : C.trip;
     ctx.lineWidth = CELLPX * 0.42;
     ctx.beginPath();
     ctx.moveTo(wx(L.x0), wy(L.z0));
     ctx.lineTo(wx(L.x1), wy(L.z1));
     ctx.stroke();
-  });
+    ctx.setLineDash([]);
+  }
+  M.markers.lasers.forEach(function (L) { strokeTrip(L, false); });
+  (M.markers.lasersEasy || []).forEach(function (L) { strokeTrip(L, true); });
 
   // blast doors — label sits in whichever neighbouring cell is open
   M.markers.doors.forEach(function (d) {
@@ -377,6 +381,7 @@
     ['sw', C.lz, 'Landing pad'],
     ['sw', C.door, 'Blast door'],
     ['sw', C.trip, 'Tripwire'],
+    ['sw', '#c9a227', 'Tripwire (Easy only)'],
     ['dot', C.start, 'P — infil / start'],
     ['dot', C.key, '1-3 — access keys'],
     ['sq', C.core, 'G — AI core (jack-in)'],
@@ -415,6 +420,13 @@
     stations.push([
       'T',
       'Tripwire ' + L.id.replace('L-', '').toLowerCase(),
+      Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL) + ',' + Math.floor(((L.z0 + L.z1) * 0.5) / M.CELL)
+    ]);
+  });
+  (M.markers.lasersEasy || []).forEach(function (L) {
+    stations.push([
+      'T',
+      'Easy tripwire ' + L.id.replace('L-', '').toLowerCase(),
       Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL) + ',' + Math.floor(((L.z0 + L.z1) * 0.5) / M.CELL)
     ]);
   });

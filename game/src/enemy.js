@@ -158,7 +158,7 @@
   function reset(difficulty) {
     currentDiff = difficulty || 'medium';
     if (currentDiff === 'tutorial') SECONDARIES = [];
-    else if (currentDiff === 'easy') SECONDARIES = [B, C];
+    else if (currentDiff === 'easy') SECONDARIES = [B, C, D];
     else if (currentDiff === 'medium') SECONDARIES = [B, C];
     else SECONDARIES = [B, C, D];
 

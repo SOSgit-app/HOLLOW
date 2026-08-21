@@ -76,9 +76,10 @@
     easy: {
       label: 'EASY',
       points: [
-        '<b>3</b> security units on the map',
+        '<b>4</b> security units on the map',
         'Patrols move <b>slower</b>',
         '<b>3</b> fault beacons',
+        'Extra tripwires (Easy map)',
         'Your noise is ignored — security only reacts to <b>proximity</b>',
         'Headset mic is <b>OFF</b> — no noise-level meter'
       ]
@@ -1006,7 +1007,7 @@
     } else {
       tutorialMode = false;
       pendingEasyRaid = false;
-      M.loadLayout('mission');
+      M.loadLayout('mission', { lasers: currentDifficulty === 'easy' ? 'easy' : 'standard' });
       EN.reset(currentDifficulty);
       if (NS.mic && NS.mic.setProfile) {
         if (currentDifficulty === 'easy') NS.mic.setProfile('off');
