@@ -354,6 +354,17 @@
     blipAt(1240, 0.14, 0.02, 0, 'triangle', t + 0.12);
   }
 
+  // Thrown decoy — tripped breaker / sensor-fault chirp, not a toy
+  function faultBeacon(pan) {
+    if (!ctx) return;
+    var t = ctx.currentTime;
+    pan = pan || 0;
+    thump(90, 0.07, 0.07, pan, 400);
+    blipAt(1880, 0.045, 0.05, pan, 'square', t);
+    blipAt(940, 0.07, 0.035, pan, 'sawtooth', t + 0.05);
+    blipAt(2100, 0.03, 0.03, pan, 'square', t + 0.11);
+  }
+
   function clunk(pan) {
     thump(140, 0.18, 0.10, pan || 0, 500);
   }
@@ -403,7 +414,7 @@
     scanTick: scanTick,
     footstep: footstep, enemyStep: enemyStep, click: click, heartbeat: heartbeat,
     sting: sting, scareImpact: scareImpact, death: death, fuseChime: fuseChime, clunk: clunk,
-    tutorialCue: tutorialCue,
+    tutorialCue: tutorialCue, faultBeacon: faultBeacon,
     generatorRoar: generatorRoar, doorGrind: doorGrind, teletype: teletype,
     securityAlarm: securityAlarm, stopAllTransient: stopAllTransient,
     uplinkSurge: uplinkSurge, chopperInbound: chopperInbound,

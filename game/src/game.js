@@ -12,9 +12,8 @@
   var STAMINA_MAX = 1, STAMINA_DRAIN = 0.32, STAMINA_RECOVER = 0.24, STAMINA_MIN_SPRINT = 0.12;
   var NOISE_TRICKLE = 9, NOISE_BURST = 34, NOISE_INTERACT = 12;
   var TRICKLE_RAYS = 220, TRICKLE_CONE = 14 * Math.PI / 180;
-  var POINT_LIFE = 90, ENEMY_POINT_LIFE = 2.5;
+  var POINT_LIFE = 10, ENEMY_POINT_LIFE = 2.5, MARK_LIFE = 28, ITEM_LIFE = 16;
   var SCAN_RANGE = 60;
-  var MARK_SPRAY = 6;   // max stencil pixels lit per ray that lands on a wall code
   var markPt = [0, 0, 0];
   var beadSphere = { x: 0, y: 0, z: 0, r: 0 };
   var INTERACT_RANGE = 2.4;
@@ -26,15 +25,15 @@
   var GFX = {
     low: {
       trickleRays: 90,
-      pointLife: 40, xrMaxPoints: 120000, fboScale: 0.55, vrScale: 0.55
+      pointLife: 7, xrMaxPoints: 120000, fboScale: 0.55, vrScale: 0.55
     },
     medium: {
       trickleRays: 220,
-      pointLife: 90, xrMaxPoints: 300000, fboScale: 0.85, vrScale: 0.8
+      pointLife: 10, xrMaxPoints: 300000, fboScale: 0.85, vrScale: 0.8
     },
     high: {
       trickleRays: 360,
-      pointLife: 140, xrMaxPoints: 520000, fboScale: 1.0, vrScale: 1.0
+      pointLife: 14, xrMaxPoints: 520000, fboScale: 1.0, vrScale: 1.0
     }
   };
 
@@ -220,6 +219,12 @@
   var trickleNoiseTimer = 0;
   var accessKeys = [];
   var keysCollected = 0, doorsOpen = 0;
+  var beacons = [];
+  var beaconsLeft = 0;
+  var BEACON_MAX = 2;
+  var BEACON_LIFE = 10;
+  var BEACON_PULSE = 0.72;
+  var BEACON_LOUD = 38;
   var vrHudHint = '';
   var vrHudObj = '';
   var uplinkDone = false;
@@ -287,7 +292,10 @@
     el.cloneIntel = $('clone-intel');
     el.btnRescue = $('btn-rescue');
     el.btnVirus = $('btn-virus');
-    el.postTutorial = $('post-tutorial-screen');
+    el.end = $('end-screen');
+    el.endKicker = $('end-kicker');
+    el.endTitle = $('end-title');
+    el.endBody = $('end-body');
 
     R.init(el.canvas);
     VR.init($('enter-vr'));
@@ -336,9 +344,9 @@
           }
         }
         else if (state === 'CONTROLS') { startDesktop(); }
-        else if (state === 'POST_TUTORIAL') { startEasyRaid(); }
+        else if (state === 'END' || state === 'POST_TUTORIAL') { startVrFromEnd(); }
         else if (state === 'DEAD' || state === 'LEFT') { showScreen('controls'); state = 'CONTROLS'; }
-        else if (state === 'WIN') { state = 'BOOT'; startBootType(); }
+        else if (state === 'WIN') { startVrFromEnd(); }
         else if (clonePhase === 'CHOICE' && !inVR()) {
           confirmCloneChoice(cloneChoiceIdx === 0 ? 'RESCUE' : 'VIRUS');
         }
@@ -350,6 +358,10 @@
         if (e.code === 'Digit2' || e.code === 'Numpad2' || e.code === 'ArrowDown') {
           cloneChoiceIdx = 1; updateCloneDesktopChoice();
         }
+      }
+      if (e.code === 'KeyG' && state === 'PLAY') {
+        if (e.repeat) return;
+        if (!(CIR && CIR.isActive()) && !cloneUiActive()) throwBeacon();
       }
       if (e.code === 'KeyE' && state === 'PLAY') {
         if (e.repeat) return;
@@ -401,19 +413,20 @@
         startTutorial();
       });
     }
-    var btnStartEasy = $('btn-start-easy');
-    if (btnStartEasy) {
-      btnStartEasy.addEventListener('click', function (e) {
+    var btnEndVr = $('btn-end-vr');
+    if (btnEndVr) {
+      btnEndVr.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (state === 'POST_TUTORIAL') startEasyRaid();
+        if (state === 'END' || state === 'POST_TUTORIAL' || state === 'WIN' || state === 'DEAD' || state === 'LEFT') {
+          startVrFromEnd();
+        }
       });
     }
-    var btnPostTutMenu = $('btn-post-tut-menu');
-    if (btnPostTutMenu) {
-      btnPostTutMenu.addEventListener('click', function (e) {
+    var btnEndMenu = $('btn-end-menu');
+    if (btnEndMenu) {
+      btnEndMenu.addEventListener('click', function (e) {
         e.stopPropagation();
-        state = 'CONTROLS';
-        showScreen('controls');
+        goMainMenu();
       });
     }
 
@@ -582,7 +595,7 @@
   var settingsReturn = 'controls';
 
   function showScreen(name) {
-    [el.boot, el.controls, el.settings, el.death, el.win, el.clone, el.postTutorial].forEach(function (s) {
+    [el.boot, el.controls, el.settings, el.death, el.win, el.clone, el.end].forEach(function (s) {
       if (s) s.classList.remove('visible');
     });
     el.hud.style.display = (name === null) ? 'block' : 'none';
@@ -592,7 +605,8 @@
     if (name === 'death') el.death.classList.add('visible');
     if (name === 'win') el.win.classList.add('visible');
     if (name === 'clone' && el.clone) el.clone.classList.add('visible');
-    if (name === 'post-tutorial' && el.postTutorial) el.postTutorial.classList.add('visible');
+    if (name === 'end' && el.end) el.end.classList.add('visible');
+    if (name === 'post-tutorial' && el.end) el.end.classList.add('visible');
   }
 
   // ------------------------------------------------------------------
@@ -641,8 +655,9 @@
     {
       title: 'LEARN TO MOVE',
       lines: ['Walk the green harbor.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.',
-              'Blue wall codes = say where you are.'],
-      buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan'],
+              'Blue wall codes = say where you are.',
+              'Right A / G throws a fault beacon — security walks to the chirp.'],
+      buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan', 'RIGHT A / G — throw beacon'],
       msg: 'TUTORIAL: MOVE · SPRINT (GRIP) · SCAN (TRIGGER)'
     },
     {
@@ -782,47 +797,85 @@
     }, buildCoachModel());
   }
 
-  function finishEndTutorial(success) {
-    M.loadLayout('mission');
-    state = 'CONTROLS';
-    showScreen('controls');
-    if (success) {
-      queueMsg('TUTORIAL COMPLETE — READY FOR RAID', 'amber', 8);
-    }
-  }
+  var endFromTutorial = false;
+  var pendingEnd = null;
 
-  function settleTutorialExit() {
-    if (tutorialExitSuccess === null) return;
-    var success = !!tutorialExitSuccess;
-    tutorialExitSuccess = null;
-    pendingPostTutorial = false;
-    finishEndTutorial(success);
-  }
-
-  function endTutorial(success) {
-    // Guard re-entry: standing on the LZ used to call this every frame, then fall
-    // through into winGame('VIRUS') once tutorialMode was cleared → black screen.
-    if (tutorialExitSuccess !== null) return;
-    tutorialExitSuccess = !!success;
+  function goMainMenu() {
+    pendingEnd = null;
+    endFromTutorial = false;
     tutorialMode = false;
     pendingTutorial = false;
+    pendingPostTutorial = false;
+    tutorialExitSuccess = null;
     runActive = false;
-    exfilPhase = 'BOARDED';
+    state = 'CONTROLS';
+    if (M) M.loadLayout('mission');
+    showScreen('controls');
+  }
+
+  function startVrFromEnd() {
+    var easy = endFromTutorial;
+    endFromTutorial = false;
+    pendingEnd = null;
+    pendingPostTutorial = false;
+    tutorialExitSuccess = null;
+    if (easy) {
+      startEasyRaid();
+      return;
+    }
+    pendingTutorial = false;
+    tutorialMode = false;
+    pendingEasyRaid = false;
+    A.ensure();
+    A.startAmbient();
+    if (VR && VR.enter && VR.supported && VR.supported()) {
+      VR.enter().then(function (ok) {
+        if (!ok) startDesktop();
+      });
+      return;
+    }
+    startDesktop();
+  }
+
+  function revealEndMenu() {
+    if (!pendingEnd) return;
+    var s = pendingEnd;
+    pendingEnd = null;
+    pendingPostTutorial = false;
+    tutorialExitSuccess = null;
+    if (M) M.loadLayout('mission');
+    state = 'END';
+    if (el.endKicker) el.endKicker.textContent = s.kicker || 'RUN OVER';
+    if (el.endTitle) el.endTitle.textContent = s.title || 'RUN OVER';
+    if (el.endBody) el.endBody.innerHTML = s.body || '';
+    showScreen('end');
+  }
+
+  function presentEndMenu(spec) {
+    spec = spec || {};
+    if (state === 'END' && !pendingEnd) return;
+    pendingEnd = spec;
+    endFromTutorial = !!spec.fromTutorial;
+    runActive = false;
+    tutorialMode = false;
+    pendingTutorial = false;
+    pendingPostTutorial = true;
+    tutorialExitSuccess = spec.success != null ? !!spec.success : true;
+    state = 'END';
     clearCoachPanel();
     coachPose = null;
+    beacons = [];
     if (CIR) CIR.close();
     if (R.setCircuitPanel) R.setCircuitPanel(null, null);
     if (A.sting) A.sting(false);
     if (A.chopperStop) A.chopperStop();
     document.exitPointerLock();
-    pendingPostTutorial = true;
-    // Immersive VR hides DOM — wait for session end before showing the menu
     if (VR && VR.active()) {
       var finished = false;
       function afterVr() {
         if (finished) return;
         finished = true;
-        settleTutorialExit();
+        revealEndMenu();
       }
       try {
         Promise.resolve(VR.end()).then(afterVr, afterVr);
@@ -830,11 +883,31 @@
         void err;
         afterVr();
       }
-      // Hard fallback if the XR 'end' event / promise never settles (Quest quirk)
       setTimeout(afterVr, 800);
       return;
     }
-    settleTutorialExit();
+    revealEndMenu();
+  }
+
+  function finishEndTutorial(success) {
+    presentEndMenu({
+      fromTutorial: true,
+      success: !!success,
+      kicker: 'TRAINING',
+      title: success ? 'TUTORIAL COMPLETE' : 'TUTORIAL FAILED',
+      body: success
+        ? 'Practice run clear.<br>Start the raid in VR, or return to the menu.'
+        : 'Security tagged you in training.<br>Start the raid in VR, or return to the menu.'
+    });
+  }
+
+  function settleTutorialExit() {
+    if (pendingEnd) revealEndMenu();
+  }
+
+  function endTutorial(success) {
+    if (tutorialExitSuccess !== null || state === 'END') return;
+    finishEndTutorial(success);
   }
 
   function startEasyRaid() {
@@ -938,6 +1011,8 @@
       return { x: f.x, z: f.z, taken: false };
     });
     keysCollected = 0; doorsOpen = 0;
+    beacons = [];
+    beaconsLeft = tutorialMode ? 1 : BEACON_MAX;
     uplinkDone = false;
     jackInCooldownUntil = 0;
     exfilPhase = 'NONE'; exfilTimer = 0;
@@ -976,14 +1051,8 @@
   function onKill() {
     if (state !== 'PLAY') return;
     if (tutorialMode) {
-      // Soft fail — respawn in harbor with a tip
       if (A.stopAllTransient) A.stopAllTransient();
-      player.x = M.markers.P.x; player.z = M.markers.P.z;
-      player.yaw = 0; player.pitch = 0;
-      EN.reset('tutorial');
-      // Respawn security in harbor if the tripwire already fired
-      if (tutorialTripHit) spawnTutorialSecurityInHarbor();
-      queueMsg('CAUGHT — RESPAWNED IN HARBOR. QUIETER NEXT TIME.', 'red', 4);
+      endTutorial(false);
       return;
     }
     state = 'DYING';
@@ -996,28 +1065,16 @@
   }
 
   function finishDeath() {
-    runActive = false;
-    state = 'DEAD';
-    if (CIR) CIR.close();
-    if (A.sting) A.sting(false);
-    document.exitPointerLock();
-    if (VR.active()) VR.end();
-    if (tutorialMode) {
-      tutorialMode = false;
-      M.loadLayout('mission');
-    }
-    setTimeout(function () {
-      if (state === 'DEAD' || state === 'CONTROLS' || state === 'BOOT' || state === 'LEFT') {
-        if (A.stopAllTransient) A.stopAllTransient();
-      }
-    }, 4200);
     var lines = {
       loud: 'YOU LIT THE DARK. THE GRID ANSWERED.',
       steps: 'FOOTSTEPS GAVE YOU AWAY THREE HALLS OUT.',
       quiet: 'YOU WERE QUIET. IT STILL HEARD YOUR HEART.'
     };
-    el.epitaph.textContent = lines[deathCause];
-    showScreen('death');
+    presentEndMenu({
+      kicker: 'SIGNAL LOST',
+      title: 'CARRIER LOST',
+      body: (lines[deathCause] || lines.quiet) + '<br>Start VR to raid again, or return to the menu.'
+    });
   }
 
   function failLeftBehind() {
@@ -1027,40 +1084,21 @@
       queueMsg('CHOPPER LEFT — ANOTHER INBOUND. STAND ON THE YELLOW LZ.', 'red', 5);
       return;
     }
-    runActive = false;
-    state = 'LEFT';
-    exfilPhase = 'GONE';
-    if (CIR) CIR.close();
-    if (A.sting) A.sting(false);
-    if (A.chopperStop) A.chopperStop();
-    document.exitPointerLock();
-    if (VR.active()) VR.end();
-    el.epitaph.textContent = 'CHOPPER DEPARTED. YOU WERE NOT ON THE PAD.';
-    $('death-screen').querySelector('h1').textContent = 'LEFT BEHIND';
-    showScreen('death');
-    if (A.stopAllTransient) {
-      setTimeout(function () { if (A.stopAllTransient) A.stopAllTransient(); }, 2500);
-    }
+    presentEndMenu({
+      kicker: 'EXTRACT FAILED',
+      title: 'LEFT BEHIND',
+      body: 'Chopper departed. You were not on the pad.<br>Start VR to raid again, or return to the menu.'
+    });
   }
 
   function failPowerReturn() {
     if (state !== 'PLAY') return;
-    runActive = false;
-    state = 'LEFT';
-    exfilPhase = 'GONE';
-    clonePhase = 'DONE';
-    if (CIR) CIR.close();
-    if (A.sting) A.sting(false);
-    if (A.chopperStop) A.chopperStop();
     if (A.securityAlarm) A.securityAlarm();
-    document.exitPointerLock();
-    if (VR.active()) VR.end();
-    el.epitaph.textContent = 'SITE POWER RESTORED. BLACKOUT ENDED. YOU ARE EXPOSED.';
-    $('death-screen').querySelector('h1').textContent = 'POWER ONLINE';
-    showScreen('death');
-    if (A.stopAllTransient) {
-      setTimeout(function () { if (A.stopAllTransient) A.stopAllTransient(); }, 2500);
-    }
+    presentEndMenu({
+      kicker: 'BLACKOUT ENDED',
+      title: 'POWER ONLINE',
+      body: 'Site power restored. You are exposed.<br>Start VR to raid again, or return to the menu.'
+    });
   }
 
   function missionTimeLeft() {
@@ -1088,19 +1126,13 @@
   }
 
   function winGame(ending) {
-    if (tutorialExitSuccess !== null || pendingPostTutorial) return;
-    runActive = false;
-    state = 'WIN';
-    clonePhase = 'DONE';
-    if (CIR) CIR.close();
-    if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-    if (A.chopperStop) A.chopperStop();
-    document.exitPointerLock();
-    if (VR.active()) VR.end();
+    if (tutorialExitSuccess !== null || pendingPostTutorial || state === 'END') return;
     var lines = ending === 'VIRUS' ? WIN_LINES_VIRUS : WIN_LINES_RESCUE;
-    el.winText.textContent = lines.join('\n');
-    showScreen('win');
-    A.sting(false);
+    presentEndMenu({
+      kicker: 'EXTRACT',
+      title: 'EXTRACT COMPLETE',
+      body: lines.join('<br>')
+    });
   }
 
   function cloneUiActive() {
@@ -1454,7 +1486,7 @@
       var nx = sr * Math.cos(ph), ny = u, nz = sr * Math.sin(ph);
       if (nx * (bx - ox) + ny * (by - oy) + nz * (bz - oz) > 0) { nx = -nx; ny = -ny; nz = -nz; }
       R.addPoint(bx + nx * r, by + ny * r, bz + nz * r,
-                 C_AMBER[0], C_AMBER[1], C_AMBER[2], now, POINT_LIFE);
+                 C_AMBER[0], C_AMBER[1], C_AMBER[2], now, ITEM_LIFE);
     }
   }
 
@@ -1540,7 +1572,7 @@
       if (accessKeys[i].taken) continue;
       t = rayKey(ox, oy, oz, dx, dy, dz, accessKeys[i].x, KEY_Y, accessKeys[i].z);
       if (t > 0 && t < bestT) {
-        bestT = t; color = C_AMBER; life = POINT_LIFE;
+        bestT = t; color = C_AMBER; life = ITEM_LIFE;
         keyHit = accessKeys[i]; keyHitT = t;
       }
     }
@@ -1549,30 +1581,29 @@
       var door = M.markers.doors[i];
       if (!door.locked) continue;
       t = raySphere(ox, oy, oz, dx, dy, dz, { x: door.x, y: 1.3, z: door.z, r: 1.15 });
-      if (t > 0 && t < bestT) { bestT = t; color = C_DOOR; life = POINT_LIFE; }
+      if (t > 0 && t < bestT) { bestT = t; color = C_DOOR; life = ITEM_LIFE; }
     }
     // console pyramid visible for jack-in and virus plant
     if (!uplinkDone || (missionBranch === 'VIRUS' && !virusDone)) {
       t = rayConsolePyramid(ox, oy, oz, dx, dy, dz);
-      if (t > 0 && t < bestT) { bestT = t; color = C_AMBER; life = POINT_LIFE; }
+      if (t > 0 && t < bestT) { bestT = t; color = C_AMBER; life = ITEM_LIFE; }
     }
 
     if (color === null || bestT > SCAN_RANGE) return;
 
-    // Wall code stencils: a ray landing anywhere on the plate sprays a few of
-    // the glyph's lit pixels, so a code resolves after a short sweep instead
-    // of waiting for rays to happen to land on the strokes themselves.
+    // Wall codes: one ray on the plate fills the whole glyph so it reads as a
+    // solid stencil, not a handful of dots. Codes linger after walls fade.
     if (hit && hit.type === 'wall' && bestT === hit.t) {
       var mk = M.wallMarkFor(hit.openC, hit.openR, hit.wallC, hit.wallR);
       if (mk && MK.locate(mk, mk.axis === 'X' ? hit.z : hit.x, hit.y)) {
-        var ink = MK.inkPixels(mk.code);
-        // far plates catch few rays, so sample them harder to keep them legible
-        var spray = Math.min(MARK_SPRAY, 1 + (bestT / 7) | 0);
-        for (var s = 0; s < spray; s++) {
-          var p = ink[(math.rand() * ink.length) | 0];
-          MK.pixelWorld(mk, p[0], p[1], markPt);
-          R.addPoint(markPt[0], markPt[1], markPt[2],
-                     MK.color[0], MK.color[1], MK.color[2], now, POINT_LIFE);
+        if (!mk.litAt || now - mk.litAt > 0.45) {
+          mk.litAt = now;
+          var ink = MK.inkPixels(mk.code);
+          for (var s = 0; s < ink.length; s++) {
+            MK.pixelWorld(mk, ink[s][0], ink[s][1], markPt);
+            R.addPoint(markPt[0], markPt[1], markPt[2],
+                       MK.color[0], MK.color[1], MK.color[2], now, MARK_LIFE, true);
+          }
         }
       }
     }
@@ -2079,6 +2110,78 @@
     }
   }
 
+  function throwBeacon(origin, dir) {
+    if (state !== 'PLAY' || (CIR && CIR.isActive()) || cloneUiActive()) return;
+    if (beaconsLeft <= 0) {
+      queueMsg('NO FAULT BEACONS LEFT', 'amber', 2);
+      return;
+    }
+    var ox, oy, oz, dx, dy, dz;
+    if (origin && dir) {
+      ox = origin.x; oy = origin.y; oz = origin.z;
+      dx = dir[0]; dy = dir[1]; dz = dir[2];
+    } else {
+      var fwd = math.dirFromYawPitch(player.yaw, player.pitch);
+      ox = player.x; oy = player.eye; oz = player.z;
+      dx = fwd[0]; dy = fwd[1]; dz = fwd[2];
+    }
+    var len = Math.sqrt(dx * dx + dy * dy + dz * dz) || 1;
+    dx /= len; dy /= len; dz /= len;
+    var speed = 14;
+    beaconsLeft--;
+    beacons.push({
+      x: ox + dx * 0.45, y: oy, z: oz + dz * 0.45,
+      vx: dx * speed, vy: dy * speed + 2.4, vz: dz * speed,
+      flying: true, life: BEACON_LIFE, pulse: 0
+    });
+    emitNoise(NOISE_INTERACT * 0.35);
+    if (A.clunk) A.clunk(0);
+    queueMsg('FAULT BEACON AWAY — ' + beaconsLeft + ' LEFT. SECURITY WALKS TO THE CHIRP.', 'amber', 3);
+  }
+
+  function updateBeacons(dt) {
+    for (var i = beacons.length - 1; i >= 0; i--) {
+      var b = beacons[i];
+      if (b.flying) {
+        b.vy -= 18 * dt;
+        var step = Math.sqrt(b.vx * b.vx + b.vy * b.vy + b.vz * b.vz) * dt;
+        var hit = M.raycast(b.x, b.y, b.z, b.vx, b.vy, b.vz, step + 0.1);
+        var nx = b.x + b.vx * dt, ny = b.y + b.vy * dt, nz = b.z + b.vz * dt;
+        if (ny < 0.16 || (hit && hit.t <= step + 0.08)) {
+          if (hit) { b.x = hit.x; b.y = Math.max(0.16, hit.y); b.z = hit.z; }
+          else { b.x = nx; b.y = 0.16; b.z = nz; }
+          b.flying = false;
+          b.pulse = 0;
+        } else {
+          b.x = nx; b.y = ny; b.z = nz;
+        }
+      } else {
+        b.life -= dt;
+        b.pulse -= dt;
+        if (b.pulse <= 0) {
+          b.pulse = BEACON_PULSE;
+          if (EN.lure) EN.lure(b.x, b.z, 8);
+          else EN.hear(b.x, b.z, BEACON_LOUD, now, false);
+          if (A.faultBeacon) {
+            var ang = Math.atan2(b.x - player.x, -(b.z - player.z));
+            A.faultBeacon(Math.sin(ang - player.yaw));
+          }
+        }
+      }
+      var hot = !b.flying && b.pulse > BEACON_PULSE * 0.55;
+      var n = hot ? 14 : 8;
+      for (var k = 0; k < n; k++) {
+        var a = (k / n) * Math.PI * 2 + now * (hot ? 8 : 3);
+        var rr = hot ? 0.22 : 0.11;
+        R.addPoint(
+          b.x + Math.cos(a) * rr, b.y + 0.04, b.z + Math.sin(a) * rr,
+          1.0, 0.62, 0.18, now, 0.16, true
+        );
+      }
+      if (!b.flying && b.life <= 0) beacons.splice(i, 1);
+    }
+  }
+
   function interact() {
     if (CIR && CIR.isActive()) { CIR.rotateSelected(); return; }
     if (cloneUiActive()) return;
@@ -2472,7 +2575,7 @@
       if (M.isConsoleSealed()) {
         return 'KEY ' + keysCollected + '/3 · CONSOLE DOOR';
       }
-      return 'KEY ' + keysCollected + '/3 · JACK-IN READY';
+      return 'KEY ' + keysCollected + '/3 · BEACON ' + beaconsLeft + ' · JACK-IN';
     })();
     vrHudObj = el.obj.textContent || el.obj.innerText || '';
 
@@ -2637,6 +2740,7 @@
             R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
           }
           if (vrInput.interactPressed) interact();
+          if (vrInput.throwPressed) throwBeacon(vrScanOrigin, vrScanDirection);
         } else {
           vrScanOrigin = null;
           vrScanDirection = null;
@@ -2644,6 +2748,7 @@
         }
 
         updateScanner(dt);
+        updateBeacons(dt);
         updateLasers(dt);
         updateVirusPlant(dt, vrInput);
         updatePow(dt);
@@ -2738,7 +2843,7 @@
       clearCoachPanel();
       if (NS.mic) NS.mic.stop();
       // Tutorial LZ success — show main menu now that DOM is visible again
-      if (pendingPostTutorial || tutorialExitSuccess !== null) {
+      if (pendingPostTutorial || pendingEnd || tutorialExitSuccess !== null || state === 'END') {
         settleTutorialExit();
         lastFrame = performance.now();
         return;

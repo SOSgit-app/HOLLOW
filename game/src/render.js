@@ -57,8 +57,11 @@
     '  vec4 vp = uView * vec4(aPos, 1.0);',
     '  gl_Position = uProj * vp;',
     '  float age = uNow - aBirth;',
-    '  float b = age < 0.4 ? mix(1.3, 1.0, age / 0.4)',
-    '                      : max(0.0, 1.0 - (age - 0.4) / aLife);',
+    '  float hold = min(1.6, aLife * 0.22);',
+    '  float fade = max(0.08, aLife - hold);',
+    '  float b = age < 0.12 ? mix(1.35, 1.0, age / 0.12)',
+    '                      : age < hold ? 1.0',
+    '                      : max(0.0, 1.0 - (age - hold) / fade);',
     '  vBright = b;',
     '  vCol = aCol;',
     '  float dist = max(0.5, -vp.z);',
@@ -332,15 +335,17 @@
     return h % DENS_BUCKETS;
   }
 
-  function addPoint(x, y, z, r, g, b, birth, life) {
+  function addPoint(x, y, z, r, g, b, birth, life, force) {
     if (stagingCount >= 60000) return;
-    var h = densHash(x, y, z);
-    if (birth - densStamp[h] > DENS_WINDOW) {
-      densStamp[h] = birth;
-      densCount[h] = 0;
+    if (!force) {
+      var h = densHash(x, y, z);
+      if (birth - densStamp[h] > DENS_WINDOW) {
+        densStamp[h] = birth;
+        densCount[h] = 0;
+      }
+      if (densCount[h] >= DENS_MAX) return;
+      densCount[h]++;
     }
-    if (densCount[h] >= DENS_MAX) return;
-    densCount[h]++;
     var o = stagingCount * STRIDE;
     staging[o] = x; staging[o + 1] = y; staging[o + 2] = z;
     staging[o + 3] = r; staging[o + 4] = g; staging[o + 5] = b;

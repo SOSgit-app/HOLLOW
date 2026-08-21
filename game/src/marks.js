@@ -45,7 +45,10 @@
     '9': '.###.,#...#,#...#,.####,....#,...#.,.##..'
   };
 
-  var GW = 5, GH = 7, ADVANCE = 6; // glyph cell + one blank column of tracking
+  var GW = 5, GH = 7, ADVANCE = 6; // logical glyph cell + tracking
+  var SCALE = 2, PAD = 1;          // 2x upsample + 1px dilation → solid strokes
+  var OUT_ADV = ADVANCE * SCALE;
+  var OUT_H = GH * SCALE + PAD;
 
   // code -> [[px, py], ...] of lit pixels, origin top-left of the whole string
   var inkCache = {};
@@ -53,14 +56,25 @@
   function inkPixels(code) {
     var hit = inkCache[code];
     if (hit) return hit;
-    var px = [];
+    var px = [], seen = {};
+    function add(x, y) {
+      if (x < 0 || y < 0 || y >= OUT_H) return;
+      var k = x + ',' + y;
+      if (seen[k]) return;
+      seen[k] = 1;
+      px.push([x, y]);
+    }
     for (var i = 0; i < code.length; i++) {
       var rows = GLYPHS[code[i]];
       if (!rows) continue;
       rows = rows.split(',');
       for (var y = 0; y < GH; y++) {
         for (var x = 0; x < GW; x++) {
-          if (rows[y][x] === '#') px.push([i * ADVANCE + x, y]);
+          if (rows[y][x] !== '#') continue;
+          var sx = i * OUT_ADV + x * SCALE, sy = y * SCALE;
+          for (var oy = 0; oy < SCALE + PAD; oy++) {
+            for (var ox = 0; ox < SCALE + PAD; ox++) add(sx + ox, sy + oy);
+          }
         }
       }
     }
@@ -68,7 +82,8 @@
     return px;
   }
 
-  function widthPx(code) { return code.length * ADVANCE - 1; }
+  function widthPx(code) { return code.length * OUT_ADV - 1; }
+  function heightPx() { return OUT_H; }
 
   // Where on the stencil did this ray land? Returns null outside the box,
   // otherwise { u, v } in pixel units from the stencil's top-left.
@@ -76,8 +91,8 @@
     var du = along - mark.along;
     if (mark.flip) du = -du;
     var u = (du + mark.w / 2) / mark.w * widthPx(mark.code);
-    var v = (mark.y + mark.h / 2 - y) / mark.h * GH;
-    if (u < 0 || v < 0 || u >= widthPx(mark.code) || v >= GH) return null;
+    var v = (mark.y + mark.h / 2 - y) / mark.h * heightPx();
+    if (u < 0 || v < 0 || u >= widthPx(mark.code) || v >= heightPx()) return null;
     return { u: u, v: v };
   }
 
@@ -106,7 +121,7 @@
     color: [0.55, 0.88, 1.0],   // pale blue — signage, not a pickup or a threat
     inkPixels: inkPixels,
     widthPx: widthPx,
-    height: GH,
+    height: OUT_H,
     locate: locate,
     pixelWorld: pixelWorld
   };

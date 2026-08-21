@@ -412,6 +412,21 @@
     }
   }
 
+  function lure(x, z, dwell) {
+    if (suppressed) return;
+    wakeFromStill();
+    dwell = dwell || 8;
+    var nowTs = (typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000);
+    investigateDwell = dwell;
+    dispatchPrimaryInvestigate(x, z, nowTs);
+    investigateDwell = dwell;
+    for (var i = 0; i < SECONDARIES.length; i++) {
+      dispatchUnitInvestigate(SECONDARIES[i], x, z, nowTs);
+      SECONDARIES[i].investigateDwell = dwell;
+      SECONDARIES[i]._dwellAcc = 0;
+    }
+  }
+
   function enterChase(seconds) {
     E.state = 'CHASE';
     repathTimer = 0;
@@ -544,7 +559,7 @@
     if (d < 0.6) { pathIdx++; return pathIdx >= path.length; }
     var step = speed * dt;
     var nx = E.x + dx / d * step, nz = E.z + dz / d * step;
-    var moved = M.moveWithCollision(E.x, E.z, nx, nz, RADIUS);
+    var moved = M.moveWithCollision(E.x, E.z, nx, nz, RADIUS, { avoidConsole: true });
     if (moved.x === E.x && moved.z === E.z) {
       // Wedged — snap free and repath
       unstick(E);
@@ -606,7 +621,7 @@
     }
 
     var dist = distToPlayer(p);
-    var playerSafe = M.isSafeAt(p.x, p.z);
+    var playerSafe = M.isSafeAt(p.x, p.z) || (M.isConsoleAt && M.isConsoleAt(p.x, p.z));
 
     // touch-range certainty (anti-camping) — suppressed while player is in harbor
     if (dist < TOUCH_RANGE && E.state !== 'DORMANT' && !playerSafe) {
@@ -660,7 +675,7 @@
           // tight listening circle
           var cx = E.x + Math.cos(dwellAngle) * 0.5 * dt;
           var cz = E.z + Math.sin(dwellAngle) * 0.5 * dt;
-          var mv = M.moveWithCollision(E.x, E.z, cx, cz, RADIUS);
+          var mv = M.moveWithCollision(E.x, E.z, cx, cz, RADIUS, { avoidConsole: true });
           E.x = mv.x; E.z = mv.z;
           // Alarm / converge: barely dwell — keep pressure moving
           var dwellNeeded = (hasteMode === 'ALARM' || hasteMode === 'CONVERGE')
@@ -724,7 +739,7 @@
     if (d < 0.6) { u.pathIdx++; return u.pathIdx >= u.path.length; }
     var step = speed * dt;
     var nx = u.x + dx / d * step, nz = u.z + dz / d * step;
-    var moved = M.moveWithCollision(u.x, u.z, nx, nz, RADIUS);
+    var moved = M.moveWithCollision(u.x, u.z, nx, nz, RADIUS, { avoidConsole: true });
     if (moved.x === u.x && moved.z === u.z) {
       unstick(u);
       u.path = null;
@@ -746,7 +761,7 @@
     U.animT += dt;
     var dx = p.x - U.x, dz = p.z - U.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
-    var playerSafe = M.isSafeAt(p.x, p.z);
+    var playerSafe = M.isSafeAt(p.x, p.z) || (M.isConsoleAt && M.isConsoleAt(p.x, p.z));
 
     if (dist < TOUCH_RANGE && U.state !== 'DORMANT' && !playerSafe) {
       U.lastNoiseFed = now;
@@ -1017,6 +1032,7 @@
     addAgitationFloor: addAgitationFloor,
     forceChase: forceChase,
     forceInvestigate: forceInvestigate,
+    lure: lure,
     convergeOn: convergeOn,
     setSuppressed: setSuppressed,
     spawnTutorial: spawnTutorial,

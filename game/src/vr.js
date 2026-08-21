@@ -20,6 +20,7 @@
     moveX: 0, moveY: 0, heading: 0,
     bodyYaw: 0,
     trickle: false, burstPressed: false, interactPressed: false, tricklePressed: false,
+    throwPressed: false, secondaryPressed: false,
     sprint: false,
     navX: 0, navY: 0,
     aimOrigin: null, aimDirection: null,
@@ -168,6 +169,8 @@
     currentInput.burstPressed = false;
     currentInput.interactPressed = false;
     currentInput.tricklePressed = false;
+    currentInput.secondaryPressed = false;
+    currentInput.throwPressed = false;
     currentInput.sprint = false;
     currentInput.holdB = false;
     currentInput.holdUpload = false;
@@ -240,6 +243,11 @@
           rising(id + '-trig', trig);
         currentInput.secondaryPressed = currentInput.secondaryPressed ||
           rising(id + '-secondary', pressed(gp, 1));
+        // Right A — throw a fault beacon (unused for world actions until now)
+        if (!panelLock) {
+          currentInput.throwPressed = currentInput.throwPressed ||
+            rising(id + '-throw', pressed(gp, 4));
+        }
       }
       currentInput.interactPressed = currentInput.interactPressed ||
         interactRising(id, gp, source.handedness === 'left');

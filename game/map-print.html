@@ -142,8 +142,8 @@
     </div>
   </div>
 
-<script src="src/math.js?v=96"></script>
-<script src="src/map.js?v=96"></script>
+<script src="src/math.js?v=101"></script>
+<script src="src/map.js?v=101"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -248,11 +248,11 @@
 
     var tx = cx(m.c) + CELLPX / 2 + m.faceC * CELLPX * 0.18;
     var ty = cy(m.r) + CELLPX / 2 + m.faceR * CELLPX * 0.18;
-    ctx.font = 'bold 6px Consolas, monospace';
+    ctx.font = 'bold 8px Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.textBaseline = 'middle';
     ctx.lineJoin = 'round';
-    ctx.lineWidth = 2.2;
+    ctx.lineWidth = 3.2;
     ctx.strokeStyle = '#fff';
     ctx.strokeText(m.code, tx, ty);
     ctx.fillStyle = C.code;

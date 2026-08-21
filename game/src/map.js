@@ -72,6 +72,7 @@
   var grid = [];
   var safe = [];
   var lz = []; // yellow landing-zone pad
+  var consoleRoom = []; // walkable cells of the jack-in room — security cannot enter
   var ROWS = 0, COLS = 0;
   var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], doors: [] };
   var doorSolid = {}; // key "c,r" -> true while locked
@@ -82,8 +83,8 @@
   var wallMarks = [];
   var wallMarkByCell = [];  // openR * COLS + openC -> mark (at most one per cell)
   var MARK_SPACING = 6;     // cells between marks along a wall run
-  var MARK_PX = 0.09;       // stencil pixel size, metres
-  var MARK_H = MARK_PX * 7; // stencil height, metres (glyphs are 5x7)
+  var MARK_PX = 0.048;      // stencil pixel size, metres (2x glyphs, 15 rows)
+  var MARK_H = MARK_PX * 15;
   var MARK_Y = 1.55;        // stencil centre height, metres
 
   function doorKey(c, r) { return c + ',' + r; }
@@ -128,17 +129,19 @@
     grid = [];
     safe = [];
     lz = [];
+    consoleRoom = [];
     for (var r = 0; r < ROWS; r++) {
       var line = rows[r];
       if (line.length !== COLS) {
         throw new Error('HOLLOW map: row ' + r + ' length ' + line.length + ' != ' + COLS);
       }
-      var row = [], srow = [], lrow = [];
+      var row = [], srow = [], lrow = [], crow = [];
       for (var c = 0; c < COLS; c++) {
         var ch = line[c];
         row.push(ch === '#' || ch === ' ');
         srow.push(false);
         lrow.push(false);
+        crow.push(false);
         var wx = (c + 0.5) * CELL, wz = (r + 0.5) * CELL;
         if (ch === 'P') markers.P = { x: wx, z: wz };
         else if (ch === 'C') markers.C = { x: wx, z: wz };
@@ -154,6 +157,7 @@
       grid.push(row);
       safe.push(srow);
       lz.push(lrow);
+      consoleRoom.push(crow);
     }
 
     var IN = 0.08;
@@ -203,6 +207,7 @@
       d.x = (d.c + 0.5) * CELL;
       d.z = (d.r + 0.5) * CELL;
     });
+    buildConsoleRoom();
     markers.keys = markers.fuses;
   }
 
@@ -213,6 +218,46 @@
       safe[r][c] = true;
       markers.safes.push({ x: (c + 0.5) * CELL, z: (r + 0.5) * CELL, c: c, r: r });
     }
+  }
+
+  // Flood-fill the jack-in room from G, treating the console door cell as a
+  // sealed threshold so security can walk up to it but never inside.
+  function buildConsoleRoom() {
+    var r, c;
+    for (r = 0; r < ROWS; r++) {
+      for (c = 0; c < COLS; c++) consoleRoom[r][c] = false;
+    }
+    if (!markers.G) return;
+    var gc = Math.floor(markers.G.x / CELL), gr = Math.floor(markers.G.z / CELL);
+    var door = null;
+    for (var i = 0; i < markers.doors.length; i++) {
+      if (markers.doors[i].console) { door = markers.doors[i]; break; }
+    }
+    var blocked = {};
+    if (door) blocked[door.c + ',' + door.r] = true;
+    var q = [[gc, gr]], qi = 0;
+    if (gc < 0 || gr < 0 || gc >= COLS || gr >= ROWS || grid[gr][gc]) return;
+    consoleRoom[gr][gc] = true;
+    while (qi < q.length) {
+      var cur = q[qi++];
+      var nb = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      for (var n = 0; n < 4; n++) {
+        var nc = cur[0] + nb[n][0], nr = cur[1] + nb[n][1];
+        if (nc < 0 || nr < 0 || nc >= COLS || nr >= ROWS) continue;
+        if (grid[nr][nc] || consoleRoom[nr][nc]) continue;
+        if (blocked[nc + ',' + nr]) continue;
+        consoleRoom[nr][nc] = true;
+        q.push([nc, nr]);
+      }
+    }
+  }
+
+  function isConsoleCell(c, r) {
+    if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return false;
+    return !!consoleRoom[r][c];
+  }
+  function isConsoleAt(x, z) {
+    return isConsoleCell(Math.floor(x / CELL), Math.floor(z / CELL));
   }
 
   // ---------------------------------------------------------------
@@ -265,7 +310,7 @@
             faceC: dir.dc, faceR: dir.dr,
             // text reads left-to-right for someone standing in the open cell
             flip: dir.axis === 'X' ? dir.dc < 0 : dir.dr > 0,
-            w: (code.length * 6 - 1) * MARK_PX, h: MARK_H
+            w: (code.length * 12 - 1) * MARK_PX, h: MARK_H
           };
           wallMarks.push(mark);
           wallMarkByCell[r * COLS + c] = mark;
@@ -404,6 +449,22 @@
   function astar(ax, az, bx, bz) {
     var sc = Math.floor(ax / CELL), sr = Math.floor(az / CELL);
     var gc = Math.floor(bx / CELL), gr = Math.floor(bz / CELL);
+    // Security never paths into the console room. If the goal is inside
+    // (or on the locked door), snap to a walkable cell just outside the door.
+    if (isConsoleCell(gc, gr) || (consoleDoor() && gc === consoleDoor().c && gr === consoleDoor().r)) {
+      var d = consoleDoor();
+      var snapped = false;
+      if (d) {
+        var nbs = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+        for (var si = 0; si < 4; si++) {
+          var oc = d.c + nbs[si][0], or = d.r + nbs[si][1];
+          if (!isSolidCell(oc, or) && !isConsoleCell(oc, or)) {
+            gc = oc; gr = or; snapped = true; break;
+          }
+        }
+      }
+      if (!snapped) return null;
+    }
     if (isSolidCell(gc, gr) || isSolidCell(sc, sr)) return null;
     var W = COLS, key = function (c, r) { return r * W + c; };
     var open = [{ c: sc, r: sr, g: 0, f: 0 }];
@@ -436,6 +497,8 @@
       for (var n = 0; n < 4; n++) {
         var nc = cur.c + nb[n][0], nr = cur.r + nb[n][1];
         if (isSolidCell(nc, nr)) continue;
+        // already-inside units can leave; nobody walks in
+        if (isConsoleCell(nc, nr) && !isConsoleCell(cur.c, cur.r)) continue;
         var nk = key(nc, nr);
         var ng = cur.g + 1;
         if (gScore[nk] === undefined || ng < gScore[nk]) {
@@ -449,15 +512,18 @@
   }
 
   // Collision: slide a circle of radius rad against solid cells.
-  function moveWithCollision(x, z, nx, nz, rad) {
+  function moveWithCollision(x, z, nx, nz, rad, opts) {
+    var avoidConsole = opts && opts.avoidConsole;
     function blocked(px, pz) {
       // sample the circle against the four nearest cell edges
-      return isSolidAt(px - rad, pz) || isSolidAt(px + rad, pz) ||
-             isSolidAt(px, pz - rad) || isSolidAt(px, pz + rad) ||
-             isSolidAt(px - rad * 0.707, pz - rad * 0.707) ||
-             isSolidAt(px + rad * 0.707, pz - rad * 0.707) ||
-             isSolidAt(px - rad * 0.707, pz + rad * 0.707) ||
-             isSolidAt(px + rad * 0.707, pz + rad * 0.707);
+      if (isSolidAt(px - rad, pz) || isSolidAt(px + rad, pz) ||
+          isSolidAt(px, pz - rad) || isSolidAt(px, pz + rad) ||
+          isSolidAt(px - rad * 0.707, pz - rad * 0.707) ||
+          isSolidAt(px + rad * 0.707, pz - rad * 0.707) ||
+          isSolidAt(px - rad * 0.707, pz + rad * 0.707) ||
+          isSolidAt(px + rad * 0.707, pz + rad * 0.707)) return true;
+      if (avoidConsole && isConsoleAt(px, pz) && !isConsoleAt(x, z)) return true;
+      return false;
     }
     var rx = x, rz = z;
     if (!blocked(nx, rz)) rx = nx;
@@ -471,7 +537,8 @@
     for (var r = 2; r < ROWS - 2; r += 4) {
       for (var c = 2; c < COLS - 2; c += 4) {
         if (!isSolidCell(c, r) && !isSolidCell(c + 1, r) &&
-            !isSolidCell(c, r + 1) && !isSolidCell(c - 1, r) && !isSolidCell(c, r - 1)) {
+            !isSolidCell(c, r + 1) && !isSolidCell(c - 1, r) && !isSolidCell(c, r - 1) &&
+            !isConsoleCell(c, r)) {
           pts.push({ x: (c + 0.5) * CELL, z: (r + 0.5) * CELL });
         }
       }
@@ -582,6 +649,7 @@
     isSolidCell: isSolidCell, isSolidAt: isSolidAt,
     isSafeCell: isSafeCell, isSafeAt: isSafeAt,
     isLzCell: isLzCell, isLzAt: isLzAt,
+    isConsoleCell: isConsoleCell, isConsoleAt: isConsoleAt,
     raycast: raycast, wallsBetween: wallsBetween, astar: astar,
     moveWithCollision: moveWithCollision, patrolWaypoints: patrolWaypoints,
     rayLaser: rayLaser, laserHitPlayer: laserHitPlayer, asciiRows: asciiRows,
