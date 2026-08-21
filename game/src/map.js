@@ -133,11 +133,11 @@
   // the three beacons have work to do without changing the printed geometry.
   function missionLasersEasy() {
     return [
-      laserH(9, 13, 26.5, 'L-HARBOR', true), // south bottleneck out of spawn
-      laserV(3.5, 17, 18, 'L-WEST', true),   // west spine toward key 1
-      laserH(8, 10, 16.5, 'L-POW', true),    // west of POW cell
-      laserV(24.5, 27, 29, 'L-D2', true),    // hall west of D2
-      laserH(14, 22, 34.5, 'L-LZ', true)     // south run into the LZ
+      laserH(6, 7, 26.5, 'L-HARBOR', true),  // 1-cell doorway south of spawn
+      laserV(7.5, 17, 18, 'L-WEST', true),   // 1-cell gap west spine → POW
+      laserV(10.5, 15, 16, 'L-POW', true),   // 1-cell gap at POW hall
+      laserV(16.5, 27, 28, 'L-D2', true),    // 1-cell doorway on the D2 hall
+      laserV(24.5, 34, 35, 'L-LZ', true)     // 1-cell pinch on the south extract run
     ];
   }
   function missionLasers() {

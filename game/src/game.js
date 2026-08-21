@@ -12,7 +12,7 @@
   var STAMINA_MAX = 1, STAMINA_DRAIN = 0.32, STAMINA_RECOVER = 0.24, STAMINA_MIN_SPRINT = 0.12;
   var NOISE_TRICKLE = 9, NOISE_BURST = 34, NOISE_INTERACT = 12;
   var TRICKLE_RAYS = 220, TRICKLE_CONE = 14 * Math.PI / 180;
-  var POINT_LIFE = 10, ENEMY_POINT_LIFE = 2.5, MARK_LIFE = 28, ITEM_LIFE = 16;
+  var POINT_LIFE = 10, ENEMY_POINT_LIFE = 2.5, ITEM_LIFE = 16;
   var SCAN_RANGE = 60;
   var markPt = [0, 0, 0];
   var beadSphere = { x: 0, y: 0, z: 0, r: 0 };
@@ -1632,7 +1632,7 @@
     }
 
     // Wall codes: one ray on the plate fills the whole glyph so it reads as a
-    // solid stencil, not a handful of dots. Codes linger after walls fade.
+    // solid stencil, not a handful of dots. Same fade as the wall spray.
     if (hit && hit.type === 'wall' && (!color || bestT >= hit.t - 0.02)) {
       var mk = M.wallMarkFor(hit.openC, hit.openR, hit.wallC, hit.wallR);
       if (mk && MK.locate(mk, mk.axis === 'X' ? hit.z : hit.x, hit.y)) {
@@ -1642,7 +1642,7 @@
           for (var s = 0; s < ink.length; s++) {
             MK.pixelWorld(mk, ink[s][0], ink[s][1], markPt);
             R.addPoint(markPt[0], markPt[1], markPt[2],
-                       MK.color[0], MK.color[1], MK.color[2], now, MARK_LIFE, true);
+                       MK.color[0], MK.color[1], MK.color[2], now, POINT_LIFE, true);
           }
         }
       }
