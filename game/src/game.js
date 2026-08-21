@@ -59,11 +59,14 @@
     try {
       comfortVignette = localStorage.getItem('hollow_comfort_vignette') === '1';
       comfortSlowSprint = localStorage.getItem('hollow_comfort_sprint') === '1';
+      flashlightMode = localStorage.getItem('hollow_flashlight') === '1';
     } catch (e) { void e; }
     var v = $('opt-comfort-vignette');
     var s = $('opt-comfort-sprint');
+    var f = $('opt-flashlight');
     if (v) v.checked = comfortVignette;
     if (s) s.checked = comfortSlowSprint;
+    if (f) f.checked = flashlightMode;
     applyComfort();
   }
 
@@ -264,7 +267,7 @@
   var runTime = 0;
   var now = 0, lastFrame = 0;
   var sens = 0.0022, reducedFlash = false;
-  var comfortVignette = false, comfortSlowSprint = false;
+  var comfortVignette = false, comfortSlowSprint = false, flashlightMode = false;
   var moveVignette = 0;
   var deathCause = 'quiet';
   var clickTickFade = 0;
@@ -519,6 +522,7 @@
 
     var optVig = $('opt-comfort-vignette');
     var optSprint = $('opt-comfort-sprint');
+    var optFlashlight = $('opt-flashlight');
     if (optVig) {
       optVig.addEventListener('change', function (e) {
         comfortVignette = e.target.checked;
@@ -531,6 +535,14 @@
       optSprint.addEventListener('change', function (e) {
         comfortSlowSprint = e.target.checked;
         saveComfortFlag('hollow_comfort_sprint', comfortSlowSprint);
+      });
+    }
+    if (optFlashlight) {
+      optFlashlight.addEventListener('change', function (e) {
+        flashlightMode = e.target.checked;
+        saveComfortFlag('hollow_flashlight', flashlightMode);
+        if (R && R.clearPoints) R.clearPoints();
+        if (flashlightMode && R && R.rebuildWorld) R.rebuildWorld();
       });
     }
 
@@ -803,8 +815,18 @@
     }
     R.setCoachPanel({
       title: step.title,
-      lines: step.lines,
-      buttons: step.buttons,
+      lines: flashlightMode
+        ? step.lines.map(function (ln) {
+            return String(ln).replace(/scan the dark/g, 'light the dark')
+              .replace(/Scan for/g, 'Light for')
+              .replace(/LiDAR/g, 'the flashlight');
+          })
+        : step.lines,
+      buttons: flashlightMode
+        ? step.buttons.map(function (bn) {
+            return String(bn).replace(/LiDAR scan/g, 'flashlight').replace(/scan/g, 'flashlight');
+          })
+        : step.buttons,
       step: tutorialStation + 1,
       total: TUTORIAL_STEPS.length
     }, buildCoachModel());
@@ -1015,6 +1037,7 @@
         else NS.mic.setProfile('high');
       }
     }
+    if (R.rebuildWorld) R.rebuildWorld();
 
     M.resetDoors();
     math.srand(0x1988 ^ (Date.now() & 0xffff));
@@ -1555,11 +1578,14 @@
     var hit = M.raycast(ox, oy, oz, dx, dy, dz, SCAN_RANGE);
     var bestT = hit ? hit.t : SCAN_RANGE + 1;
     var color = null, life = POINT_LIFE;
-    if (hit) {
+    var skipArch = flashlightMode;
+    if (hit && !skipArch) {
       if (hit.type === 'door') color = C_DOOR;
       else if (hit.type === 'floor' && M.isLzAt && M.isLzAt(hit.x, hit.z)) color = C_LZ;
       else if (hit.type === 'floor' && M.isSafeAt(hit.x, hit.z)) color = C_HARBOR;
       else color = hit.type === 'floor' ? C_FLOOR : (hit.type === 'ceil' ? C_CEIL : C_WALL);
+    } else if (hit && skipArch) {
+      bestT = hit.t;
     }
 
     // yellow laser beams
@@ -1591,11 +1617,13 @@
       }
     }
     // locked blast doors — dark blue slab (also fills gaps if ray grazes)
-    for (i = 0; i < M.markers.doors.length; i++) {
-      var door = M.markers.doors[i];
-      if (!door.locked) continue;
-      t = raySphere(ox, oy, oz, dx, dy, dz, { x: door.x, y: 1.3, z: door.z, r: 1.15 });
-      if (t > 0 && t < bestT) { bestT = t; color = C_DOOR; life = ITEM_LIFE; }
+    if (!skipArch) {
+      for (i = 0; i < M.markers.doors.length; i++) {
+        var door = M.markers.doors[i];
+        if (!door.locked) continue;
+        t = raySphere(ox, oy, oz, dx, dy, dz, { x: door.x, y: 1.3, z: door.z, r: 1.15 });
+        if (t > 0 && t < bestT) { bestT = t; color = C_DOOR; life = ITEM_LIFE; }
+      }
     }
     // console pyramid visible for jack-in and virus plant
     if (!uplinkDone || (missionBranch === 'VIRUS' && !virusDone)) {
@@ -1603,11 +1631,9 @@
       if (t > 0 && t < bestT) { bestT = t; color = C_AMBER; life = ITEM_LIFE; }
     }
 
-    if (color === null || bestT > SCAN_RANGE) return;
-
     // Wall codes: one ray on the plate fills the whole glyph so it reads as a
     // solid stencil, not a handful of dots. Codes linger after walls fade.
-    if (hit && hit.type === 'wall' && bestT === hit.t) {
+    if (hit && hit.type === 'wall' && (!color || bestT >= hit.t - 0.02)) {
       var mk = M.wallMarkFor(hit.openC, hit.openR, hit.wallC, hit.wallR);
       if (mk && MK.locate(mk, mk.axis === 'X' ? hit.z : hit.x, hit.y)) {
         if (!mk.litAt || now - mk.litAt > 0.45) {
@@ -1621,6 +1647,8 @@
         }
       }
     }
+
+    if (color === null || bestT > SCAN_RANGE) return;
 
     if (keyHit && bestT === keyHitT) sprayKey(keyHit.x, KEY_Y, keyHit.z, ox, oy, oz, bestT);
 
@@ -1658,11 +1686,13 @@
         var d = coneRay(fwd);
         castScanRay(d[0], d[1], d[2]);
       }
-      A.scanTick();
-      trickleNoiseTimer -= dt;
-      if (trickleNoiseTimer <= 0) {
-        trickleNoiseTimer = 0.25;
-        emitNoise(NOISE_TRICKLE);
+      if (!flashlightMode) {
+        A.scanTick();
+        trickleNoiseTimer -= dt;
+        if (trickleNoiseTimer <= 0) {
+          trickleNoiseTimer = 0.25;
+          emitNoise(NOISE_TRICKLE);
+        }
       }
     }
   }
@@ -2116,6 +2146,7 @@
   function onDoorUnlocked(unlocked) {
     doorsOpen = M.doorsOpenCount();
     vanishDoor(unlocked);
+    if (R.rebuildWorld) R.rebuildWorld();
     emitNoise(NOISE_INTERACT);
     if (unlocked.console || unlocked.id === 'D3') {
       pushMsg('CONSOLE DOOR OPEN — SEAL GONE · JACK-IN READY', 'amber');
@@ -2816,6 +2847,18 @@
           C_RED[0], C_RED[1], C_RED[2], now, 1.5);
       }
       if (dieTimer > 1.4) { floodLevel = 0; finishDeath(); }
+    }
+
+    if (R.setFlashlight) {
+      var flashFwd = vrScanDirection || math.dirFromYawPitch(player.yaw, player.pitch);
+      R.setFlashlight({
+        enabled: flashlightMode,
+        lit: !!trickleOn,
+        x: vrScanOrigin ? vrScanOrigin.x : player.x,
+        y: vrScanOrigin ? vrScanOrigin.y : player.eye,
+        z: vrScanOrigin ? vrScanOrigin.z : player.z,
+        dx: flashFwd[0], dy: flashFwd[1], dz: flashFwd[2]
+      });
     }
 
     if (xrData) {

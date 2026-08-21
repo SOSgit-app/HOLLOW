@@ -157,9 +157,57 @@
     '}'
   ].join('\n');
 
+  // Solid site geometry, lit only by a hand-held cone (flashlight playstyle).
+  var MESH_VS = [
+    'attribute vec3 aPos;',
+    'attribute vec3 aNrm;',
+    'attribute vec3 aCol;',
+    'uniform mat4 uProj;',
+    'uniform mat4 uView;',
+    'varying vec3 vPos;',
+    'varying vec3 vNrm;',
+    'varying vec3 vCol;',
+    'void main(){',
+    '  vPos = aPos;',
+    '  vNrm = aNrm;',
+    '  vCol = aCol;',
+    '  gl_Position = uProj * uView * vec4(aPos, 1.0);',
+    '}'
+  ].join('\n');
+  var MESH_FS = [
+    'precision mediump float;',
+    'varying vec3 vPos;',
+    'varying vec3 vNrm;',
+    'varying vec3 vCol;',
+    'uniform vec3 uLightPos;',
+    'uniform vec3 uLightDir;',
+    'uniform float uLit;',
+    'void main(){',
+    '  vec3 n = normalize(vNrm);',
+    '  vec3 toL = uLightPos - vPos;',
+    '  float dist = length(toL);',
+    '  vec3 ldir = toL / max(dist, 0.001);',
+    '  float ndl = abs(dot(n, ldir));',
+    '  float cone = dot(-ldir, normalize(uLightDir));',
+    '  float spot = smoothstep(0.90, 0.97, cone);',
+    '  float att = 1.0 / (1.0 + dist * 0.08 + dist * dist * 0.018);',
+    '  att *= 1.0 - smoothstep(14.0, 20.0, dist);',
+    '  float amb = 0.016;',
+    '  float lit = amb + uLit * ndl * spot * att * 2.4;',
+    '  gl_FragColor = vec4(vCol * lit, 1.0);',
+    '}'
+  ].join('\n');
+
   var attrs = {}, unis = {}, postAttrs = {}, postUnis = {};
   var gridProg = null, gridAttrs = {}, gridUnis = {};
   var vigProg = null, vigAttrs = {}, vigUnis = {};
+  var meshProg = null, meshAttrs = {}, meshUnis = {};
+  var worldVbo = null, worldCount = 0;
+  var fboDepth = null;
+  var flash = {
+    enabled: false, lit: false,
+    x: 0, y: 1.6, z: 0, dx: 0, dy: 0, dz: 1
+  };
   var gridVbo = null, gridCount = 0;
   var comfortOpts = { vignette: 0 };
   var hudProg = null, hudAttrs = {}, hudUnis = {};
@@ -195,6 +243,7 @@
     hudProg = program(HUD_VS, HUD_FS);
     gridProg = program(GRID_VS, GRID_FS);
     vigProg = program(VIG_VS, VIG_FS);
+    meshProg = program(MESH_VS, MESH_FS);
 
     attrs.aPos = gl.getAttribLocation(pointProg, 'aPos');
     attrs.aCol = gl.getAttribLocation(pointProg, 'aCol');
@@ -216,6 +265,15 @@
 
     vigAttrs.aPos = gl.getAttribLocation(vigProg, 'aPos');
     vigUnis.uVignette = gl.getUniformLocation(vigProg, 'uVignette');
+
+    meshAttrs.aPos = gl.getAttribLocation(meshProg, 'aPos');
+    meshAttrs.aNrm = gl.getAttribLocation(meshProg, 'aNrm');
+    meshAttrs.aCol = gl.getAttribLocation(meshProg, 'aCol');
+    meshUnis.uProj = gl.getUniformLocation(meshProg, 'uProj');
+    meshUnis.uView = gl.getUniformLocation(meshProg, 'uView');
+    meshUnis.uLightPos = gl.getUniformLocation(meshProg, 'uLightPos');
+    meshUnis.uLightDir = gl.getUniformLocation(meshProg, 'uLightDir');
+    meshUnis.uLit = gl.getUniformLocation(meshProg, 'uLit');
 
     hudAttrs.aPos = gl.getAttribLocation(hudProg, 'aPos');
     hudAttrs.aUv = gl.getAttribLocation(hudProg, 'aUv');
@@ -292,6 +350,7 @@
     if (fboW === w && fboH === h) return;
     fboW = w; fboH = h;
     if (fboTex) { gl.deleteTexture(fboTex); gl.deleteFramebuffer(fbo); }
+    if (fboDepth) { gl.deleteRenderbuffer(fboDepth); fboDepth = null; }
     fboTex = gl.createTexture();
     gl.bindTexture(gl.TEXTURE_2D, fboTex);
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, w, h, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
@@ -299,9 +358,13 @@
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.LINEAR);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    fboDepth = gl.createRenderbuffer();
+    gl.bindRenderbuffer(gl.RENDERBUFFER, fboDepth);
+    gl.renderbufferStorage(gl.RENDERBUFFER, gl.DEPTH_COMPONENT16, w, h);
     fbo = gl.createFramebuffer();
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.framebufferTexture2D(gl.FRAMEBUFFER, gl.COLOR_ATTACHMENT0, gl.TEXTURE_2D, fboTex, 0);
+    gl.framebufferRenderbuffer(gl.FRAMEBUFFER, gl.DEPTH_ATTACHMENT, gl.RENDERBUFFER, fboDepth);
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
   }
 
@@ -315,6 +378,56 @@
   function setComfort(opts) {
     opts = opts || {};
     comfortOpts.vignette = Math.max(0, Math.min(1, opts.vignette || 0));
+  }
+
+  function setFlashlight(opts) {
+    opts = opts || {};
+    flash.enabled = !!opts.enabled;
+    flash.lit = !!opts.lit;
+    if (opts.x != null) flash.x = opts.x;
+    if (opts.y != null) flash.y = opts.y;
+    if (opts.z != null) flash.z = opts.z;
+    if (opts.dx != null) flash.dx = opts.dx;
+    if (opts.dy != null) flash.dy = opts.dy;
+    if (opts.dz != null) flash.dz = opts.dz;
+  }
+
+  function rebuildWorld() {
+    if (!gl) return;
+    var mesh = NS.map && NS.map.buildWorldMesh ? NS.map.buildWorldMesh() : null;
+    worldCount = mesh && mesh.count ? mesh.count : 0;
+    if (!worldVbo) worldVbo = gl.createBuffer();
+    gl.bindBuffer(gl.ARRAY_BUFFER, worldVbo);
+    if (worldCount > 0) gl.bufferData(gl.ARRAY_BUFFER, mesh.data, gl.STATIC_DRAW);
+    else gl.bufferData(gl.ARRAY_BUFFER, 1, gl.STATIC_DRAW);
+  }
+
+  function drawWorldMesh(proj, view) {
+    if (!flash.enabled || !meshProg || worldCount <= 0) return;
+    gl.disable(gl.BLEND);
+    gl.enable(gl.DEPTH_TEST);
+    gl.depthFunc(gl.LEQUAL);
+    gl.depthMask(true);
+    gl.disable(gl.CULL_FACE);
+    gl.useProgram(meshProg);
+    gl.uniformMatrix4fv(meshUnis.uProj, false, proj);
+    gl.uniformMatrix4fv(meshUnis.uView, false, view);
+    gl.uniform3f(meshUnis.uLightPos, flash.x, flash.y, flash.z);
+    gl.uniform3f(meshUnis.uLightDir, flash.dx, flash.dy, flash.dz);
+    gl.uniform1f(meshUnis.uLit, flash.lit ? 1.0 : 0.0);
+    gl.bindBuffer(gl.ARRAY_BUFFER, worldVbo);
+    var stride = 36;
+    gl.enableVertexAttribArray(meshAttrs.aPos);
+    gl.vertexAttribPointer(meshAttrs.aPos, 3, gl.FLOAT, false, stride, 0);
+    gl.enableVertexAttribArray(meshAttrs.aNrm);
+    gl.vertexAttribPointer(meshAttrs.aNrm, 3, gl.FLOAT, false, stride, 12);
+    gl.enableVertexAttribArray(meshAttrs.aCol);
+    gl.vertexAttribPointer(meshAttrs.aCol, 3, gl.FLOAT, false, stride, 24);
+    gl.drawArrays(gl.TRIANGLES, 0, worldCount);
+    gl.disableVertexAttribArray(meshAttrs.aPos);
+    gl.disableVertexAttribArray(meshAttrs.aNrm);
+    gl.disableVertexAttribArray(meshAttrs.aCol);
+    gl.depthMask(false);
   }
 
   function drawComfortVignette() {
@@ -449,12 +562,23 @@
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
     gl.viewport(0, 0, fboW, fboH);
     gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     gl.disable(gl.DEPTH_TEST);
     gl.enable(gl.BLEND);
     gl.blendFunc(gl.ONE, gl.ONE);
 
+    if (flash.enabled) {
+      drawWorldMesh(proj, view);
+      gl.enable(gl.BLEND);
+      gl.blendFunc(gl.ONE, gl.ONE);
+      gl.enable(gl.DEPTH_TEST);
+      gl.depthMask(false);
+    }
+
     drawPoints(proj, view, now, quality.xrMaxPoints);
+
+    gl.depthMask(true);
+    gl.disable(gl.DEPTH_TEST);
 
     // pass 2: fbo -> screen (clean + optional comfort vignette / death flood)
     gl.bindFramebuffer(gl.FRAMEBUFFER, null);
@@ -889,14 +1013,23 @@
     gl.blendFunc(gl.ONE, gl.ONE);
     gl.viewport(0, 0, gl.drawingBufferWidth, gl.drawingBufferHeight);
     gl.clearColor(0, 0, 0, 1);
-    gl.clear(gl.COLOR_BUFFER_BIT);
+    gl.clear(gl.COLOR_BUFFER_BIT | gl.DEPTH_BUFFER_BIT);
     for (var i = 0; i < views.length; i++) {
       var v = views[i];
       gl.viewport(v.viewport.x, v.viewport.y, v.viewport.width, v.viewport.height);
+      if (flash.enabled) {
+        drawWorldMesh(v.projection, v.view);
+        gl.enable(gl.BLEND);
+        gl.blendFunc(gl.ONE, gl.ONE);
+        gl.enable(gl.DEPTH_TEST);
+        gl.depthMask(false);
+      }
       // Coach behind circuit so jack-in stays readable
       drawCoachPanel(v.projection, v.view);
       drawCircuitPanel(v.projection, v.view);
       drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
+      gl.depthMask(true);
+      gl.disable(gl.DEPTH_TEST);
       drawVRHud(v.projection, v.view);
       drawComfortVignette();
     }
@@ -917,6 +1050,7 @@
     setVRHud: setVRHud, setWristModel: setWristModel, setCircuitPanel: setCircuitPanel,
     setCoachPanel: setCoachPanel,
     setQuality: setQuality, setComfort: setComfort,
+    setFlashlight: setFlashlight, rebuildWorld: rebuildWorld,
     getContext: function () { return gl; },
     makeXRCompatible: makeXRCompatible
   };

@@ -677,6 +677,78 @@
     return !!(d && d.locked);
   }
 
+  // Triangle mesh of floors / ceilings / wall faces for flashlight mode.
+  // Locked doors are solid faces; unlocking a door opens a floor gap.
+  function isMeshFloor(c, r) {
+    if (c < 0 || r < 0 || c >= COLS || r >= ROWS) return false;
+    if (grid[r][c]) return false;
+    if (isDoorSolid(c, r)) return false;
+    return true;
+  }
+
+  function buildWorldMesh() {
+    var verts = [];
+    function push(x, y, z, nx, ny, nz, r, g, b) {
+      verts.push(x, y, z, nx, ny, nz, r, g, b);
+    }
+    function quad(p0, p1, p2, p3, nx, ny, nz, r, g, b) {
+      var ax = p1[0] - p0[0], ay = p1[1] - p0[1], az = p1[2] - p0[2];
+      var bx = p3[0] - p0[0], by = p3[1] - p0[1], bz = p3[2] - p0[2];
+      var cx = ay * bz - az * by, cy = az * bx - ax * bz, cz = ax * by - ay * bx;
+      if (cx * nx + cy * ny + cz * nz < 0) {
+        var tmp = p1; p1 = p3; p3 = tmp;
+      }
+      push(p0[0], p0[1], p0[2], nx, ny, nz, r, g, b);
+      push(p1[0], p1[1], p1[2], nx, ny, nz, r, g, b);
+      push(p2[0], p2[1], p2[2], nx, ny, nz, r, g, b);
+      push(p0[0], p0[1], p0[2], nx, ny, nz, r, g, b);
+      push(p2[0], p2[1], p2[2], nx, ny, nz, r, g, b);
+      push(p3[0], p3[1], p3[2], nx, ny, nz, r, g, b);
+    }
+
+    var FLOOR = [0.34, 0.36, 0.38];
+    var HARBOR = [0.16, 0.52, 0.28];
+    var LZ = [0.55, 0.46, 0.16];
+    var WALL = [0.30, 0.34, 0.40];
+    var CEIL = [0.11, 0.12, 0.14];
+    var DOOR = [0.16, 0.26, 0.70];
+    var dirs = [
+      { dc: 1, dr: 0 }, { dc: -1, dr: 0 },
+      { dc: 0, dr: 1 }, { dc: 0, dr: -1 }
+    ];
+
+    for (var r = 0; r < ROWS; r++) {
+      for (var c = 0; c < COLS; c++) {
+        if (!isMeshFloor(c, r)) continue;
+        var x0 = c * CELL, x1 = (c + 1) * CELL;
+        var z0 = r * CELL, z1 = (r + 1) * CELL;
+        var fc = FLOOR;
+        if (isSafeCell(c, r)) fc = HARBOR;
+        else if (isLzCell(c, r)) fc = LZ;
+        quad([x0, 0, z0], [x1, 0, z0], [x1, 0, z1], [x0, 0, z1], 0, 1, 0, fc[0], fc[1], fc[2]);
+        quad([x0, WALL_H, z0], [x0, WALL_H, z1], [x1, WALL_H, z1], [x1, WALL_H, z0], 0, -1, 0, CEIL[0], CEIL[1], CEIL[2]);
+
+        for (var d = 0; d < dirs.length; d++) {
+          var nc = c + dirs[d].dc, nr = r + dirs[d].dr;
+          if (isMeshFloor(nc, nr)) continue;
+          var col = (isDoorSolid(nc, nr) ? DOOR : WALL);
+          var nx = -dirs[d].dc, nz = -dirs[d].dr;
+          if (dirs[d].dc === 1) {
+            quad([x1, 0, z0], [x1, 0, z1], [x1, WALL_H, z1], [x1, WALL_H, z0], nx, 0, nz, col[0], col[1], col[2]);
+          } else if (dirs[d].dc === -1) {
+            quad([x0, 0, z1], [x0, 0, z0], [x0, WALL_H, z0], [x0, WALL_H, z1], nx, 0, nz, col[0], col[1], col[2]);
+          } else if (dirs[d].dr === 1) {
+            quad([x1, 0, z1], [x0, 0, z1], [x0, WALL_H, z1], [x1, WALL_H, z1], nx, 0, nz, col[0], col[1], col[2]);
+          } else {
+            quad([x0, 0, z0], [x1, 0, z0], [x1, WALL_H, z0], [x0, WALL_H, z0], nx, 0, nz, col[0], col[1], col[2]);
+          }
+        }
+      }
+    }
+
+    return { data: new Float32Array(verts), count: verts.length / 9, stride: 9 };
+  }
+
   NS.map = {
     CELL: CELL, WALL_H: WALL_H, ROWS: function () { return ROWS; }, COLS: function () { return COLS; },
     markers: markers,
@@ -691,7 +763,8 @@
     consoleDoor: consoleDoor, isConsoleSealed: isConsoleSealed,
     wallMarks: function () { return wallMarks; },
     wallMarkFor: wallMarkFor, wallMarkBox: wallMarkBox,
-    loadLayout: loadLayout, layout: function () { return currentLayout; }
+    loadLayout: loadLayout, layout: function () { return currentLayout; },
+    buildWorldMesh: buildWorldMesh
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})
                                  : (global.HOLLOW = global.HOLLOW || {}));

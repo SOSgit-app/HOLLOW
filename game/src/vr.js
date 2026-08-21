@@ -67,6 +67,7 @@
         baseLayer: new XRWebGLLayer(session, gl, {
           alpha: false,
           antialias: false,
+          depth: true,
           framebufferScaleFactor: framebufferScale
         }),
         depthNear: 0.05,
