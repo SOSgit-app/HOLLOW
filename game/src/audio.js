@@ -182,33 +182,42 @@
     setTimeout(function () { thump(50, 0.09, 0.038 * intensity, 0, 130); }, 140);
   }
 
-  function sting(on) {                           // chase enter/exit
+  function sting(on) {                           // chase enter/exit — low rumble, not a buzz
     if (!ctx) return;
     if (on && !stingNodes) {
       if (stingStopTimer) { clearTimeout(stingStopTimer); stingStopTimer = null; }
       stingNodes = [];
+      var t0 = ctx.currentTime;
+      var lp = ctx.createBiquadFilter();
+      lp.type = 'lowpass';
+      lp.frequency.value = 180;
+      lp.Q.value = 0.7;
       var g = ctx.createGain();
-      g.gain.setValueAtTime(0, ctx.currentTime);
-      g.gain.linearRampToValueAtTime(0.05, ctx.currentTime + 0.4);
+      g.gain.setValueAtTime(0, t0);
+      g.gain.linearRampToValueAtTime(0.014, t0 + 0.7);
+      lp.connect(g);
       g.connect(master);
-      [110, 116.5, 220, 233].forEach(function (f) {
+      [55, 82].forEach(function (f) {
         var o = ctx.createOscillator();
-        o.type = 'sawtooth'; o.frequency.value = f;
-        o.connect(g); o.start();
+        o.type = 'sine';
+        o.frequency.value = f;
+        o.connect(lp);
+        o.start();
         stingNodes.push(o);
       });
+      stingNodes.push(lp);
       stingNodes.push(g);
     } else if (!on && stingNodes) {
       var gg = stingNodes[stingNodes.length - 1];
       var t = ctx.currentTime;
-      try { gg.gain.cancelScheduledValues(t); gg.gain.setValueAtTime(gg.gain.value, t); gg.gain.linearRampToValueAtTime(0.0001, t + 0.35); } catch (e) { void e; }
+      try { gg.gain.cancelScheduledValues(t); gg.gain.setValueAtTime(gg.gain.value, t); gg.gain.linearRampToValueAtTime(0.0001, t + 0.5); } catch (e) { void e; }
       var nodes = stingNodes;
       stingNodes = null;
       if (stingStopTimer) clearTimeout(stingStopTimer);
       stingStopTimer = setTimeout(function () {
         stingStopTimer = null;
         nodes.forEach(stopNode);
-      }, 400);
+      }, 550);
     }
   }
 

@@ -164,7 +164,11 @@
   var comfortOpts = { vignette: 0 };
   var hudProg = null, hudAttrs = {}, hudUnis = {};
   var hudCanvas = null, hudCtx = null, hudTex = null, hudVbo = null;
-  var hudState = { hint: '', obj: '', aux: 0, stamina: 1, exhausted: false, timer: '', chg: '', contacts: [], yaw: 0, px: 0, pz: 0 };
+  var hudState = {
+    hint: '', obj: '', aux: 0, stamina: 1, exhausted: false, timer: '',
+    contacts: [], yaw: 0, px: 0, pz: 0, showNoise: true,
+    beacons: 0, beaconsMax: 0
+  };
   var hudDirty = true;
   var wristModel = null; // Float32Array(16) game-world model matrix
   var circuitModel = null;
@@ -485,24 +489,52 @@
     ctx.lineWidth = 2;
     ctx.strokeRect(18, 18, w - 36, h - 36);
 
+    function wrapText(text, maxW, maxLines) {
+      text = String(text || '');
+      ctx.save();
+      var words = text.split(/\s+/), lines = [], cur = '';
+      for (var i = 0; i < words.length; i++) {
+        var trial = cur ? cur + ' ' + words[i] : words[i];
+        if (ctx.measureText(trial).width <= maxW) { cur = trial; continue; }
+        if (cur) lines.push(cur);
+        cur = words[i];
+      }
+      if (cur) lines.push(cur);
+      if (lines.length > maxLines) {
+        lines = lines.slice(0, maxLines);
+        var last = lines[maxLines - 1];
+        while (last.length && ctx.measureText(last + '…').width > maxW) last = last.slice(0, -1);
+        lines[maxLines - 1] = last + '…';
+      }
+      ctx.restore();
+      return lines.length ? lines : [''];
+    }
+
     ctx.textAlign = 'left';
     ctx.textBaseline = 'middle';
     ctx.fillStyle = 'rgba(124,255,155,0.98)';
-    ctx.font = 'bold 26px Consolas, monospace';
-    ctx.fillText('RD-9 WRISTLINK', 36, 40);
-    ctx.font = '20px Consolas, monospace';
-    ctx.fillStyle = 'rgba(124,255,155,0.7)';
-    ctx.fillText(hudState.timer || 'T+00:00', 36, 70);
-
-    ctx.textAlign = 'right';
-    ctx.fillStyle = 'rgba(124,255,155,0.98)';
     ctx.font = 'bold 22px Consolas, monospace';
-    ctx.fillText(hudState.obj || '', w - 36, 40);
+    ctx.fillText('RD-9 WRISTLINK', 32, 38);
+    ctx.textAlign = 'right';
     ctx.font = '18px Consolas, monospace';
-    ctx.fillStyle = 'rgba(124,255,155,0.75)';
-    ctx.fillText('CHG ' + (hudState.chg || ''), w - 36, 70);
+    ctx.fillStyle = 'rgba(124,255,155,0.7)';
+    ctx.fillText(hudState.timer || 'T+00:00', w - 32, 38);
 
-    var cx = w * 0.32, cy = h * 0.52, rad = Math.min(w, h) * 0.22;
+    ctx.textAlign = 'left';
+    ctx.font = 'bold 18px Consolas, monospace';
+    ctx.fillStyle = 'rgba(124,255,155,0.95)';
+    var objLines = wrapText(hudState.obj || '', w - 64, 2);
+    var oy = 62;
+    for (var oi = 0; oi < objLines.length; oi++) {
+      ctx.fillText(objLines[oi], 32, oy + oi * 20);
+    }
+    if (hudState.beaconsMax > 0) {
+      ctx.font = '16px Consolas, monospace';
+      ctx.fillStyle = 'rgba(255,179,71,0.9)';
+      ctx.fillText('BEACON ' + hudState.beacons + '/' + hudState.beaconsMax, 32, oy + objLines.length * 20 + 4);
+    }
+
+    var cx = w * 0.30, cy = h * 0.56, rad = Math.min(w, h) * 0.20;
     ctx.strokeStyle = 'rgba(124,255,155,0.55)';
     ctx.lineWidth = 2;
     ctx.beginPath(); ctx.arc(cx, cy, rad, 0, Math.PI * 2); ctx.stroke();
@@ -517,9 +549,9 @@
     ctx.closePath();
     ctx.fill();
     ctx.textAlign = 'center';
-    ctx.font = '16px Consolas, monospace';
+    ctx.font = '15px Consolas, monospace';
     ctx.fillStyle = 'rgba(124,255,155,0.7)';
-    ctx.fillText('MOTION', cx, cy + rad + 18);
+    ctx.fillText('MOTION', cx, cy + rad + 16);
 
     var contacts = hudState.contacts || [];
     var yaw = hudState.yaw || 0;
@@ -559,45 +591,52 @@
       }
     }
 
-    var aux = Math.max(0, Math.min(1, hudState.aux || 0));
-    var bx2 = w * 0.58, by2 = 110, bw2 = w * 0.36, bh2 = 22;
+    var bx2 = w * 0.56, bw2 = w * 0.38, bh2 = 20;
+    var meterY = 118;
     ctx.textAlign = 'left';
-    ctx.fillStyle = 'rgba(124,255,155,0.85)';
-    ctx.font = 'bold 18px Consolas, monospace';
-    ctx.fillText('SIGNATURE', bx2, by2 - 12);
-    ctx.strokeStyle = 'rgba(63,138,85,0.95)';
-    ctx.strokeRect(bx2, by2, bw2, bh2);
-    var band = hudState.auxBand || (aux > 0.47 ? 'RED' : (aux > 0.15 ? 'YELLOW' : 'SAFE'));
-    ctx.fillStyle = band === 'RED'
-      ? 'rgba(255,68,68,0.95)'
-      : (band === 'YELLOW' ? 'rgba(255,179,71,0.95)' : 'rgba(124,255,155,0.95)');
-    ctx.fillRect(bx2 + 2, by2 + 2, Math.max(0, (bw2 - 4) * aux), bh2 - 4);
-    // Safe / yellow threshold ticks
-    var safeT = Math.max(0, Math.min(1, hudState.auxSafe != null ? hudState.auxSafe : 0.15));
-    var yelT = Math.max(0, Math.min(1, hudState.auxYellow != null ? hudState.auxYellow : 0.47));
-    ctx.strokeStyle = 'rgba(255,255,255,0.35)';
-    ctx.beginPath();
-    ctx.moveTo(bx2 + 2 + (bw2 - 4) * safeT, by2);
-    ctx.lineTo(bx2 + 2 + (bw2 - 4) * safeT, by2 + bh2);
-    ctx.moveTo(bx2 + 2 + (bw2 - 4) * yelT, by2);
-    ctx.lineTo(bx2 + 2 + (bw2 - 4) * yelT, by2 + bh2);
-    ctx.stroke();
-    ctx.fillStyle = band === 'RED' ? 'rgba(255,120,120,0.9)'
-      : (band === 'YELLOW' ? 'rgba(255,200,120,0.9)' : 'rgba(160,255,180,0.85)');
-    ctx.font = '14px Consolas, monospace';
-    ctx.fillText(band === 'RED' ? 'RED — CHASE' : (band === 'YELLOW' ? 'YELLOW — CHECK' : 'GREEN — SAFE'),
-      bx2, by2 + bh2 + 18);
+    ctx.textBaseline = 'middle';
+    ctx.font = 'bold 16px Consolas, monospace';
+
+    if (hudState.showNoise) {
+      var aux = Math.max(0, Math.min(1, hudState.aux || 0));
+      ctx.fillStyle = 'rgba(124,255,155,0.85)';
+      ctx.fillText('NOISE LEVEL', bx2, meterY);
+      meterY += 16;
+      ctx.strokeStyle = 'rgba(63,138,85,0.95)';
+      ctx.strokeRect(bx2, meterY, bw2, bh2);
+      var band = hudState.auxBand || (aux > 0.47 ? 'RED' : (aux > 0.15 ? 'YELLOW' : 'SAFE'));
+      ctx.fillStyle = band === 'RED'
+        ? 'rgba(255,68,68,0.95)'
+        : (band === 'YELLOW' ? 'rgba(255,179,71,0.95)' : 'rgba(124,255,155,0.95)');
+      ctx.fillRect(bx2 + 2, meterY + 2, Math.max(0, (bw2 - 4) * aux), bh2 - 4);
+      var safeT = Math.max(0, Math.min(1, hudState.auxSafe != null ? hudState.auxSafe : 0.15));
+      var yelT = Math.max(0, Math.min(1, hudState.auxYellow != null ? hudState.auxYellow : 0.47));
+      ctx.strokeStyle = 'rgba(255,255,255,0.35)';
+      ctx.beginPath();
+      ctx.moveTo(bx2 + 2 + (bw2 - 4) * safeT, meterY);
+      ctx.lineTo(bx2 + 2 + (bw2 - 4) * safeT, meterY + bh2);
+      ctx.moveTo(bx2 + 2 + (bw2 - 4) * yelT, meterY);
+      ctx.lineTo(bx2 + 2 + (bw2 - 4) * yelT, meterY + bh2);
+      ctx.stroke();
+      ctx.fillStyle = band === 'RED' ? 'rgba(255,120,120,0.9)'
+        : (band === 'YELLOW' ? 'rgba(255,200,120,0.9)' : 'rgba(160,255,180,0.85)');
+      ctx.font = '13px Consolas, monospace';
+      ctx.fillText(band === 'RED' ? 'RED — CHASE' : (band === 'YELLOW' ? 'YELLOW — CHECK' : 'GREEN — SAFE'),
+        bx2, meterY + bh2 + 14);
+      meterY += 52;
+      ctx.font = 'bold 16px Consolas, monospace';
+    }
 
     var sta = Math.max(0, Math.min(1, hudState.stamina == null ? 1 : hudState.stamina));
-    var by3 = by2 + 48;
     ctx.fillStyle = 'rgba(124,255,155,0.85)';
-    ctx.fillText('STAMINA', bx2, by3 - 12);
+    ctx.fillText('STAMINA', bx2, meterY);
+    meterY += 16;
     ctx.strokeStyle = 'rgba(63,138,85,0.95)';
-    ctx.strokeRect(bx2, by3, bw2, bh2);
+    ctx.strokeRect(bx2, meterY, bw2, bh2);
     ctx.fillStyle = hudState.exhausted
       ? 'rgba(255,80,80,0.95)'
       : (sta < 0.3 ? 'rgba(255,179,71,0.95)' : 'rgba(120,200,255,0.95)');
-    ctx.fillRect(bx2 + 2, by3 + 2, Math.max(0, (bw2 - 4) * sta), bh2 - 4);
+    ctx.fillRect(bx2 + 2, meterY + 2, Math.max(0, (bw2 - 4) * sta), bh2 - 4);
 
     // Virus upload takeover — flashing Wristlink plant screen
     if (hudState.virusUpload != null) {
@@ -648,20 +687,19 @@
     }
 
     ctx.fillStyle = 'rgba(0,0,0,0.45)';
-    ctx.fillRect(28, h - 72, w - 56, 48);
+    ctx.fillRect(28, h - 64, w - 56, 42);
     ctx.strokeStyle = 'rgba(255,179,71,0.45)';
-    ctx.strokeRect(28, h - 72, w - 56, 48);
+    ctx.strokeRect(28, h - 64, w - 56, 42);
     ctx.textAlign = 'center';
     ctx.fillStyle = 'rgba(255,179,71,0.9)';
     ctx.font = '13px Consolas, monospace';
     var hint = hudState.hint || 'RAISE WRIST · TRACK SECURITY';
-    if (hint.length > 42) {
-      var mid = hint.lastIndexOf(' ', 42);
-      if (mid < 14) mid = 42;
-      ctx.fillText(hint.slice(0, mid), w * 0.5, h - 52);
-      ctx.fillText(hint.slice(mid).trim(), w * 0.5, h - 36);
+    var hintLines = wrapText(hint, w - 80, 2);
+    if (hintLines.length > 1) {
+      ctx.fillText(hintLines[0], w * 0.5, h - 48);
+      ctx.fillText(hintLines[1], w * 0.5, h - 32);
     } else {
-      ctx.fillText(hint, w * 0.5, h - 44);
+      ctx.fillText(hintLines[0], w * 0.5, h - 42);
     }
     hudDirty = false;
   }
@@ -683,7 +721,10 @@
       px: state.px || 0,
       pz: state.pz || 0,
       virusUpload: state.virusUpload == null ? null : state.virusUpload,
-      virusHolding: !!state.virusHolding
+      virusHolding: !!state.virusHolding,
+      showNoise: state.showNoise !== false,
+      beacons: state.beacons || 0,
+      beaconsMax: state.beaconsMax || 0
     };
     hudDirty = true;
   }

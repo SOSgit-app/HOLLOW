@@ -158,7 +158,7 @@
   function reset(difficulty) {
     currentDiff = difficulty || 'medium';
     if (currentDiff === 'tutorial') SECONDARIES = [];
-    else if (currentDiff === 'easy') SECONDARIES = [B];
+    else if (currentDiff === 'easy') SECONDARIES = [B, C];
     else if (currentDiff === 'medium') SECONDARIES = [B, C];
     else SECONDARIES = [B, C, D];
 
@@ -224,7 +224,8 @@
   //   RED           — units that hear chase the player for 7s, then resume patrol
   function hear(x, z, loud, now, isPlayerNoise) {
     if (suppressed || heldStill) return;
-    if (currentDiff === 'easy' && isPlayerNoise) loud *= 0.7;
+    // Easy: player noise never alerts — only proximity, beacons, and facility alarms
+    if (currentDiff === 'easy' && isPlayerNoise) return;
 
     // Player noise from inside a safe harbor is heavily attenuated (EMCON)
     if (isPlayerNoise && M.isSafeAt(x, z)) {

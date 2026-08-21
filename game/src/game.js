@@ -76,10 +76,11 @@
     easy: {
       label: 'EASY',
       points: [
-        '<b>2</b> security units on the map',
+        '<b>3</b> security units on the map',
         'Patrols move <b>slower</b>',
-        'Your footsteps / noise register quieter',
-        'Headset mic is <b>OFF</b> — talking will not alert security'
+        '<b>3</b> fault beacons',
+        'Your noise is ignored — security only reacts to <b>proximity</b>',
+        'Headset mic is <b>OFF</b> — no noise-level meter'
       ]
     },
     medium: {
@@ -87,8 +88,8 @@
       points: [
         '<b>3</b> security units on the map',
         'Normal patrol and chase speed',
-        'Headset mic is <b>ON</b> but forgiving',
-        'Quiet talk is safer; loud speech can draw attention'
+        '<b>2</b> fault beacons',
+        'Headset mic is <b>ON</b> but forgiving — noise level is shown'
       ]
     },
     hard: {
@@ -96,11 +97,22 @@
       points: [
         '<b>4</b> security units on the map',
         'Chase speed is <b>faster</b>',
-        'Headset mic is <b>ON</b> and sensitive',
-        'Voice near the mic raises your signature quickly'
+        '<b>1</b> fault beacon',
+        'Headset mic is <b>ON</b> and sensitive — noise level is shown'
       ]
     }
   };
+  function beaconQuota() {
+    if (tutorialMode) return 1;
+    if (currentDifficulty === 'easy') return 3;
+    if (currentDifficulty === 'hard') return 1;
+    return 2;
+  }
+
+  function showNoiseMeter() {
+    return !tutorialMode && currentDifficulty !== 'easy';
+  }
+
   function applyDifficulty(diff) {
     var next = diff || 'medium';
     var changed = next !== currentDifficulty;
@@ -221,7 +233,7 @@
   var keysCollected = 0, doorsOpen = 0;
   var beacons = [];
   var beaconsLeft = 0;
-  var BEACON_MAX = 2;
+  var beaconsMax = 0;
   var BEACON_LIFE = 10;
   var BEACON_PULSE = 0.72;
   var BEACON_LOUD = 38;
@@ -1012,7 +1024,8 @@
     });
     keysCollected = 0; doorsOpen = 0;
     beacons = [];
-    beaconsLeft = tutorialMode ? 1 : BEACON_MAX;
+    beaconsMax = beaconQuota();
+    beaconsLeft = beaconsMax;
     uplinkDone = false;
     jackInCooldownUntil = 0;
     exfilPhase = 'NONE'; exfilTimer = 0;
@@ -2575,7 +2588,7 @@
       if (M.isConsoleSealed()) {
         return 'KEY ' + keysCollected + '/3 · CONSOLE DOOR';
       }
-      return 'KEY ' + keysCollected + '/3 · BEACON ' + beaconsLeft + ' · JACK-IN';
+      return 'KEY ' + keysCollected + '/3 · JACK-IN';
     })();
     vrHudObj = el.obj.textContent || el.obj.innerText || '';
 
@@ -2585,15 +2598,19 @@
     recentLoud = Math.max(0, recentLoud - dt * 14);
     var micL = (NS.mic && NS.mic.level) ? NS.mic.level() : 0;
     var shownAux = Math.max(auxLoud, micL);
+    var showNoise = showNoiseMeter();
+    if (el.aux) el.aux.style.display = showNoise ? '' : 'none';
     var auxBandLoud = shownAux * NOISE_BURST;
     var auxBand = EN.noiseBand ? EN.noiseBand(auxBandLoud) : 'SAFE';
-    el.auxFill.style.width = Math.min(100, shownAux * 100) + '%';
-    el.auxFill.style.background = auxBand === 'RED'
-      ? 'rgba(255,68,68,0.95)'
-      : (auxBand === 'YELLOW' ? 'rgba(255,179,71,0.95)' : 'rgba(124,255,155,0.95)');
-    el.auxFill.style.boxShadow = auxBand === 'RED'
-      ? '0 0 8px rgba(255,68,68,0.7)'
-      : (auxBand === 'YELLOW' ? '0 0 8px rgba(255,179,71,0.55)' : '0 0 8px rgba(124,255,155,0.55)');
+    if (showNoise) {
+      el.auxFill.style.width = Math.min(100, shownAux * 100) + '%';
+      el.auxFill.style.background = auxBand === 'RED'
+        ? 'rgba(255,68,68,0.95)'
+        : (auxBand === 'YELLOW' ? 'rgba(255,179,71,0.95)' : 'rgba(124,255,155,0.95)');
+      el.auxFill.style.boxShadow = auxBand === 'RED'
+        ? '0 0 8px rgba(255,68,68,0.7)'
+        : (auxBand === 'YELLOW' ? '0 0 8px rgba(255,179,71,0.55)' : '0 0 8px rgba(124,255,155,0.55)');
+    }
     if (el.staFill) {
       el.staFill.style.width = Math.min(100, stamina * 100) + '%';
       el.staFill.style.background = staminaExhausted
@@ -2631,7 +2648,10 @@
         px: player.x,
         pz: player.z,
         virusUpload: (virusWristActive || virusHolding) && !virusDone ? virusProgress : null,
-        virusHolding: virusHolding
+        virusHolding: virusHolding,
+        showNoise: showNoise,
+        beacons: beaconsLeft,
+        beaconsMax: beaconsMax
       });
     }
 
