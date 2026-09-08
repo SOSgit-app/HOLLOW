@@ -330,6 +330,7 @@
   var pauseCanvas = null;
   var pauseCtx = null;
   var pendingPauseExit = null;
+  var pausedFromVR = false;
   var auxLoud = 0, recentLoud = 0;
   var stamina = STAMINA_MAX, staminaExhausted = false;
   var tearTimer = 0, floodLevel = 0, dieTimer = 0;
@@ -423,12 +424,7 @@
       if (e.code === 'Enter') {
         if (state === 'BOOT') { finishBoot(); }
         else if (state === 'SETTINGS') {
-          if (settingsReturn === 'boot') {
-            state = 'BOOT'; showScreen('boot');
-            if (el.bootCont) el.bootCont.style.display = 'block';
-          } else {
-            state = 'CONTROLS'; showScreen('controls');
-          }
+          leaveSettings();
         }
         else if (state === 'CONTROLS') { startDesktop(); }
         else if (state === 'END' || state === 'POST_TUTORIAL') { startVrFromEnd(); }
@@ -663,14 +659,7 @@
     if (btnSettingsBack) {
       btnSettingsBack.addEventListener('click', function (e) {
         e.stopPropagation();
-        if (settingsReturn === 'boot') {
-          state = 'BOOT';
-          showScreen('boot');
-          if (el.bootCont) el.bootCont.style.display = 'block';
-        } else {
-          state = 'CONTROLS';
-          showScreen('controls');
-        }
+        leaveSettings();
       });
     }
     if (el.settings) {
@@ -728,6 +717,43 @@
     pauseMenuOpen = false;
     state = 'SETTINGS';
     showScreen('settings');
+  }
+
+  function resumePlayFromSettings() {
+    lastFrame = performance.now();
+    A.ensure();
+    if (A.startAmbient) A.startAmbient();
+    if (pausedFromVR) {
+      pausedFromVR = false;
+      if (VR && VR.enter && VR.supported && VR.supported()) {
+        VR.enter().then(function (ok) {
+          if (!ok && runActive) {
+            state = 'CONTROLS';
+            showScreen('controls');
+          }
+        });
+        return;
+      }
+    }
+    state = 'PLAY';
+    showScreen(null);
+    if (NS.mic && !tutorialMode) NS.mic.start();
+    try { el.canvas.requestPointerLock(); } catch (err) { void err; }
+  }
+
+  function leaveSettings() {
+    if (settingsReturn === 'play' && runActive) {
+      resumePlayFromSettings();
+      return;
+    }
+    if (settingsReturn === 'boot') {
+      state = 'BOOT';
+      showScreen('boot');
+      if (el.bootCont) el.bootCont.style.display = 'block';
+      return;
+    }
+    state = 'CONTROLS';
+    showScreen('controls');
   }
 
   function showScreen(name) {
@@ -962,6 +988,7 @@
     pendingPauseExit = null;
     hidePauseOverlay();
     pauseMenuOpen = false;
+    pausedFromVR = false;
     runActive = false;
     state = 'CONTROLS';
     if (M) M.loadLayout('mission');
@@ -1182,6 +1209,7 @@
     cloneHoverIdx = -1; clonePointerU = -1; clonePointerV = -1;
     pauseMenuOpen = false; pauseHoverIdx = -1; pausePointerU = -1; pausePointerV = -1;
     pendingPauseExit = null;
+    pausedFromVR = false;
     virusProgress = 0; virusDone = false; virusNoiseTimer = 0;
     virusHolding = false; virusWristActive = false;
     pow = null;
@@ -1484,9 +1512,10 @@
         pendingPauseExit = 'settings';
         Promise.resolve(VR.end()).catch(function () { void 0; });
       } else {
-        runActive = false;
-        closePauseMenu();
-        openSettings('controls');
+        hidePauseOverlay();
+        pauseMenuOpen = false;
+        pausedFromVR = false;
+        openSettings('play');
       }
       return;
     }
@@ -3328,24 +3357,23 @@
       trickleOn = false;
       vrScanOrigin = null;
       vrScanDirection = null;
-      if (CIR && CIR.isActive()) CIR.close();
-      clonePhase = 'NONE';
-      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
       if (R.setWristModel) R.setWristModel(null);
-      clearCoachPanel();
       if (NS.mic) NS.mic.stop();
       hidePauseOverlay();
       var pauseExit = pendingPauseExit;
       pendingPauseExit = null;
       pauseMenuOpen = false;
       if (pauseExit === 'settings') {
-        runActive = false;
-        tutorialMode = false;
-        pendingTutorial = false;
-        openSettings('controls');
+        if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+        pausedFromVR = true;
+        openSettings('play');
         lastFrame = performance.now();
         return;
       }
+      if (CIR && CIR.isActive()) CIR.close();
+      clonePhase = 'NONE';
+      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+      clearCoachPanel();
       if (pauseExit === 'menu') {
         goMainMenu();
         lastFrame = performance.now();
