@@ -636,8 +636,8 @@
       }
     }
 
-    // kill check — safe zones block kill (sanctuary)
-    if (dist < KILL_RANGE && E.state !== 'DORMANT' && !playerSafe) {
+    // kill check — safe zones block kill (sanctuary). Tutorial never drops the operator.
+    if (dist < KILL_RANGE && E.state !== 'DORMANT' && !playerSafe && currentDiff !== 'tutorial') {
       game.onKill();
       return;
     }
@@ -770,7 +770,7 @@
       U.state = 'CHASE';
       U.chaseLeft = Math.max(U.chaseLeft || 0, CHASE_SOUND_S);
     }
-    if (dist < KILL_RANGE && U.state !== 'DORMANT' && !playerSafe) {
+    if (dist < KILL_RANGE && U.state !== 'DORMANT' && !playerSafe && currentDiff !== 'tutorial') {
       game.onKill();
       return;
     }

@@ -756,7 +756,7 @@
     },
     {
       title: 'PICK UP THE KEY',
-      lines: ['Leave the harbor into the next room.', 'Scan for the amber key orb.', 'Press X to pick it up.'],
+      lines: ['Leave the harbor into the next room.', 'Scan for the amber key.', 'Press X to pick it up.'],
       buttons: ['RIGHT TRIGGER — scan', 'X — interact / pick up', 'LEFT STICK — move'],
       msg: 'TUTORIAL: SCAN AMBER KEY · X TO PICK UP'
     },
@@ -1168,8 +1168,7 @@
   function onKill() {
     if (state !== 'PLAY') return;
     if (tutorialMode) {
-      if (A.stopAllTransient) A.stopAllTransient();
-      endTutorial(false);
+      queueMsg('TRAINING HIT — SECURITY CANNOT DROP YOU HERE', 'amber', 2);
       return;
     }
     state = 'DYING';
