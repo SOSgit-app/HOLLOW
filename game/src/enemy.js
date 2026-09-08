@@ -49,6 +49,7 @@
   var skipX = 0, skipZ = 0, skipTimer = 0;
   var chaseLeft = 0;
   var investigateDwell = 4;
+  var lureLeft = 0; // beacon hold: ignore player chase while this is > 0
 
   // Secondary security units (independent stalkers)
   // patrolHalf: 'W' = west half of map, 'E' = east half
@@ -62,7 +63,8 @@
       lairX: lairX, lairZ: lairZ,
       patrolHalf: patrolHalf || 'W',
       chaseLeft: 0,
-      investigateDwell: 4
+      investigateDwell: 4,
+      lureLeft: 0
     };
   }
   var B = makeUnit(4.5, 4.5, 2.0, 'W');
@@ -105,6 +107,7 @@
     U.facing = 0; U.animT = 0; U.bodyCache = null;
     U.chaseLeft = 0;
     U.investigateDwell = 4;
+    U.lureLeft = 0;
   }
 
   var suppressed = false; // tutorial: gone until tripwire
@@ -143,6 +146,7 @@
     path = null;
     bodyCache = null;
     chaseLeft = 0;
+    lureLeft = 0;
   }
 
   function wakeFromStill() {
@@ -185,6 +189,7 @@
     hasteTimer = 0; hasteMode = 'NONE';
     chaseLeft = 0;
     investigateDwell = 4;
+    lureLeft = 0;
 
     // Four units: west pair + east pair (cell centers — avoid wall-jammed spawns)
     resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
@@ -254,6 +259,8 @@
     E.agitation = Math.min(100, E.agitation + effective * 0.9);
     if (E.state === 'DORMANT') return;
     if (isPlayerNoise) lastNoiseFed = now;
+    // Fault beacon owns attention — footsteps must not steal the chase back
+    if (isPlayerNoise && lureLeft > 0) return;
 
     // Inside sanctuary: never escalate to CHASE from hearing alone
     if (isPlayerNoise && M.isSafeAt(x, z)) {
@@ -304,6 +311,7 @@
     U.agitation = Math.min(100, U.agitation + effective * 0.85);
     if (U.state === 'DORMANT') return;
     if (isPlayerNoise) U.lastNoiseFed = now;
+    if (isPlayerNoise && (U.lureLeft || 0) > 0) return;
 
     if (isPlayerNoise && M.isSafeAt(x, z)) {
       if (U.state !== 'CHASE') {
@@ -418,6 +426,8 @@
     wakeFromStill();
     dwell = dwell || 8;
     var nowTs = (typeof performance !== 'undefined' ? performance.now() / 1000 : Date.now() / 1000);
+    lureLeft = Math.max(lureLeft, dwell);
+    chaseLeft = 0;
     investigateDwell = dwell;
     dispatchPrimaryInvestigate(x, z, nowTs);
     investigateDwell = dwell;
@@ -425,6 +435,8 @@
       dispatchUnitInvestigate(SECONDARIES[i], x, z, nowTs);
       SECONDARIES[i].investigateDwell = dwell;
       SECONDARIES[i]._dwellAcc = 0;
+      SECONDARIES[i].lureLeft = Math.max(SECONDARIES[i].lureLeft || 0, dwell);
+      SECONDARIES[i].chaseLeft = 0;
     }
   }
 
@@ -620,12 +632,14 @@
       hasteTimer -= dt;
       if (hasteTimer <= 0) { hasteTimer = 0; hasteMode = 'NONE'; }
     }
+    if (lureLeft > 0) lureLeft -= dt;
 
     var dist = distToPlayer(p);
     var playerSafe = M.isSafeAt(p.x, p.z) || (M.isConsoleAt && M.isConsoleAt(p.x, p.z));
 
     // touch-range certainty (anti-camping) — suppressed while player is in harbor
-    if (dist < TOUCH_RANGE && E.state !== 'DORMANT' && !playerSafe) {
+    // or while a fault beacon is holding this unit
+    if (dist < TOUCH_RANGE && E.state !== 'DORMANT' && !playerSafe && lureLeft <= 0) {
       lastNoiseFed = now;
       lastKnownX = p.x; lastKnownZ = p.z;
       if (E.state !== 'CHASE') {
@@ -698,6 +712,14 @@
         break;
 
       case 'CHASE':
+        if (lureLeft > 0) {
+          E.state = 'INVESTIGATE';
+          dwellTimer = 0;
+          chaseLeft = 0;
+          NS.audio.sting(false);
+          if (investigateTarget) setPathTo(investigateTarget.x, investigateTarget.z);
+          break;
+        }
         speed = moveSpeed(SPEED_CHASE, E.state);
         repathTimer -= dt;
         chaseLeft -= dt;
@@ -760,11 +782,12 @@
     speedScale = speedScale || 0.95;
     U.agitation = Math.max(U.agitationFloor, U.agitation - AGITATION_DECAY * dt);
     U.animT += dt;
+    if (U.lureLeft > 0) U.lureLeft -= dt;
     var dx = p.x - U.x, dz = p.z - U.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
     var playerSafe = M.isSafeAt(p.x, p.z) || (M.isConsoleAt && M.isConsoleAt(p.x, p.z));
 
-    if (dist < TOUCH_RANGE && U.state !== 'DORMANT' && !playerSafe) {
+    if (dist < TOUCH_RANGE && U.state !== 'DORMANT' && !playerSafe && (U.lureLeft || 0) <= 0) {
       U.lastNoiseFed = now;
       U.lastKnownX = p.x; U.lastKnownZ = p.z;
       U.state = 'CHASE';
@@ -827,6 +850,16 @@
         }
         break;
       case 'CHASE':
+        if ((U.lureLeft || 0) > 0) {
+          U.state = 'INVESTIGATE';
+          U.chaseLeft = 0;
+          U._dwellAcc = 0;
+          if (U.lastKnownX != null) {
+            U.path = M.astar(U.x, U.z, U.lastKnownX, U.lastKnownZ);
+            U.pathIdx = 0;
+          }
+          break;
+        }
         speed = moveSpeed(SPEED_CHASE, U.state) * (speedScale - 0.03);
         U.repathTimer -= dt;
         U.chaseLeft = (U.chaseLeft || 0) - dt;

@@ -109,7 +109,7 @@
     }
   };
   function beaconQuota() {
-    if (tutorialMode) return 1;
+    if (tutorialMode) return 5;
     if (currentDifficulty === 'easy') return 3;
     if (currentDifficulty === 'hard') return 1;
     return 2;
@@ -787,7 +787,7 @@
     {
       title: 'THROW A FAULT BEACON',
       lines: ['Aim away from the LZ.', 'Right A (VR) or G (desktop) throws the beacon.', 'Security walks to the chirp — then run.'],
-      buttons: ['RIGHT A / G — throw beacon', 'AIM — throw direction', 'ONE BEACON — make it count'],
+      buttons: ['RIGHT A / G — throw beacon', 'AIM — throw direction', '5 BEACONS — pull them off you'],
       msg: 'TUTORIAL: THROW FAULT BEACON (RIGHT A / G) — LURE SECURITY'
     },
     {
