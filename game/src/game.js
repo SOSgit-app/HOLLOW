@@ -323,6 +323,13 @@
   var pow = null; // { x, z, freed, path, pathIdx, repath }
   var cloneCanvas = null;
   var cloneCtx = null;
+  var pauseMenuOpen = false;
+  var pauseHoverIdx = -1;
+  var pausePointerU = -1;
+  var pausePointerV = -1;
+  var pauseCanvas = null;
+  var pauseCtx = null;
+  var pendingPauseExit = null;
   var auxLoud = 0, recentLoud = 0;
   var stamina = STAMINA_MAX, staminaExhausted = false;
   var tearTimer = 0, floodLevel = 0, dieTimer = 0;
@@ -371,6 +378,7 @@
     el.cloneIntel = $('clone-intel');
     el.btnRescue = $('btn-rescue');
     el.btnVirus = $('btn-virus');
+    el.pausePrompt = $('pause-prompt');
     el.end = $('end-screen');
     el.endKicker = $('end-kicker');
     el.endTitle = $('end-title');
@@ -440,10 +448,17 @@
       }
       if (e.code === 'KeyG' && state === 'PLAY') {
         if (e.repeat) return;
+        if (pauseMenuOpen) return;
         if (!(CIR && CIR.isActive()) && !cloneUiActive()) throwBeacon();
+      }
+      if ((e.code === 'Escape' || e.code === 'KeyY') && state === 'PLAY') {
+        if (e.repeat) return;
+        togglePauseMenu();
+        return;
       }
       if (e.code === 'KeyE' && state === 'PLAY') {
         if (e.repeat) return;
+        if (pauseMenuOpen) return;
         if (CIR && CIR.isActive()) CIR.rotateSelected();
         else if (!cloneUiActive()) {
           // Virus plant uses hold-E; don't spam interact while uploading
@@ -544,6 +559,27 @@
         if (clonePhase === 'CHOICE') confirmCloneChoice('VIRUS');
       });
     }
+    var btnPauseResume = $('btn-pause-resume');
+    var btnPauseSettings = $('btn-pause-settings');
+    var btnPauseMenu = $('btn-pause-menu');
+    if (btnPauseResume) {
+      btnPauseResume.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (pauseMenuOpen) closePauseMenu();
+      });
+    }
+    if (btnPauseSettings) {
+      btnPauseSettings.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (pauseMenuOpen) confirmPauseChoice(1);
+      });
+    }
+    if (btnPauseMenu) {
+      btnPauseMenu.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (pauseMenuOpen) confirmPauseChoice(2);
+      });
+    }
 
     document.addEventListener('pointerlockchange', function () {
       var locked = document.pointerLockElement === el.canvas;
@@ -552,7 +588,7 @@
         state = 'PLAY';
         showScreen(null);
       } else if (!locked && state === 'PLAY') {
-        if (cloneUiActive()) return; // choosing path — stay in PLAY
+        if (cloneUiActive() || pauseMenuOpen) return; // choosing path / paused — stay in PLAY
         if (tutorialMode) {
           endTutorial(false);
           return;
@@ -609,11 +645,6 @@
       });
     }
 
-    function openSettings(from) {
-      settingsReturn = from || 'controls';
-      state = 'SETTINGS';
-      showScreen('settings');
-    }
     var btnSettingsBoot = $('btn-settings-boot');
     var btnSettingsCtrl = $('btn-settings-controls');
     var btnSettingsBack = $('btn-settings-back');
@@ -690,6 +721,14 @@
   }
 
   var settingsReturn = 'controls';
+
+  function openSettings(from) {
+    settingsReturn = from || 'controls';
+    hidePauseOverlay();
+    pauseMenuOpen = false;
+    state = 'SETTINGS';
+    showScreen('settings');
+  }
 
   function showScreen(name) {
     [el.boot, el.controls, el.settings, el.death, el.win, el.clone, el.end].forEach(function (s) {
@@ -920,6 +959,9 @@
     pendingTutorial = false;
     pendingPostTutorial = false;
     tutorialExitSuccess = null;
+    pendingPauseExit = null;
+    hidePauseOverlay();
+    pauseMenuOpen = false;
     runActive = false;
     state = 'CONTROLS';
     if (M) M.loadLayout('mission');
@@ -1138,6 +1180,8 @@
     missionBranch = 'NONE';
     clonePhase = 'NONE'; cloneTimer = 0; clonePct = 0; cloneChoiceIdx = 0;
     cloneHoverIdx = -1; clonePointerU = -1; clonePointerV = -1;
+    pauseMenuOpen = false; pauseHoverIdx = -1; pausePointerU = -1; pausePointerV = -1;
+    pendingPauseExit = null;
     virusProgress = 0; virusDone = false; virusNoiseTimer = 0;
     virusHolding = false; virusWristActive = false;
     pow = null;
@@ -1257,6 +1301,204 @@
 
   function cloneUiActive() {
     return clonePhase === 'CLONING' || clonePhase === 'CHOICE';
+  }
+
+  function pauseUiActive() {
+    return !!pauseMenuOpen;
+  }
+
+  function hidePauseOverlay() {
+    if (el.pausePrompt) el.pausePrompt.classList.remove('visible');
+  }
+
+  function ensurePauseCanvas() {
+    if (pauseCanvas) return;
+    pauseCanvas = document.createElement('canvas');
+    pauseCanvas.width = 512;
+    pauseCanvas.height = 360;
+    pauseCtx = pauseCanvas.getContext('2d');
+  }
+
+  function buildPauseModel() {
+    var yaw = panelYaw();
+    var sy = Math.sin(yaw), cy = Math.cos(yaw);
+    var dist = 0.82;
+    var px = player.x + sy * dist;
+    var py = player.eye - 0.04;
+    var pz = player.z - cy * dist;
+    var nx = -sy, ny = 0, nz = cy;
+    var right = math.vnorm(math.vcross([0, 1, 0], [nx, ny, nz]));
+    var up = math.vnorm(math.vcross([nx, ny, nz], right));
+    var sx = 0.58, sy2 = 0.42;
+    var m = new Float32Array(16);
+    m[0] = right[0] * sx; m[1] = right[1] * sx; m[2] = right[2] * sx; m[3] = 0;
+    m[4] = up[0] * sy2; m[5] = up[1] * sy2; m[6] = up[2] * sy2; m[7] = 0;
+    m[8] = nx; m[9] = ny; m[10] = nz; m[11] = 0;
+    m[12] = px; m[13] = py; m[14] = pz; m[15] = 1;
+    circuitPanelModel = m;
+    return m;
+  }
+
+  function drawPausePanel() {
+    ensurePauseCanvas();
+    var ctx = pauseCtx;
+    var w = pauseCanvas.width, h = pauseCanvas.height;
+    var labels = ['RESUME', 'SETTINGS', 'MAIN MENU'];
+    var i, selected;
+    ctx.fillStyle = 'rgba(0,10,6,0.96)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#7cff9b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, w - 16, h - 16);
+    ctx.fillStyle = '#7cff9b';
+    ctx.font = '18px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('PAUSED', w / 2, 52);
+    ctx.fillStyle = '#6a8';
+    ctx.font = '12px monospace';
+    ctx.fillText('POINT LASER · TRIGGER TO SELECT', w / 2, 78);
+    for (i = 0; i < labels.length; i++) {
+      selected = pauseHoverIdx === i;
+      ctx.fillStyle = selected ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
+      ctx.fillRect(48, 108 + i * 58, w - 96, 46);
+      ctx.strokeStyle = selected ? '#7cff9b' : '#355';
+      ctx.strokeRect(48, 108 + i * 58, w - 96, 46);
+      ctx.fillStyle = selected ? '#7cff9b' : '#8aa';
+      ctx.font = '16px monospace';
+      ctx.fillText((selected ? '> ' : '  ') + labels[i], w / 2, 138 + i * 58);
+    }
+    ctx.fillStyle = '#6a8';
+    ctx.font = '12px monospace';
+    ctx.fillText('Y — CLOSE', w / 2, 330);
+    if (pausePointerU >= 0 && pausePointerV >= 0) {
+      var px = pausePointerU * w, py = pausePointerV * h;
+      ctx.strokeStyle = '#ff2a2a';
+      ctx.fillStyle = 'rgba(255,40,40,0.35)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(px, py, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffeeee';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(px - 16, py); ctx.lineTo(px - 6, py);
+      ctx.moveTo(px + 6, py); ctx.lineTo(px + 16, py);
+      ctx.moveTo(px, py - 16); ctx.lineTo(px, py - 6);
+      ctx.moveTo(px, py + 6); ctx.lineTo(px, py + 16);
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
+    }
+  }
+
+  function syncPausePanel() {
+    if (!R.setCircuitPanel) return;
+    if (pauseMenuOpen && inVR()) {
+      drawPausePanel();
+      R.setCircuitPanel(pauseCanvas, buildPauseModel());
+    }
+  }
+
+  function pauseOptionAtUv(u, v) {
+    if (u < 0 || v < 0) return -1;
+    var w = pauseCanvas ? pauseCanvas.width : 512;
+    var h = pauseCanvas ? pauseCanvas.height : 360;
+    var x = u * w, y = v * h;
+    var i, bx = 48, bw = w - 96, bh = 46, by;
+    for (i = 0; i < 3; i++) {
+      by = 108 + i * 58;
+      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return i;
+    }
+    return -1;
+  }
+
+  function handlePauseLaser(vrInput) {
+    pauseHoverIdx = -1;
+    pausePointerU = -1;
+    pausePointerV = -1;
+    if (!pauseMenuOpen) return;
+    if (!circuitPanelModel) buildPauseModel();
+    var aim = worldAimFromVr(vrInput);
+    if (!aim || !circuitPanelModel) return;
+    var hit = rayCircuitPanel(aim.x, aim.y, aim.z, aim.dx, aim.dy, aim.dz, circuitPanelModel);
+    var endX = aim.x + aim.dx * 1.4;
+    var endY = aim.y + aim.dy * 1.4;
+    var endZ = aim.z + aim.dz * 1.4;
+    if (hit) {
+      endX = hit.hx; endY = hit.hy; endZ = hit.hz;
+      pausePointerU = hit.u;
+      pausePointerV = hit.v;
+      pauseHoverIdx = pauseOptionAtUv(hit.u, hit.v);
+    }
+    paintControllerLaser(aim.x, aim.y, aim.z, endX, endY, endZ, pauseHoverIdx >= 0);
+  }
+
+  function openPauseMenu() {
+    if (state !== 'PLAY' || pauseMenuOpen) return;
+    pauseMenuOpen = true;
+    pauseHoverIdx = -1;
+    pausePointerU = -1;
+    pausePointerV = -1;
+    trickleOn = false;
+    if (inVR()) {
+      clearCoachPanel();
+      syncPausePanel();
+    } else {
+      document.exitPointerLock();
+      if (el.pausePrompt) el.pausePrompt.classList.add('visible');
+    }
+    queueMsg('PAUSED', 'amber', 1.5);
+  }
+
+  function closePauseMenu() {
+    if (!pauseMenuOpen) return;
+    pauseMenuOpen = false;
+    pauseHoverIdx = -1;
+    hidePauseOverlay();
+    if (inVR()) {
+      if (CIR && CIR.isActive()) syncCircuitPanel();
+      else if (cloneUiActive()) syncClonePanel();
+      else if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+    } else if (state === 'PLAY') {
+      try { el.canvas.requestPointerLock(); } catch (err) { void err; }
+    }
+  }
+
+  function togglePauseMenu() {
+    if (state !== 'PLAY') return;
+    if (pauseMenuOpen) closePauseMenu();
+    else openPauseMenu();
+  }
+
+  function confirmPauseChoice(idx) {
+    if (!pauseMenuOpen) return;
+    if (idx === 0) {
+      closePauseMenu();
+      return;
+    }
+    if (idx === 1) {
+      if (inVR() && VR && VR.end) {
+        pendingPauseExit = 'settings';
+        Promise.resolve(VR.end()).catch(function () { void 0; });
+      } else {
+        runActive = false;
+        closePauseMenu();
+        openSettings('controls');
+      }
+      return;
+    }
+    if (idx === 2) {
+      if (inVR() && VR && VR.end) {
+        pendingPauseExit = 'menu';
+        Promise.resolve(VR.end()).catch(function () { void 0; });
+      } else {
+        closePauseMenu();
+        goMainMenu();
+      }
+    }
   }
 
   function ensureCloneCanvas() {
@@ -2304,7 +2546,7 @@
   }
 
   function throwBeacon(origin, dir) {
-    if (state !== 'PLAY' || (CIR && CIR.isActive()) || cloneUiActive()) return;
+    if (state !== 'PLAY' || (CIR && CIR.isActive()) || cloneUiActive() || pauseMenuOpen) return;
     if (tutorialMode && tutorialStation !== 6) {
       if (tutorialStation < 6) {
         queueMsg('HOLD THE BEACON — THROW AFTER THE TRIPWIRE', 'amber', 2);
@@ -2383,6 +2625,7 @@
   }
 
   function interact() {
+    if (pauseMenuOpen) return;
     if (CIR && CIR.isActive()) { CIR.rotateSelected(); return; }
     if (cloneUiActive()) return;
     var range = interactRange();
@@ -2890,8 +3133,29 @@
     if (state === 'PLAY') {
       var vrInput = xrData ? xrData.input : null;
       if (vrInput && typeof vrInput.bodyYaw === 'number') lastVrBodyYaw = vrInput.bodyYaw;
+      if (vrInput && vrInput.menuPressed) togglePauseMenu();
 
-      if (CIR && CIR.isActive()) {
+      if (pauseMenuOpen) {
+        if (vrInput && R.setWristModel) {
+          R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
+        }
+        if (vrInput && pauseMenuOpen) {
+          handlePauseLaser(vrInput);
+          if ((vrInput.interactPressed || vrInput.tricklePressed) && pauseHoverIdx >= 0) {
+            confirmPauseChoice(pauseHoverIdx);
+          }
+        }
+        if (inVR()) syncPausePanel();
+        updateMsg(dt);
+        updateHUD(dt);
+        vrHudHint = 'Y — CLOSE · POINT LASER · TRIGGER TO SELECT';
+      } else if (vrInput && vrInput.menuPressed) {
+        if (vrInput && R.setWristModel) {
+          R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
+        }
+        updateMsg(dt);
+        updateHUD(dt);
+      } else if (CIR && CIR.isActive()) {
         if (vrInput) {
           syncCircuitPanel();
           handleCircuitLaser(vrInput);
@@ -3043,6 +3307,7 @@
     init: init,
     fusesCollected: function () { return keysCollected; },
     cloneUiActive: cloneUiActive,
+    pauseUiActive: pauseUiActive,
     clearTutorialPending: function () { pendingTutorial = false; },
     onVRStart: function () {
       if (A.stopAllTransient) A.stopAllTransient();
@@ -3069,6 +3334,23 @@
       if (R.setWristModel) R.setWristModel(null);
       clearCoachPanel();
       if (NS.mic) NS.mic.stop();
+      hidePauseOverlay();
+      var pauseExit = pendingPauseExit;
+      pendingPauseExit = null;
+      pauseMenuOpen = false;
+      if (pauseExit === 'settings') {
+        runActive = false;
+        tutorialMode = false;
+        pendingTutorial = false;
+        openSettings('controls');
+        lastFrame = performance.now();
+        return;
+      }
+      if (pauseExit === 'menu') {
+        goMainMenu();
+        lastFrame = performance.now();
+        return;
+      }
       // Tutorial LZ success — show main menu now that DOM is visible again
       if (pendingPostTutorial || pendingEnd || tutorialExitSuccess !== null || state === 'END') {
         settleTutorialExit();

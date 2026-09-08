@@ -20,7 +20,7 @@
     moveX: 0, moveY: 0, heading: 0,
     bodyYaw: 0,
     trickle: false, burstPressed: false, interactPressed: false, tricklePressed: false,
-    throwPressed: false, secondaryPressed: false,
+    throwPressed: false, secondaryPressed: false, menuPressed: false,
     sprint: false,
     navX: 0, navY: 0,
     aimOrigin: null, aimDirection: null,
@@ -174,6 +174,7 @@
     currentInput.tricklePressed = false;
     currentInput.secondaryPressed = false;
     currentInput.throwPressed = false;
+    currentInput.menuPressed = false;
     currentInput.sprint = false;
     currentInput.holdB = false;
     currentInput.holdUpload = false;
@@ -185,7 +186,8 @@
     dt = dt || 0.016;
     var circuitLock = !!(NS.circuit && NS.circuit.isActive && NS.circuit.isActive());
     var cloneLock = !!(NS.game && NS.game.cloneUiActive && NS.game.cloneUiActive());
-    var panelLock = circuitLock || cloneLock;
+    var pauseLock = !!(NS.game && NS.game.pauseUiActive && NS.game.pauseUiActive());
+    var panelLock = circuitLock || cloneLock || pauseLock;
 
     var rightSource = null;
     var leftSource = null;
@@ -193,10 +195,13 @@
       var source = session.inputSources[i];
       var gp = source.gamepad;
       var axes = axesFor(gp);
+      var id = source.handedness || String(i);
       if (source.handedness === 'left') {
         leftSource = source;
         // Left X (index 4) — continuous hold for virus plant
         if (pressed(gp, 4)) currentInput.holdUpload = true;
+        currentInput.menuPressed = currentInput.menuPressed ||
+          rising(id + '-menu', pressed(gp, 5));
         if (!panelLock) {
           currentInput.moveX = axes[0];
           currentInput.moveY = -axes[1];
@@ -238,7 +243,6 @@
         }
       }
 
-      var id = source.handedness || String(i);
       if (source.handedness === 'right' || source.handedness === 'none') {
         var trig = pressed(gp, 0);
         currentInput.trickle = currentInput.trickle || trig;

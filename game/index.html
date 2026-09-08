@@ -187,6 +187,19 @@
   .settings-block .dim{ margin-bottom:6px; }
   .settings-block .opt-row{ text-align:left; }
   .settings-block .opt-row label{ display:inline-block; margin:6px 12px 6px 0; }
+  #pause-prompt{
+    position:absolute; inset:0; z-index:12; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.5); pointer-events:auto;
+  }
+  #pause-prompt.visible{ display:flex; }
+  .pause-card{
+    width:min(400px, 90vw); padding:22px 24px 18px;
+    border:1px solid var(--ph); background:rgba(0,10,6,0.96);
+    text-align:center; box-shadow:0 0 24px rgba(124,255,155,0.18);
+  }
+  .pause-card .menu-btn{ display:block; width:100%; max-width:320px; margin:10px auto; }
+
 </style>
 </head>
 <body>
@@ -349,6 +362,16 @@
   </div>
 </div>
 
+<div id="pause-prompt">
+  <div class="pause-card">
+    <div class="sub">PAUSED</div>
+    <button type="button" class="menu-btn primary" id="btn-pause-resume">RESUME</button>
+    <button type="button" class="menu-btn" id="btn-pause-settings">SETTINGS</button>
+    <button type="button" class="menu-btn" id="btn-pause-menu">MAIN MENU</button>
+    <p class="dim" style="margin-top:14px">Y / ESC — CLOSE</p>
+  </div>
+</div>
+
 <div id="view-frame"></div>
 
 <script src="src/math.js?v=102"></script>
@@ -360,8 +383,8 @@
 <script src="src/enemy.js?v=111"></script>
 <script src="src/circuit.js?v=108"></script>
 <script src="src/xr-controllers.js?v=101"></script>
-<script src="src/vr.js?v=106"></script>
+<script src="src/vr.js?v=107"></script>
 <script src="src/intro.js?v=102"></script>
-<script src="src/game.js?v=113"></script>
+<script src="src/game.js?v=114"></script>
 </body>
 </html>
