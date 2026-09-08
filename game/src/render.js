@@ -335,6 +335,7 @@
     gl.texImage2D(gl.TEXTURE_2D, 0, gl.RGBA, 420, 460, 0, gl.RGBA, gl.UNSIGNED_BYTE, null);
 
     resize();
+    if (NS.xrControllers && NS.xrControllers.init) NS.xrControllers.init(gl);
   }
 
   function resize() {
@@ -1028,6 +1029,9 @@
       drawCoachPanel(v.projection, v.view);
       drawCircuitPanel(v.projection, v.view);
       drawPoints(v.projection, v.view, now, quality.xrMaxPoints || 300000);
+      if (NS.xrControllers && NS.xrControllers.draw) {
+        NS.xrControllers.draw(v.projection, v.view);
+      }
       gl.depthMask(true);
       gl.disable(gl.DEPTH_TEST);
       drawVRHud(v.projection, v.view);

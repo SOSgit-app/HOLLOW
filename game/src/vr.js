@@ -58,7 +58,7 @@
     return NS.render.makeXRCompatible().then(function () {
       return navigator.xr.requestSession('immersive-vr', {
         requiredFeatures: ['local-floor'],
-        optionalFeatures: ['bounded-floor']
+        optionalFeatures: ['bounded-floor', 'hand-tracking']
       });
     }).then(function (xrSession) {
       session = xrSession;
@@ -81,6 +81,7 @@
       lastFrameTime = 0;
       session.addEventListener('end', onEnd);
       NS.audio.startAmbient();
+      if (NS.xrControllers && NS.xrControllers.attach) NS.xrControllers.attach(session);
       NS.game.onVRStart();
       session.requestAnimationFrame(onFrame);
       return true;
@@ -97,6 +98,7 @@
     session = null;
     referenceSpace = null;
     currentInput.trickle = false;
+    if (NS.xrControllers && NS.xrControllers.detach) NS.xrControllers.detach();
     if (NS.game && NS.game.onVREnd) NS.game.onVREnd();
   }
 
@@ -365,6 +367,7 @@
     input: function () { return currentInput; },
     viewsForPose: viewsForPose,
     framebuffer: framebuffer,
+    referenceSpace: function () { return referenceSpace; },
     setFramebufferScale: setFramebufferScale,
     worldYFromXR: worldYFromXR,
     setSmoothTurn: setSmoothTurn,

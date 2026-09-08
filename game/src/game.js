@@ -311,7 +311,10 @@
   var clonePhase = 'NONE'; // NONE | CLONING | CHOICE | DONE
   var cloneTimer = 0;
   var clonePct = 0;
-  var cloneChoiceIdx = 0; // 0 rescue, 1 virus (VR highlight)
+  var cloneChoiceIdx = 0; // 0 rescue, 1 virus (desktop / last hover)
+  var cloneHoverIdx = -1; // VR laser over a path button, or -1
+  var clonePointerU = -1;
+  var clonePointerV = -1;
   var virusProgress = 0;
   var virusDone = false;
   var virusNoiseTimer = 0;
@@ -1134,6 +1137,7 @@
     exfilPhase = 'NONE'; exfilTimer = 0;
     missionBranch = 'NONE';
     clonePhase = 'NONE'; cloneTimer = 0; clonePct = 0; cloneChoiceIdx = 0;
+    cloneHoverIdx = -1; clonePointerU = -1; clonePointerV = -1;
     virusProgress = 0; virusDone = false; virusNoiseTimer = 0;
     virusHolding = false; virusWristActive = false;
     pow = null;
@@ -1300,7 +1304,7 @@
       }
       var opts = ['RESCUE POW — ESCORT TO LZ', 'PLANT VIRUS — CORRUPT LOCAL AI'];
       for (i = 0; i < opts.length; i++) {
-        var selected = cloneChoiceIdx === i;
+        var selected = cloneHoverIdx === i;
         ctx.fillStyle = selected ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
         ctx.fillRect(40, 290 + i * 48, w - 80, 40);
         ctx.strokeStyle = selected ? '#7cff9b' : '#355';
@@ -1312,7 +1316,29 @@
       }
       ctx.fillStyle = '#6a8';
       ctx.font = '12px monospace';
-      ctx.fillText('STICK SELECT · X CONFIRM', w / 2, 400);
+      ctx.fillText('POINT LASER AT A PATH · TRIGGER TO CONFIRM', w / 2, 400);
+      if (clonePointerU >= 0 && clonePointerV >= 0) {
+        var px = clonePointerU * w, py = clonePointerV * h;
+        ctx.strokeStyle = '#ff2a2a';
+        ctx.fillStyle = 'rgba(255,40,40,0.35)';
+        ctx.lineWidth = 2.5;
+        ctx.beginPath();
+        ctx.arc(px, py, 12, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.stroke();
+        ctx.beginPath();
+        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+        ctx.fillStyle = '#ffeeee';
+        ctx.fill();
+        ctx.beginPath();
+        ctx.moveTo(px - 16, py); ctx.lineTo(px - 6, py);
+        ctx.moveTo(px + 6, py); ctx.lineTo(px + 16, py);
+        ctx.moveTo(px, py - 16); ctx.lineTo(px, py - 6);
+        ctx.moveTo(px, py + 6); ctx.lineTo(px, py + 16);
+        ctx.strokeStyle = '#ff4444';
+        ctx.lineWidth = 2;
+        ctx.stroke();
+      }
     }
   }
 
@@ -1344,6 +1370,9 @@
     cloneTimer = 0;
     clonePct = 0;
     cloneChoiceIdx = 0;
+    cloneHoverIdx = -1;
+    clonePointerU = -1;
+    clonePointerV = -1;
     if (A.uplinkSurge) A.uplinkSurge();
     else if (A.generatorRoar) A.generatorRoar();
     queueMsg('CLONE SEQUENCE — WRITING MODEL TO DRIVE', 'amber', 3);
@@ -1360,6 +1389,9 @@
   function enterCloneChoice() {
     clonePhase = 'CHOICE';
     clonePct = 100;
+    cloneHoverIdx = -1;
+    clonePointerU = -1;
+    clonePointerV = -1;
     if (!inVR()) {
       if (el.cloneStatus) el.cloneStatus.textContent = 'CLONE COMPLETE';
       if (el.cloneFill) el.cloneFill.style.width = '100%';
@@ -1404,6 +1436,41 @@
     }
   }
 
+  function cloneOptionAtUv(u, v) {
+    if (u < 0 || v < 0) return -1;
+    var w = cloneCanvas ? cloneCanvas.width : 640;
+    var h = cloneCanvas ? cloneCanvas.height : 420;
+    var x = u * w, y = v * h;
+    var i, bx = 40, bw = w - 80, bh = 40, by;
+    for (i = 0; i < 2; i++) {
+      by = 290 + i * 48;
+      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return i;
+    }
+    return -1;
+  }
+
+  function handleCloneLaser(vrInput) {
+    cloneHoverIdx = -1;
+    clonePointerU = -1;
+    clonePointerV = -1;
+    if (clonePhase !== 'CHOICE') return;
+    if (!circuitPanelModel) buildCircuitModel();
+    var aim = worldAimFromVr(vrInput);
+    if (!aim || !circuitPanelModel) return;
+    var hit = rayCircuitPanel(aim.x, aim.y, aim.z, aim.dx, aim.dy, aim.dz, circuitPanelModel);
+    var endX = aim.x + aim.dx * 1.6;
+    var endY = aim.y + aim.dy * 1.6;
+    var endZ = aim.z + aim.dz * 1.6;
+    if (hit) {
+      endX = hit.hx; endY = hit.hy; endZ = hit.hz;
+      clonePointerU = hit.u;
+      clonePointerV = hit.v;
+      cloneHoverIdx = cloneOptionAtUv(hit.u, hit.v);
+      if (cloneHoverIdx >= 0) cloneChoiceIdx = cloneHoverIdx;
+    }
+    paintControllerLaser(aim.x, aim.y, aim.z, endX, endY, endZ, cloneHoverIdx >= 0);
+  }
+
   function updateCloneSequence(dt, vrInput) {
     if (clonePhase === 'CLONING') {
       cloneTimer += dt;
@@ -1414,10 +1481,9 @@
       }
       if (cloneTimer >= CLONE_DURATION_S) enterCloneChoice();
     } else if (clonePhase === 'CHOICE' && vrInput) {
-      if (vrInput.navY < 0 || vrInput.navX < 0) cloneChoiceIdx = 0;
-      if (vrInput.navY > 0 || vrInput.navX > 0) cloneChoiceIdx = 1;
-      if (vrInput.interactPressed || vrInput.tricklePressed) {
-        confirmCloneChoice(cloneChoiceIdx === 0 ? 'RESCUE' : 'VIRUS');
+      handleCloneLaser(vrInput);
+      if ((vrInput.interactPressed || vrInput.tricklePressed) && cloneHoverIdx >= 0) {
+        confirmCloneChoice(cloneHoverIdx === 0 ? 'RESCUE' : 'VIRUS');
       }
     }
     if (cloneUiActive() && inVR()) syncClonePanel();
@@ -2859,7 +2925,7 @@
         updateHUD(dt);
         vrHudHint = clonePhase === 'CLONING'
           ? 'CLONING AI ONTO HARD DRIVE… ' + Math.floor(clonePct) + '%'
-          : 'STICK: SELECT · X: CONFIRM PATH';
+          : 'POINT LASER AT A PATH · TRIGGER TO CONFIRM';
       } else {
         if (R.setCircuitPanel) R.setCircuitPanel(null, null);
         updatePlayer(dt, vrInput);
@@ -2951,6 +3017,14 @@
     }
 
     if (xrData) {
+      if (NS.xrControllers && NS.xrControllers.sync) {
+        NS.xrControllers.sync(
+          xrData.frame,
+          VR.referenceSpace ? VR.referenceSpace() : null,
+          player,
+          xrData.input && xrData.input.bodyYaw
+        );
+      }
       R.renderXR(VR.viewsForPose(xrData.pose, player), VR.framebuffer(), now);
     } else {
       var aspect = el.canvas.width / Math.max(1, el.canvas.height);
@@ -3016,8 +3090,8 @@
       $('vr-note').textContent = 'VR START FAILED: ' + (error && error.message ? error.message : error);
     },
     onXRFrame: function (time, xrFrame, pose, input, bodyYaw) {
-      void xrFrame; void bodyYaw;
-      processFrame(time, { pose: pose, input: input });
+      void bodyYaw;
+      processFrame(time, { pose: pose, input: input, frame: xrFrame });
     },
     // test instrumentation (headless smoke harness)
     debug: {
