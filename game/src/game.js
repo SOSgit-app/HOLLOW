@@ -667,10 +667,11 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 virus, 5 tripwire, 6 exfil
+  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 virus, 5 tripwire, 6 throw, 7 exfil
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
+  var tutorialBeaconThrown = false;
   var pendingTutorial = false;
   var pendingEasyRaid = false;
   var pendingPostTutorial = false; // true while waiting for VR session to end after tutorial extract
@@ -680,9 +681,8 @@
     {
       title: 'LEARN TO MOVE',
       lines: ['Walk the green harbor.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.',
-              'Blue wall codes = say where you are.',
-              'Right A / G throws a fault beacon — security walks to the chirp.'],
-      buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan', 'RIGHT A / G — throw beacon'],
+              'Blue wall codes = say where you are.'],
+      buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan'],
       msg: 'TUTORIAL: MOVE · SPRINT (GRIP) · SCAN (TRIGGER)'
     },
     {
@@ -711,9 +711,15 @@
     },
     {
       title: 'TRIP THE YELLOW WIRE',
-      lines: ['Cross the yellow tripwire on purpose.', 'Security will spawn in the harbor.', 'Then head for the yellow LZ.'],
+      lines: ['Cross the yellow tripwire on purpose.', 'Security will spawn in the harbor.', 'Then throw a fault beacon to pull them.'],
       buttons: ['WALK THROUGH — yellow beam', 'RIGHT TRIGGER — scan beam', 'LEFT GRIP — sprint if needed'],
       msg: 'TUTORIAL: CROSS YELLOW TRIPWIRE — SECURITY SPAWNS'
+    },
+    {
+      title: 'THROW A FAULT BEACON',
+      lines: ['Aim away from the LZ.', 'Right A (VR) or G (desktop) throws the beacon.', 'Security walks to the chirp — then run.'],
+      buttons: ['RIGHT A / G — throw beacon', 'AIM — throw direction', 'ONE BEACON — make it count'],
+      msg: 'TUTORIAL: THROW FAULT BEACON (RIGHT A / G) — LURE SECURITY'
     },
     {
       title: 'BOARD THE LZ',
@@ -990,10 +996,14 @@
     } else if (tutorialStation === 4) {
       if (virusDone) {
         advanceTutorial(5);
-        startExfil();
       }
     } else if (tutorialStation === 5) {
       if (tutorialTripHit) advanceTutorial(6);
+    } else if (tutorialStation === 6) {
+      if (tutorialBeaconThrown) {
+        advanceTutorial(7);
+        startExfil();
+      }
     }
   }
 
@@ -1070,6 +1080,7 @@
     tutorialMoveDist = 0;
     tutorialTripHit = false;
     tutorialSecTimer = 0;
+    tutorialBeaconThrown = false;
     tutorialStation = 0;
     coachPose = null;
     tutorialExitSuccess = null;
@@ -2157,6 +2168,12 @@
 
   function throwBeacon(origin, dir) {
     if (state !== 'PLAY' || (CIR && CIR.isActive()) || cloneUiActive()) return;
+    if (tutorialMode && tutorialStation !== 6) {
+      if (tutorialStation < 6) {
+        queueMsg('HOLD THE BEACON — THROW AFTER THE TRIPWIRE', 'amber', 2);
+      }
+      return;
+    }
     if (beaconsLeft <= 0) {
       queueMsg('NO FAULT BEACONS LEFT', 'amber', 2);
       return;
@@ -2182,6 +2199,7 @@
     emitNoise(NOISE_INTERACT * 0.35);
     if (A.clunk) A.clunk(0);
     queueMsg('FAULT BEACON AWAY — ' + beaconsLeft + ' LEFT. SECURITY WALKS TO THE CHIRP.', 'amber', 3);
+    if (tutorialMode) tutorialBeaconThrown = true;
   }
 
   function updateBeacons(dt) {
