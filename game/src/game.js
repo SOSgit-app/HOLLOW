@@ -75,6 +75,8 @@
   }
 
   var currentDifficulty = 'medium';
+  var CIRCUIT_DEFAULTS = { easy: 1, medium: 3, hard: 3 };
+  var circuitBoards = { easy: 1, medium: 3, hard: 3 };
   var DIFF_INFO = {
     easy: {
       label: 'EASY',
@@ -113,6 +115,55 @@
     return 2;
   }
 
+  function circuitQuota() {
+    if (tutorialMode) return 1;
+    var n = circuitBoards[currentDifficulty];
+    if (n == null) n = CIRCUIT_DEFAULTS[currentDifficulty] || 3;
+    n = n | 0;
+    if (n < 1) n = 1;
+    if (n > 3) n = 3;
+    return n;
+  }
+
+  function loadCircuitSettings() {
+    try {
+      var raw = localStorage.getItem('hollow_circuit_boards');
+      if (!raw) return;
+      var parsed = JSON.parse(raw);
+      ['easy', 'medium', 'hard'].forEach(function (k) {
+        var v = parsed && parsed[k];
+        v = v | 0;
+        if (v >= 1 && v <= 3) circuitBoards[k] = v;
+      });
+    } catch (e) { void e; }
+  }
+
+  function saveCircuitSettings() {
+    try {
+      localStorage.setItem('hollow_circuit_boards', JSON.stringify(circuitBoards));
+    } catch (e) { void e; }
+  }
+
+  function syncCircuitBoardButtons() {
+    var n = String(circuitBoards[currentDifficulty] || CIRCUIT_DEFAULTS[currentDifficulty] || 3);
+    var buttons = document.querySelectorAll('.ckt-btn');
+    for (var i = 0; i < buttons.length; i++) {
+      var b = buttons[i];
+      if (b.getAttribute('data-ckt') === n) b.classList.add('active');
+      else b.classList.remove('active');
+    }
+  }
+
+  function setCircuitBoards(count) {
+    var n = count | 0;
+    if (n < 1) n = 1;
+    if (n > 3) n = 3;
+    circuitBoards[currentDifficulty] = n;
+    saveCircuitSettings();
+    syncCircuitBoardButtons();
+    refreshDiffPanel(false);
+  }
+
   function showNoiseMeter() {
     return !tutorialMode && currentDifficulty !== 'easy';
   }
@@ -133,17 +184,26 @@
       if (b.getAttribute('data-diff') === currentDifficulty) b.classList.add('active');
       else b.classList.remove('active');
     }
+    refreshDiffPanel(changed);
+    syncCircuitBoardButtons();
+  }
+
+  function refreshDiffPanel(changed) {
     var info = DIFF_INFO[currentDifficulty] || DIFF_INFO.medium;
     var label = $('diff-label');
     var points = $('diff-points');
     var panel = $('diff-panel');
     if (label) label.textContent = info.label;
     if (points) {
-      points.innerHTML = info.points.map(function (p) { return '<li>' + p + '</li>'; }).join('');
+      var boards = circuitBoards[currentDifficulty] || CIRCUIT_DEFAULTS[currentDifficulty] || 3;
+      var extra = '<b>' + boards + '</b> circuit board' + (boards === 1 ? '' : 's') +
+        (boards === 1 ? ' (stage 1)' : '');
+      points.innerHTML = info.points.concat([extra]).map(function (p) {
+        return '<li>' + p + '</li>';
+      }).join('');
     }
     if (panel && changed) {
       panel.classList.remove('flash');
-      // reflow so the animation can replay on each press
       void panel.offsetWidth;
       panel.classList.add('flash');
     }
@@ -593,6 +653,7 @@
 
     var savedDiff = 'medium';
     try { savedDiff = localStorage.getItem('hollow_difficulty') || 'medium'; } catch (err) { void err; }
+    loadCircuitSettings();
     applyDifficulty(savedDiff);
     loadComfortSettings();
 
@@ -613,6 +674,14 @@
         e.preventDefault();
         e.stopPropagation();
         applyDifficulty(e.currentTarget.getAttribute('data-diff'));
+      });
+    }
+    var cktButtons = document.querySelectorAll('.ckt-btn');
+    for (var ci = 0; ci < cktButtons.length; ci++) {
+      cktButtons[ci].addEventListener('click', function (e) {
+        e.preventDefault();
+        e.stopPropagation();
+        setCircuitBoards(e.currentTarget.getAttribute('data-ckt'));
       });
     }
   }
@@ -1877,15 +1946,18 @@
       pushMsg('CORE LOCKED OUT — RETRY IN ' + wait + 's', 'amber');
       return;
     }
+    var boards = circuitQuota();
+    var boardWord = boards === 1 ? '1 BOARD' : (boards + ' BOARDS');
+    var matrixWord = boards === 1 ? 'ONE ROUTING MATRIX' : (boards + ' ROUTING MATRICES');
     pushMsg(inVR()
       ? (tutorialMode
         ? 'PRACTICE JACK-IN — 1 BOARD · POINT LASER / X ROTATE'
-        : 'JACK-IN — 3 BOARDS · 60s EACH · POINT LASER / X ROTATE')
+        : 'JACK-IN — ' + boardWord + ' · 60s EACH · POINT LASER / X ROTATE')
       : (tutorialMode
         ? 'PRACTICE JACK-IN — CLEAR ONE BOARD'
-        : 'JACK-IN SEQUENCE — THREE ROUTING MATRICES'), 'amber');
+        : 'JACK-IN SEQUENCE — ' + matrixWord), 'amber');
     CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear,
-      tutorialMode ? { tutorial: true } : null);
+      tutorialMode ? { tutorial: true } : { stageCount: boards });
   }
 
   function powSpheres() {

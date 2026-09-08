@@ -554,10 +554,18 @@
     dirty = true;
   }
 
+  function missionStageCount(opts) {
+    var n = opts && opts.stageCount != null ? opts.stageCount : STAGES.length;
+    n = n | 0;
+    if (n < 1) n = 1;
+    if (n > STAGES.length) n = STAGES.length;
+    return n;
+  }
+
   function open(successCb, timeoutCb, stageClearCb, opts) {
     ensureCanvas();
     isTutorialPuzzle = !!(opts && opts.tutorial);
-    activeStages = isTutorialPuzzle ? [TUTORIAL_STAGE] : STAGES;
+    activeStages = isTutorialPuzzle ? [TUTORIAL_STAGE] : STAGES.slice(0, missionStageCount(opts));
     resetPuzzle();
     onSuccess = successCb;
     onTimeout = timeoutCb;
