@@ -41,7 +41,7 @@
   .legend { display: flex; flex-direction: column; gap: 3px; }
   .legend-row { display: flex; align-items: center; gap: 6px; }
   .legend canvas { display: block; width: 18px; height: 18px; flex: none; }
-  .legend-row span { line-height: 1.2; }
+  .legend-row span { line-height: 1.25; }
   .facts { display: flex; gap: 14px; margin-top: 10px; font-size: 9.5px; line-height: 1.45; }
   .facts > div { flex: 1; }
   ul { margin: 0; padding-left: 13px; }
@@ -241,21 +241,21 @@
     items.push(['cell', C.wall, 'Wall']);
     items.push(['cell', C.floor, 'Floor']);
     items.push(['code', null, 'Wall codes']);
-    if (L.harbor) items.push(['cell', C.harbor, 'Safe space']);
-    if (L.lz) items.push(['lz', null, 'Landing pad']);
-    if (L.doors) items.push(['door', null, 'Blast door']);
-    if (L.trips) items.push(['trip', null, 'Tripwire']);
+    if (L.harbor) items.push(['cell', C.harbor, 'Safe space — they cannot kill you here']);
+    if (L.lz) items.push(['lz', null, 'Landing pad — walk on when the chopper is on station']);
+    if (L.doors) items.push(['door', null, 'Blast door — needs a key (D3 needs all 3)']);
+    if (L.trips) items.push(['trip', null, 'Tripwire — walking through it alarms']);
     if (L.start) items.push(['dot', C.start, 'P — infil / start', 'P']);
-    if (L.keys) items.push(['dot', C.key, '1–3 — access keys', '1']);
-    if (L.refills) items.push(['dot', C.refill, 'B — beacon refill', 'B']);
-    if (L.core) items.push(['sq', C.core, 'G — AI core (jack-in)', 'G']);
-    if (L.lz) items.push(['sq', '#8a6100', 'X — landing zone', 'X']);
+    if (L.keys) items.push(['dot', C.key, '1–3 — access keys. Press X to pick up', '1']);
+    if (L.refills) items.push(['dot', C.refill, 'B — beacon refill. Press X for +1 throw', 'B']);
+    if (L.core) items.push(['sq', C.core, 'G — AI core. Press X, hold X to download', 'G']);
+    if (L.lz) items.push(['sq', '#8a6100', 'X — landing zone. Same pad as above', 'X']);
     if (L.security) {
       items.push(['dot', C.sec, sheetMode === 'easy'
-        ? 'U1–U4 — patrol posts (start)'
-        : 'U1–U6 — patrol posts (start)', '1']);
+        ? 'U1–U4 — patrol posts. Guards start here, then walk'
+        : 'U1–U6 — patrol posts. Guards start here, then walk', '1']);
     }
-    if (L.shutoffs) items.push(['sq', C.shut, 'K — shutoff (15s, one-shot)', 'K']);
+    if (L.shutoffs) items.push(['sq', C.shut, 'K — shutoff. Press X: all wires off 15s, once', 'K']);
     el.innerHTML = '';
     items.forEach(function (row) {
       var kind = row[0], fill = row[1], label = row[2], letter = row[3];
