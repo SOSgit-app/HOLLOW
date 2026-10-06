@@ -29,7 +29,7 @@ primary threat-detection system.
 HOLLOW is a Squadron Officer School-style exercise: one **Operator** in VR,
 **Watch** (tripwires / safe spaces / patrol posts) and **Access** (keys / doors / LZ) with the same
 floor and wall codes but different overlays, and (in a 4-person team) a
-**Controller** with the clock and POW coords — no maze.
+**Controller** with the clock — no maze. POW wall code is spoken by the Operator.
 
 - Exercise guide: [`docs/SOS_Exercise.md`](docs/SOS_Exercise.md)
 - 3-person maps: [`game/map-print.html?team=3`](game/map-print.html?team=3#easy-watch)
@@ -39,7 +39,7 @@ floor and wall codes but different overlays, and (in a 4-person team) a
 **Objective:** recover access keys → unlock blast doors → jack-in (press X, hold X to download) →
 board the **LZ** before the chopper departs (10:00 blackout window).
 
-**Green** = safe space · **Yellow** = tripwire · **LZ** = chopper pad (map-guided).
+**Green** = safe space · **Yellow** = tripwire · **LZ** = yellow pad on LiDAR. Walk onto it when the chopper is on station.
 On **Hard**, headset mic speech contributes to signature (EMCON). Easy and Medium ignore operator noise.
 
 ## Quest 2 / WebXR

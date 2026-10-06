@@ -245,6 +245,7 @@
     buildSecurityPosts();
 
     buildWallMarks();
+    buildPowSites();
 
     doorSolid = {};
     markers.doors.forEach(function (d) {
@@ -435,6 +436,45 @@
   }
 
   function wallMarkBox() { return { px: MARK_PX, h: MARK_H, y: MARK_Y }; }
+
+  function nearestWallMark(x, z) {
+    var best = null, bestD = Infinity, i, m, dx, dz, d;
+    for (i = 0; i < wallMarks.length; i++) {
+      m = wallMarks[i];
+      dx = m.x - x; dz = m.z - z;
+      d = dx * dx + dz * dz;
+      if (d < bestD) { bestD = d; best = m; }
+    }
+    return best;
+  }
+
+  // Three rescue holds. One is picked at jack-in; the Operator hears the
+  // nearest wall code — Watch/Access place it, nobody prints a POW grid.
+  function buildPowSites() {
+    markers.powSites = [];
+    if (currentLayout === 'tutorial') return;
+    function site(id, c, r) {
+      if (c < 0 || r < 0 || c >= COLS || r >= ROWS || grid[r][c]) {
+        throw new Error('HOLLOW POW site solid/invalid ' + id + ' @' + c + ',' + r);
+      }
+      if (isSafeCell(c, r) || isLzCell(c, r) || isConsoleCell(c, r)) {
+        throw new Error('HOLLOW POW site in forbidden cell ' + id);
+      }
+      var x = (c + 0.5) * CELL, z = (r + 0.5) * CELL;
+      var mark = nearestWallMark(x, z);
+      if (!mark) throw new Error('HOLLOW POW site has no wall code ' + id);
+      markers.powSites.push({
+        id: id, c: c, r: r, x: x, z: z, code: mark.code
+      });
+    }
+    site('W1', 12, 16); // north pillar (ASCII W)
+    site('W2', 42, 14); // east wing, south of F
+    site('W3', 24, 34); // south hall
+  }
+
+  function powSites() {
+    return (markers.powSites || []).slice();
+  }
 
   function loadLayout(name, opts) {
     currentLayout = (name === 'tutorial') ? 'tutorial' : 'mission';
@@ -837,6 +877,7 @@
     wallMarks: function () { return wallMarks; },
     securityPosts: securityPosts,
     wallMarkFor: wallMarkFor, wallMarkBox: wallMarkBox,
+    nearestWallMark: nearestWallMark, powSites: powSites,
     SPLIT_COL: SPLIT_COL,
     sheetForCol: function (c) { return c < SPLIT_COL ? 'WEST' : 'EAST'; },
     loadLayout: loadLayout, layout: function () { return currentLayout; },

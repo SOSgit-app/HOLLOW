@@ -20,7 +20,7 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 | **Watch** | Full map + wall codes | Tripwires, safe spaces (infil + F-code east), patrol posts U1–U6 | Keys, doors, core, LZ |
 | **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, safe spaces, patrol posts |
 
-Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud.
+Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud. Each navigator sheet has its **own color legend** (there is no Controller).
 
 Print: [map-print.html?team=3](../game/map-print.html?team=3#easy-watch) — **PRINT PACKET** (2 pages: Watch, Access).
 
@@ -30,7 +30,7 @@ Same two maps, plus:
 
 | Role | Packet | Does |
 |---|---|---|
-| **Controller** | One card, **no map** | Clock, objective ticks, **POW grid**, **Watch + Access legends** |
+| **Controller** | One card, **no map** | Clock, objective ticks, **Watch + Access legends**. POW wall code comes from the Operator |
 
 Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **PRINT PACKET** (3 pages: Watch, Access, Controller).
 
@@ -42,8 +42,8 @@ Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **P
 
 1. Recover **3 access keys** (amber) — Access has the marks
 2. Open **console door D3** (all 3 keys) — Access has the doors. D1–D2 and D4–D9 are optional 1-key cuts
-3. **Jack-in** at G — press X, then **hold X** to download onto the drive. When it finishes: POW (Controller has coords) **or** virus
-4. **Chopper inbound**, then **on station** — Access voices the yellow pad
+3. **Jack-in** at G — press X, then **hold X** to download onto the drive. When it finishes: POW (Operator hears a wall code, then **press X** on the POW so they follow to the chopper) **or** virus
+4. **Chopper inbound**, then **on station** — Operator walks onto the yellow X pad
 
 Watch keeps them off yellow beams the whole time.
 
@@ -61,7 +61,7 @@ Watch keeps them off yellow beams the whole time.
 - **Blast doors** — Access sheet. D3 is the 3-key console seal. The rest are 1-key optional cuts
 - **Yellow tripwires** — Watch sheet. Alarm + force investigate
 - **Headset mic** — Hard only. Guards hear voice and footsteps from farther than Easy close-range sight
-- **Yellow LZ** — Access sheet. Does not paint on LiDAR — must be voiced
+- **Yellow LZ** — Access sheet. Paints yellow on LiDAR. Stand on it when the chopper is on station
 
 ## Debrief
 

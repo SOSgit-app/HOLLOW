@@ -36,7 +36,8 @@
     padding-bottom: 2px; border-bottom: 1px solid #c3cad1;
   }
   section + section { margin-top: 10px; }
-  .legend { display: grid; grid-template-columns: 18px 1fr; gap: 3px 7px; align-items: center; }
+  .nav-legend { margin-bottom: 10px; }
+  body.team-4 .nav-legend { display: none; }
   .legend canvas { display: block; width: 18px; height: 18px; }
   table { border-collapse: collapse; width: 100%; font-size: 9px; }
   th, td { text-align: left; padding: 0.5px 4px 0.5px 0; vertical-align: top; }
@@ -60,6 +61,7 @@
     .page { display: block !important; page-break-after: always; }
     .page:last-child { page-break-after: auto; }
     .team-3 .ctrl-page { display: none !important; }
+    body.team-4 .nav-legend { display: none !important; }
   }
 </style>
 </head>
@@ -91,6 +93,10 @@
     <div class="sheet">
       <canvas class="map-canvas"></canvas>
       <aside>
+        <section class="nav-legend">
+          <h2>LEGEND</h2>
+          <div class="legend" data-legend="WATCH"></div>
+        </section>
         <section>
           <h2>ON YOUR SHEET</h2>
           <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
@@ -109,6 +115,10 @@
     <div class="sheet">
       <canvas class="map-canvas"></canvas>
       <aside>
+        <section class="nav-legend">
+          <h2>LEGEND</h2>
+          <div class="legend" data-legend="ACCESS"></div>
+        </section>
         <section>
           <h2>ON YOUR SHEET</h2>
           <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
@@ -127,14 +137,14 @@
     <div class="ctrl-grid">
       <div>
         <h2>YOUR JOB</h2>
-        <p class="note">Watch and Access both have the full map and wall codes. You do <b>not</b>. You run the 10:00 clock, tick the objectives, hold both legends, and you are the only one who knows where the POW is. Do not grab a navigator sheet.</p>
+        <p class="note">Watch and Access both have the full map and wall codes. You do <b>not</b>. You run the 10:00 clock, tick the objectives, and hold both legends. If they choose POW, the Operator hears a wall code — ask them to read it. Do not grab a navigator sheet.</p>
         <h2>RADIO</h2>
         <p class="note">Operator lost? Tell them to read a wall code. <b>Both</b> navigators can place it. Then ask Watch “is that hall wired?” and Access “keys / door / LZ from here?”</p>
         <h2>CLOCK &amp; RULES</h2>
         <ul>
           <li>Blackout <b>10:00</b>, then power returns.</li>
           <li>3 keys → open <b>D3</b> (needs all 3) → jack-in at <b>G</b> (press X, hold X to download) → POW <b>or</b> virus → yellow pad <b>X</b>.</li>
-          <li><b>X</b> does not paint on LiDAR — Access must voice it.</li>
+          <li>When the chopper is <b>on station</b>, walk onto the yellow <b>X</b> pad to extract.</li>
           <li>Safe spaces are on the Watch sheet. Security will not kill them there.</li>
           <li>After clone: chopper inbound, then <b>1:30</b> on station.</li>
         </ul>
@@ -157,21 +167,21 @@
         </section>
       </div>
       <div>
-        <h2>POW — YOU ONLY</h2>
-        <p class="note">Not printed on Watch or Access. If they choose rescue, read this grid. Operator paints the POW dark green on LiDAR.</p>
-        <div class="pow-box" id="pow-box">POW GRID: —</div>
+        <h2>POW</h2>
+        <p class="note">Not printed on Watch or Access. One of three holds, picked when they choose rescue. The Operator hears the wall code. Ask them to read it — both navigators can place a code. POW paints dark green on LiDAR.</p>
+        <div class="pow-box" id="pow-box">POW: Operator hears the wall code.</div>
         <h2>WHO HAS WHAT</h2>
         <ul>
           <li><b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6. No keys, no doors, no LZ.</li>
           <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P. No tripwires.</li>
-          <li><b>You</b> — clock, checklist, POW, both map legends.</li>
+          <li><b>You</b> — clock, checklist, both map legends. POW wall code comes from the Operator.</li>
         </ul>
       </div>
     </div>
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=113"></script>
+<script src="src/map.js?v=114"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -477,27 +487,32 @@
       '<li>Full floor. Wall codes. You can place the Operator anywhere they call.</li>' +
       '<li>' + yours + '</li>' +
       '<li>' + missing + '</li>' +
-      (team === 4 ? '<li>Color legend is on the <b>Controller</b> card. Ask them what a mark means.</li>' : '') +
+      (team === 4
+        ? '<li>Color legend is on the <b>Controller</b> card. Ask them what a mark means.</li>'
+        : '<li>Your color legend is on this sheet.</li>') +
       '</ul></div>' +
       '<div><h2>SHARED</h2><ul>' +
       '<li>3 keys → D3 (all 3) → jack-in at G (press X, hold X to download) → POW or virus → yellow pad X.</li>' +
-      '<li>Blackout <b>10:00</b>. X does not paint on LiDAR.</li>' +
+      '<li>Blackout <b>10:00</b>. Walk onto yellow <b>X</b> when the chopper is on station.</li>' +
       '</ul></div>' +
       '<div><h2>ROLES</h2><ul>' +
       '<li><b>OPERATOR</b> — VR.</li>' +
       '<li><b>WATCH</b> — wires / safe spaces / patrol posts.</li>' +
       '<li><b>ACCESS</b> — keys / doors / G / X.</li>' +
-      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, POW, both legends. No map.</li>' : '<li>3-person: you two share the clock out loud.</li>') +
+      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, both legends. No map. POW code comes from the Operator.</li>' : '<li>3-person: you two share the clock out loud. POW code comes from the Operator.</li>') +
       '</ul></div>'
     );
   }
 
   function fillPow() {
     var el = document.getElementById('pow-box');
-    var w = M.markers.W;
-    if (!w) { el.textContent = 'POW GRID: (not on this layout)'; return; }
-    el.textContent = 'POW GRID: ' + Math.floor(w.x / M.CELL) + ',' + Math.floor(w.z / M.CELL) +
-      '  —  dark green on LiDAR. Access does not have this mark.';
+    var sites = (M.powSites && M.powSites()) || [];
+    if (!sites.length) {
+      el.textContent = 'POW: Operator hears the wall code.';
+      return;
+    }
+    el.textContent = 'POW: one of ' + sites.length +
+      ' holds. Operator hears the wall code on rescue. Ask them to read it.';
   }
 
   function setView(name) {
@@ -531,6 +546,7 @@
       page.querySelector('.map-tag').textContent = pack + ' · ' + diff + ' · ' + role;
       drawMap(page.querySelector('.map-canvas'), role);
       fillStations(page.querySelector('.stations'), role);
+      fillLegend(page.querySelector('[data-legend]'), role);
       page.querySelector('.nav-facts').innerHTML = navFactsHtml(role);
     });
     fillLegend(document.getElementById('legend-watch'), 'WATCH');

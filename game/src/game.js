@@ -179,7 +179,7 @@
   var JACKIN_RETRY_S = 10; // lockout cool-down before another jack-in attempt
   var CLONE_DURATION_S = 4.5;
   var VIRUS_DURATION_S = 11;
-  var POW_FOLLOW_SPEED = 2.55;
+  var POW_FOLLOW_SPEED = 2.05;
   var POW_STOP_DIST = 1.25;
   var POW_RADIUS = 0.4;
 
@@ -215,9 +215,10 @@
   var CLONE_INTEL =
     "CLONE COMPLETE.\n\n" +
     "FLASH TRAFFIC: POSSIBLE POW ON-SITE.\n" +
-    "MAP GUIDE HAS EXTERNAL COORDINATES — ASK THEM.\n" +
-    "SCAN WITH LiDAR — THE POW PAINTS GREEN.\n" +
-    "Free them, then escort to the LZ.\n\n" +
+    "CHOOSE RESCUE — YOU GET THEIR WALL CODE.\n" +
+    "READ THE CODE TO WATCH / ACCESS.\n" +
+    "WALK TO THEM. PRESS X. THEY FOLLOW YOU TO THE CHOPPER.\n" +
+    "LiDAR: POW PAINTS GREEN.\n\n" +
     "ALTERNATE: REMAIN AT CONSOLE. PLANT VIRUS.\n" +
     "WHEN THEIR MAINFRAME WAKES, YOU OWN THE STACK.\n\n" +
     "ONE PATH ONLY. CHOPPER CLOCK STARTS ON CONFIRM.";
@@ -1519,7 +1520,7 @@
         ctx.fillText(lines[i], 36, y);
         y += 18;
       }
-      var opts = ['RESCUE POW — ESCORT TO LZ', 'PLANT VIRUS — CORRUPT LOCAL AI'];
+      var opts = ['RESCUE POW — PRESS X, THEY FOLLOW', 'PLANT VIRUS — CORRUPT LOCAL AI'];
       for (i = 0; i < opts.length; i++) {
         var selected = cloneHoverIdx === i;
         ctx.fillStyle = selected ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
@@ -1652,17 +1653,22 @@
     missionBranch = branch;
     clonePhase = 'DONE';
     if (branch === 'RESCUE') {
-      // Spawn at map W — pillar room north of infil (not marked on print sheet)
-      if (!M.markers.W) {
-        throw new Error('HOLLOW: POW marker W missing from map');
-      }
+      var sites = (M.powSites && M.powSites()) || [];
+      var site = sites.length
+        ? sites[Math.floor(math.rand() * sites.length)]
+        : (M.markers.W ? {
+            x: M.markers.W.x, z: M.markers.W.z,
+            code: (M.nearestWallMark && M.nearestWallMark(M.markers.W.x, M.markers.W.z) || {}).code
+          } : null);
+      if (!site) throw new Error('HOLLOW: no POW site on this layout');
       pow = {
-        x: M.markers.W.x,
-        z: M.markers.W.z,
+        x: site.x,
+        z: site.z,
         freed: false,
         path: null,
         pathIdx: 0,
-        repath: 0
+        repath: 0,
+        code: site.code || '??'
       };
     } else {
       pow = null;
@@ -1751,7 +1757,8 @@
       EN.state.agitation = 100;
       EN.hear(M.markers.G.x, M.markers.G.z, NOISE_UPLINK, now, true);
       EN.forceChase(now);
-      queueMsg('RESCUE PATH — ASK MAP GUIDE FOR POW COORDS', 'amber', 5);
+      queueMsg('POW LOCATED NEAR ' + (pow && pow.code ? pow.code : 'WALL CODE') +
+        ' — PRESS X ON THEM TO FOLLOW YOU TO THE CHOPPER', 'amber', 10);
     } else {
       // Virus path: stay quiet until plant completes — no security surge on choose
       EN.addAgitationFloor(8);
@@ -2203,8 +2210,9 @@
     }
     if (missionBranch === 'RESCUE') {
       pushMsg(pow && pow.freed
-        ? 'PATH LOCKED — ESCORT POW TO LZ'
-        : 'PATH LOCKED — FREE THE POW (GREEN ON LiDAR SCAN)', 'amber');
+        ? 'PATH LOCKED — LEAD THEM TO THE CHOPPER'
+        : 'PATH LOCKED — POW NEAR ' + (pow && pow.code ? pow.code : 'WALL CODE') +
+          ' · PRESS X ON THEM', 'amber');
       return;
     }
     if (uplinkDone) {
@@ -2244,7 +2252,8 @@
     pow.freed = true;
     emitNoise(NOISE_INTERACT * 0.7);
     if (A.fuseChime) A.fuseChime();
-    pushMsg('POW FREED — GREEN ON LiDAR SCAN · ESCORT TO LZ', 'amber', 4);
+    paintFreedPow();
+    pushMsg('POW IS WITH YOU — LEAD THEM TO THE CHOPPER', 'amber', 5);
     return true;
   }
 
@@ -2259,7 +2268,7 @@
     if (!runActive) return false;
     if (missionBranch === 'RESCUE') {
       if (!pow || !pow.freed) {
-        if (fromInteract) pushMsg('POW STILL HELD — FREE THEM FIRST', 'red');
+        if (fromInteract) pushMsg('PRESS X ON THE POW FIRST — THEY FOLLOW YOU', 'red');
         return false;
       }
       var pd = Math.hypot(pow.x - M.markers.X.x, pow.z - M.markers.X.z);
@@ -2355,6 +2364,29 @@
       pow.x = mv.x; pow.z = mv.z;
       stepBudget -= take;
       if (Math.hypot(pow.x - wp.x, pow.z - wp.z) < 0.2) pow.pathIdx++;
+    }
+  }
+
+  // After X, the POW stays painted — no more LiDAR spray required to see them.
+  function paintFreedPow() {
+    if (!pow || missionBranch !== 'RESCUE' || !pow.freed) return;
+    var sph = powSpheres();
+    var i, k, s, u, ph, sr, nx, ny, nz;
+    for (i = 0; i < sph.length; i++) {
+      s = sph[i];
+      for (k = 0; k < 10; k++) {
+        u = math.rand() * 2 - 1;
+        ph = math.rand() * Math.PI * 2;
+        sr = Math.sqrt(Math.max(0, 1 - u * u));
+        nx = sr * Math.cos(ph);
+        ny = u;
+        nz = sr * Math.sin(ph);
+        R.addPoint(
+          s.x + nx * s.r, s.y + ny * s.r, s.z + nz * s.r,
+          C_POW[0], C_POW[1], C_POW[2],
+          now, 0.28, true
+        );
+      }
     }
   }
 
@@ -2703,8 +2735,7 @@
   }
 
   function updateItems(dt) {
-    // LZ has no LiDAR beacon — Mission Director must voice-guide the operator
-    // auto-board if standing in LZ during on-station
+    // auto-board if standing on the yellow X pad during on-station
     if (exfilPhase === 'ON_STATION' && near(M.markers.X.x, M.markers.X.z, LZ_RADIUS)) {
       tryBoardLz(false);
       return;
@@ -2717,9 +2748,9 @@
       var btn = inVR() ? '[X]' : '[E]';
       var i;
       if (missionBranch === 'RESCUE' && pow && !pow.freed && near(pow.x, pow.z, hintRange + 0.5)) {
-        hint = btn + ' FREE POW';
+        hint = inVR() ? '[X] PRESS X — THEY FOLLOW YOU TO THE CHOPPER' : '[E] PRESS E — THEY FOLLOW YOU TO THE CHOPPER';
       } else if (missionBranch === 'RESCUE' && pow && pow.freed && near(pow.x, pow.z, hintRange)) {
-        hint = 'POW FOLLOWING — ESCORT TO LZ';
+        hint = 'POW FOLLOWING — LEAD THEM TO THE CHOPPER';
       } else if (missionBranch === 'VIRUS' && !virusDone && near(M.markers.G.x, M.markers.G.z, hintRange + 0.5)) {
         hint = virusHolding
           ? ('UPLOADING VIRUS ' + Math.floor(virusProgress * 100) + '%')
@@ -2959,10 +2990,10 @@
         return '<span class="energized">VIRUS ARMED · EXTRACT</span>';
       }
       if (missionBranch === 'RESCUE' && pow && !pow.freed) {
-        return '<span class="energized">FREE POW · THEN LZ</span>';
+        return '<span class="energized">POW NEAR ' + (pow.code || 'CODE') + ' · PRESS X</span>';
       }
       if (missionBranch === 'RESCUE' && pow && pow.freed) {
-        return '<span class="energized">ESCORT POW TO LZ</span>';
+        return '<span class="energized">LEAD POW TO THE CHOPPER</span>';
       }
       if (uplinkDone) return '<span class="energized">CLONE ON DRIVE</span>';
       if (M.isConsoleSealed()) {
@@ -3152,6 +3183,7 @@
         updateLasers(dt);
         updateVirusPlant(dt, vrInput);
         updatePow(dt);
+        paintFreedPow();
         updateItems(dt);
         updateExfil(dt);
         updateTutorial(dt);

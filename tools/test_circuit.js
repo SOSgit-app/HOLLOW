@@ -17,7 +17,14 @@ if (!M.markers.doors.filter(function (d) { return d.console; }).length) {
   throw new Error('D3/console door missing');
 }
 if (!M.markers.lasers || !M.markers.lasers.length) throw new Error('need tripwires');
-if (!M.markers.W) throw new Error('POW mark W required for Controller sheet');
+if (!M.powSites || M.powSites().length !== 3) throw new Error('need 3 POW holds');
+var powCodes = {};
+M.powSites().forEach(function (s) {
+  if (!s.code) throw new Error(s.id + ' missing wall code');
+  if (powCodes[s.code]) throw new Error('POW sites share wall code ' + s.code);
+  powCodes[s.code] = true;
+  mustPath(M.markers.P, s, 'P→' + s.id);
+});
 if (!M.markers.safes || !M.markers.safes.length) throw new Error('harbor missing');
 if (!M.markers.harbors || M.markers.harbors.length !== 2) throw new Error('need infil + east Faraday');
 if (M.markers.lasers.length < 9) throw new Error('raid should have E/L tripwires');
@@ -43,7 +50,6 @@ mustPath(M.markers.P, M.markers.fuses[0], 'P→key1');
 mustPath(M.markers.P, M.markers.fuses[1], 'P→key2');
 mustPath(M.markers.P, M.markers.fuses[2], 'P→key3');
 mustPath(M.markers.P, M.markers.X, 'P→LZ');
-mustPath(M.markers.P, M.markers.W, 'P→POW');
 M.markers.security.forEach(function (p) {
   mustPath(p, M.markers.P, p.id + '→P');
 });
