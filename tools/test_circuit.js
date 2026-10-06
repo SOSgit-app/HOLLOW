@@ -50,6 +50,19 @@ if (!M.markers.shutoffs || M.markers.shutoffs.length !== 3) throw new Error('nee
 ['K1', 'K2', 'K3'].forEach(function (id) {
   if (!M.markers.shutoffs.filter(function (p) { return p.id === id; }).length) throw new Error('missing ' + id);
 });
+var shutSec = {};
+M.markers.shutoffs.forEach(function (p) {
+  if (!p.section || !p.pin || !/^\d{3}$/.test(p.pin)) throw new Error(p.id + ' needs section + 3-digit pin');
+  if (shutSec[p.section]) throw new Error('duplicate shutoff section ' + p.section);
+  shutSec[p.section] = p.pin;
+});
+['N', 'C', 'T'].forEach(function (s) {
+  if (!shutSec[s]) throw new Error('need shutoff in section ' + s);
+});
+var pins = Object.keys(shutSec).map(function (s) { return shutSec[s]; });
+if (pins[0] === pins[1] || pins[0] === pins[2] || pins[1] === pins[2]) {
+  throw new Error('shutoff pins must differ');
+}
 if (M.securityPosts('easy').length !== 4) throw new Error('easy should staff 4 posts');
 if (M.securityPosts('medium').length !== 6 || M.securityPosts('hard').length !== 6) {
   throw new Error('medium/hard should staff 6 posts');

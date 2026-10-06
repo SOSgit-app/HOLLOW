@@ -54,6 +54,9 @@
   .check label { display: block; margin: 3px 0; }
   .note { font-size: 10px; line-height: 1.45; }
   .pow-box { border: 2px solid #14181c; padding: 10px 12px; margin-top: 10px; font-size: 13px; }
+  .pin-box { border: 2px solid #14181c; padding: 8px 12px; font-size: 18px; letter-spacing: .16em; line-height: 1.45; }
+  .pin-box div { margin: 2px 0; }
+  body.team-4 .access-pins { display: none; }
   @media print {
     .actions { display: none; }
     body { padding: 0; }
@@ -115,6 +118,11 @@
           <h2>LEGEND</h2>
           <div class="legend" data-legend="ACCESS"></div>
         </section>
+        <section class="access-pins">
+          <h2>SHUTOFF CODES</h2>
+          <p class="note">Watch has the boxes in wall-code sections N, C, and T. They call a section — you read the digits. 3-person only (no Controller).</p>
+          <div class="pin-box" id="access-pins"></div>
+        </section>
       </aside>
     </div>
     <div class="facts nav-facts"></div>
@@ -162,18 +170,21 @@
         <h2>POW</h2>
         <p class="note">Not printed on Watch or Access. One of three holds, picked when they choose rescue. The Operator hears the wall code. Ask them to read it — both navigators can place a code. POW paints dark green on LiDAR.</p>
         <div class="pow-box" id="pow-box">POW: Operator hears the wall code.</div>
+        <h2>SHUTOFF CODES</h2>
+        <p class="note">Watch has the boxes. They call wall-code section <b>N</b>, <b>C</b>, or <b>T</b>. Read the three digits. Do not hand Watch this card.</p>
+        <div class="pin-box" id="ctrl-pins"></div>
         <h2>WHO HAS WHAT</h2>
         <ul>
           <li id="ctrl-watch-who"><b>Watch</b> — tripwires, safe spaces, patrol posts, shutoff boxes. No keys, no doors, no LZ.</li>
           <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P, beacon refills. No tripwires.</li>
-          <li><b>You</b> — clock, checklist, both map legends. POW wall code comes from the Operator.</li>
+          <li><b>You</b> — clock, checklist, both map legends, shutoff codes N/C/T. POW wall code comes from the Operator.</li>
         </ul>
       </div>
     </div>
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=116"></script>
+<script src="src/map.js?v=117"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -255,7 +266,7 @@
         ? 'U1–U4 — patrol posts. Guards start here, then walk'
         : 'U1–U6 — patrol posts. Guards start here, then walk', '1']);
     }
-    if (L.shutoffs) items.push(['sq', C.shut, 'K — shutoff. Press X: all wires off 15s, once', 'K']);
+    if (L.shutoffs) items.push(['sq', C.shut, 'N / C / T — shutoff. Need the 3-digit code. Press X, wires off 15s, once', 'N']);
     el.innerHTML = '';
     items.forEach(function (row) {
       var kind = row[0], fill = row[1], label = row[2], letter = row[3];
@@ -422,7 +433,9 @@
         disc(ctx, p, p.id.replace('U', ''), C.sec);
       });
     }
-    if (L.shutoffs) (M.markers.shutoffs || []).forEach(function (p) { disc(ctx, p, 'K', C.shut, true); });
+    if (L.shutoffs) (M.markers.shutoffs || []).forEach(function (p) {
+      disc(ctx, p, p.section || 'K', C.shut, true);
+    });
     if (L.lz) disc(ctx, M.markers.X, 'X', '#8a6100', true);
     if (L.start) disc(ctx, M.markers.P, 'P', C.start);
 
@@ -445,13 +458,17 @@
 
   function navFactsHtml(role) {
     var missing = role === 'WATCH'
-      ? 'You do <b>not</b> have keys, doors, the core, the LZ, or beacon refills. Ask Access.'
-      : 'You do <b>not</b> have tripwires, the safe spaces, patrol posts, or shutoff boxes. Ask Watch.';
+      ? 'You do <b>not</b> have keys, doors, the core, the LZ, beacon refills, or shutoff codes.'
+      : (team === 3
+        ? 'You do <b>not</b> have tripwires, the safe spaces, patrol posts, or the shutoff boxes. Ask Watch. You have the codes.'
+        : 'You do <b>not</b> have tripwires, the safe spaces, patrol posts, or shutoff boxes. Ask Watch. Shutoff codes are on the Controller card.');
     var yours = role === 'WATCH'
       ? (sheetMode === 'easy'
-        ? 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U4</b>, and three shutoff boxes <b>K</b>. Press X on a box kills every tripwire for 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.'
-        : 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U6</b>, and three shutoff boxes <b>K</b>. Press X on a box kills every tripwire for 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.')
-      : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, infil P, and three beacon refills <b>B</b> (+1 throw each).';
+        ? 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U4</b>, and three shutoff boxes in wall-code sections <b>N, C, T</b>. They need a 3-digit code — ask Controller (4-person) or Access (3-person). Press X, enter the code, wires off 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.'
+        : 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U6</b>, and three shutoff boxes in wall-code sections <b>N, C, T</b>. They need a 3-digit code — ask Controller (4-person) or Access (3-person). Press X, enter the code, wires off 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.')
+      : (team === 3
+        ? 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, infil P, three beacon refills <b>B</b> (+1 throw each), and the <b>shutoff codes</b> for sections N, C, and T. Watch has the boxes — they call a section, you read the digits.'
+        : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, infil P, and three beacon refills <b>B</b> (+1 throw each). Shutoff codes are on the Controller card.');
     return (
       '<div><h2>YOUR JOB</h2><ul>' +
       '<li>Full floor. Wall codes. You can place the Operator anywhere they call.</li>' +
@@ -469,9 +486,21 @@
       '<li><b>OPERATOR</b> — VR.</li>' +
       '<li><b>WATCH</b> — wires / safe spaces / patrol posts / shutoffs.</li>' +
       '<li><b>ACCESS</b> — keys / doors / G / X / beacon refills.</li>' +
-      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, both legends. No map. POW code comes from the Operator.</li>' : '<li>3-person: you two share the clock out loud. POW code comes from the Operator.</li>') +
+      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, both legends, shutoff codes N/C/T. No map. POW code comes from the Operator.</li>' : '<li>3-person: you two share the clock out loud. Access has shutoff codes. POW code comes from the Operator.</li>') +
       '</ul></div>'
     );
+  }
+
+  function fillPins() {
+    var rows = (M.markers.shutoffs || []).slice().sort(function (a, b) {
+      return String(a.section).localeCompare(String(b.section));
+    }).map(function (p) {
+      return '<div><b>' + p.section + '</b> &nbsp; ' + p.pin + '</div>';
+    }).join('');
+    var access = document.getElementById('access-pins');
+    var ctrl = document.getElementById('ctrl-pins');
+    if (access) access.innerHTML = rows || '—';
+    if (ctrl) ctrl.innerHTML = rows || '—';
   }
 
   function fillPow() {
@@ -521,12 +550,13 @@
     fillLegend(document.getElementById('legend-watch'), 'WATCH');
     fillLegend(document.getElementById('legend-access'), 'ACCESS');
     fillPow();
+    fillPins();
     document.getElementById('ctrl-tag').textContent = pack + ' · ' + diff;
     var watchWho = document.getElementById('ctrl-watch-who');
     if (watchWho) {
       watchWho.innerHTML = easy
-        ? '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U4, shutoff boxes K. No keys, no doors, no LZ.'
-        : '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6, shutoff boxes K. No keys, no doors, no LZ.';
+        ? '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U4, shutoff boxes N/C/T (no codes). No keys, no doors, no LZ.'
+        : '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6, shutoff boxes N/C/T (no codes). No keys, no doors, no LZ.';
     }
     document.title = 'HOLLOW — ' + pack + ' ' + diff;
   }

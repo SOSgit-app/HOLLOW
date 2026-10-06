@@ -17,8 +17,8 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 | Role | Packet | Has | Missing |
 |---|---|---|---|
 | **Operator** | Quest headset | LiDAR, the live site | Map |
-| **Watch** | Full map + wall codes | Tripwires, safe spaces (infil + F alcove F3–F5/M1), patrol posts U1–U6, shutoff boxes K | Keys, doors, core, LZ, beacon refills |
-| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P, beacon refills B | Tripwires, safe spaces, patrol posts, shutoffs |
+| **Watch** | Full map + wall codes | Tripwires, safe spaces, patrol posts, shutoff boxes in N/C/T (no codes) | Keys, doors, core, LZ, beacon refills, shutoff codes |
+| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P, beacon refills B. **3-person:** shutoff codes | Tripwires, safe spaces, patrol posts, shutoff boxes. **4-person:** shutoff codes (Controller) |
 
 Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud. Each navigator sheet has its **own color legend** (there is no Controller).
 
@@ -30,7 +30,7 @@ Same two maps, plus:
 
 | Role | Packet | Does |
 |---|---|---|
-| **Controller** | One card, **no map** | Clock, objective ticks, **Watch + Access legends**. POW wall code comes from the Operator |
+| **Controller** | One card, **no map** | Clock, objective ticks, **Watch + Access legends**, shutoff codes N/C/T. POW wall code comes from the Operator |
 
 Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **PRINT PACKET** (3 pages: Watch, Access, Controller).
 
@@ -60,7 +60,7 @@ Watch keeps them off yellow beams the whole time.
 - **Patrol posts U1–U6** — Watch sheet. Units start there, then they walk. Easy staffs U1–U4; Medium and Hard also staff U5–U6
 - **Blast doors** — Access sheet. D3 is the 3-key console seal. The rest are 1-key optional cuts
 - **Yellow tripwires** — Watch sheet. Alarm + force investigate
-- **Shutoff boxes (K)** — Watch sheet. Press X. All tripwires off for 15s. Three on the map, each one-shot
+- **Shutoff boxes (N / C / T)** — Watch sheet has the boxes. Press X and enter a 3-digit code. All tripwires off for 15s. Each box is one-shot. **4-person:** Controller has the codes. **3-person:** Access sheet has the codes. Watch calls the wall-code section (N, C, or T).
 - **Beacon refills (B)** — Access sheet. Press X. +1 fault beacon. Three on the map
 - **Headset mic** — Hard only. Guards hear voice and footsteps from farther than Easy close-range sight
 - **Yellow LZ** — Access sheet. Paints yellow on LiDAR. Stand on it when the chopper is on station

@@ -250,6 +250,9 @@
   var shutBoxes = [];
   var laserShutoffLeft = 0;
   var SHUTOFF_S = 15;
+  var pinUi = { open: false, idx: -1, buf: '', hover: -1, pointerU: -1, pointerV: -1 };
+  var pinCanvas = null;
+  var pinCtx = null;
   var BEACON_LIFE = 10;
   var BEACON_PULSE = 0.72;
   var BEACON_LOUD = 38;
@@ -386,6 +389,16 @@
           confirmCloneChoice(cloneChoiceIdx === 0 ? 'RESCUE' : 'VIRUS');
         }
       }
+      if (pinUiActive() && state === 'PLAY') {
+        if (e.code === 'Backspace') {
+          pinUi.buf = pinUi.buf.slice(0, -1);
+          return;
+        }
+        var digit = null;
+        if (/^Digit[0-9]$/.test(e.code)) digit = e.code.slice(5);
+        else if (/^Numpad[0-9]$/.test(e.code)) digit = e.code.slice(6);
+        if (digit != null) { pinTypeDigit(digit); return; }
+      }
       if (clonePhase === 'CHOICE' && !inVR()) {
         if (e.code === 'Digit1' || e.code === 'Numpad1' || e.code === 'ArrowUp') {
           cloneChoiceIdx = 0; updateCloneDesktopChoice();
@@ -397,16 +410,19 @@
       if (e.code === 'KeyG' && state === 'PLAY') {
         if (e.repeat) return;
         if (pauseMenuOpen) return;
+        if (pinUiActive()) return;
         if (!cloneUiActive()) throwBeacon();
       }
       if ((e.code === 'Escape' || e.code === 'KeyY') && state === 'PLAY') {
         if (e.repeat) return;
+        if (pinUiActive()) { closePinUi(); return; }
         togglePauseMenu();
         return;
       }
       if (e.code === 'KeyE' && state === 'PLAY') {
         if (e.repeat) return;
         if (pauseMenuOpen) return;
+        if (pinUiActive()) return;
         if (!cloneUiActive()) {
           // Virus plant uses hold-E; don't spam interact while uploading
           if (missionBranch === 'VIRUS' && !virusDone &&
@@ -1138,9 +1154,10 @@
       return { x: p.x, z: p.z, taken: false, id: p.id };
     });
     shutBoxes = (M.markers.shutoffs || []).map(function (p) {
-      return { x: p.x, z: p.z, used: false, id: p.id };
+      return { x: p.x, z: p.z, used: false, id: p.id, section: p.section || '?', pin: p.pin || '' };
     });
     laserShutoffLeft = 0;
+    closePinUi();
     keysCollected = 0; doorsOpen = 0;
     beacons = [];
     beaconsMax = beaconQuota();
@@ -1415,6 +1432,7 @@
 
   function openPauseMenu() {
     if (state !== 'PLAY' || pauseMenuOpen) return;
+    if (pinUiActive()) closePinUi();
     pauseMenuOpen = true;
     pauseHoverIdx = -1;
     pausePointerU = -1;
@@ -2245,6 +2263,152 @@
     queueMsg('BEACON REFILL +1 — ' + beaconsLeft + ' READY', 'amber', 3);
   }
 
+  function pinUiActive() { return !!pinUi.open; }
+
+  function closePinUi() {
+    pinUi.open = false;
+    pinUi.idx = -1;
+    pinUi.buf = '';
+    pinUi.hover = -1;
+    pinUi.pointerU = -1;
+    pinUi.pointerV = -1;
+    if (!cloneUiActive() && !pauseMenuOpen && R.setCircuitPanel) R.setCircuitPanel(null, null);
+  }
+
+  function openPinUi(i) {
+    if (!shutBoxes[i] || shutBoxes[i].used) return;
+    pinUi.open = true;
+    pinUi.idx = i;
+    pinUi.buf = '';
+    pinUi.hover = -1;
+    pinUi.pointerU = -1;
+    pinUi.pointerV = -1;
+    queueMsg('SHUTOFF ' + shutBoxes[i].section + ' — ENTER 3-DIGIT CODE', 'amber', 3);
+    if (inVR()) syncPinPanel();
+  }
+
+  function pinKeyLabel(i) {
+    var keys = ['1', '2', '3', '4', '5', '6', '7', '8', '9', 'CLR', '0', '⌫'];
+    return keys[i] || '';
+  }
+
+  function pinPressKey(i) {
+    if (!pinUi.open) return;
+    if (i >= 0 && i <= 8) pinTypeDigit(String(i + 1));
+    else if (i === 9) pinUi.buf = '';
+    else if (i === 10) pinTypeDigit('0');
+    else if (i === 11) pinUi.buf = pinUi.buf.slice(0, -1);
+  }
+
+  function pinTypeDigit(d) {
+    if (!pinUi.open || pinUi.buf.length >= 3) return;
+    pinUi.buf += d;
+    if (pinUi.buf.length === 3) submitPin();
+  }
+
+  function submitPin() {
+    if (!pinUi.open) return;
+    var box = shutBoxes[pinUi.idx];
+    if (!box || box.used) { closePinUi(); return; }
+    if (pinUi.buf === box.pin) {
+      var idx = pinUi.idx;
+      closePinUi();
+      useShutoff(idx);
+      return;
+    }
+    pinUi.buf = '';
+    if (A.clunk) A.clunk(0);
+    queueMsg('WRONG CODE — ASK FOR SECTION ' + box.section, 'amber', 3);
+  }
+
+  function pinKeyAtUv(u, v) {
+    if (u < 0.12 || u > 0.88 || v < 0.32 || v > 0.92) return -1;
+    var c = Math.floor((u - 0.12) / 0.76 * 3);
+    var r = Math.floor((v - 0.32) / 0.60 * 4);
+    if (c < 0 || c > 2 || r < 0 || r > 3) return -1;
+    return r * 3 + c;
+  }
+
+  function ensurePinCanvas() {
+    if (pinCanvas) return;
+    pinCanvas = document.createElement('canvas');
+    pinCanvas.width = 360;
+    pinCanvas.height = 480;
+    pinCtx = pinCanvas.getContext('2d');
+  }
+
+  function drawPinPanel() {
+    ensurePinCanvas();
+    var ctx = pinCtx, w = pinCanvas.width, h = pinCanvas.height;
+    var box = shutBoxes[pinUi.idx];
+    var shown = (pinUi.buf + '___').slice(0, 3).split('').join(' ');
+    ctx.fillStyle = 'rgba(0,10,6,0.96)';
+    ctx.fillRect(0, 0, w, h);
+    ctx.strokeStyle = '#7cff9b';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(8, 8, w - 16, h - 16);
+    ctx.fillStyle = '#7cff9b';
+    ctx.font = '18px monospace';
+    ctx.textAlign = 'center';
+    ctx.fillText('SHUTOFF ' + (box && box.section ? box.section : ''), w / 2, 40);
+    ctx.fillStyle = '#b8e0c8';
+    ctx.font = '13px monospace';
+    ctx.fillText('ENTER 3-DIGIT CODE', w / 2, 64);
+    ctx.fillStyle = '#7cff9b';
+    ctx.font = '36px monospace';
+    ctx.fillText(shown, w / 2, 118);
+    var i, c, r, x, y, bw = 88, bh = 52, selected;
+    for (i = 0; i < 12; i++) {
+      c = i % 3; r = (i / 3) | 0;
+      x = 42 + c * 96;
+      y = 150 + r * 70;
+      selected = pinUi.hover === i;
+      ctx.fillStyle = selected ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
+      ctx.fillRect(x, y, bw, bh);
+      ctx.strokeStyle = selected ? '#7cff9b' : '#355';
+      ctx.strokeRect(x, y, bw, bh);
+      ctx.fillStyle = selected ? '#7cff9b' : '#8aa';
+      ctx.font = '20px monospace';
+      ctx.fillText(pinKeyLabel(i), x + bw / 2, y + 34);
+    }
+    if (pinUi.pointerU >= 0 && pinUi.pointerV >= 0) {
+      var px = pinUi.pointerU * w, py = pinUi.pointerV * h;
+      ctx.strokeStyle = '#ff2a2a';
+      ctx.fillStyle = 'rgba(255,40,40,0.35)';
+      ctx.lineWidth = 2;
+      ctx.beginPath();
+      ctx.arc(px, py, 10, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+    }
+  }
+
+  function syncPinPanel() {
+    if (!R.setCircuitPanel || !inVR() || !pinUi.open) return;
+    drawPinPanel();
+    R.setCircuitPanel(pinCanvas, buildPauseModel());
+  }
+
+  function handlePinLaser(vrInput) {
+    pinUi.hover = -1;
+    pinUi.pointerU = -1;
+    pinUi.pointerV = -1;
+    if (!pinUi.open) return;
+    var aim = worldAimFromVr(vrInput);
+    if (!aim || !circuitPanelModel) return;
+    var hit = rayCircuitPanel(aim.x, aim.y, aim.z, aim.dx, aim.dy, aim.dz, circuitPanelModel);
+    var endX = aim.x + aim.dx * 1.6;
+    var endY = aim.y + aim.dy * 1.6;
+    var endZ = aim.z + aim.dz * 1.6;
+    if (hit) {
+      endX = hit.hx; endY = hit.hy; endZ = hit.hz;
+      pinUi.pointerU = hit.u;
+      pinUi.pointerV = hit.v;
+      pinUi.hover = pinKeyAtUv(hit.u, hit.v);
+    }
+    paintControllerLaser(aim.x, aim.y, aim.z, endX, endY, endZ, pinUi.hover >= 0);
+  }
+
   function useShutoff(i) {
     if (!shutBoxes[i] || shutBoxes[i].used) return;
     shutBoxes[i].used = true;
@@ -2589,6 +2753,7 @@
 
   function throwBeacon(origin, dir) {
     if (state !== 'PLAY' || cloneUiActive() || pauseMenuOpen) return;
+    if (pinUiActive()) return;
     if (tutorialMode && tutorialStation !== 6) {
       if (tutorialStation < 6) {
         queueMsg('HOLD THE BEACON — THROW AFTER THE TRIPWIRE', 'amber', 2);
@@ -2669,6 +2834,7 @@
   function interact() {
     if (pauseMenuOpen) return;
     if (cloneUiActive()) return;
+    if (pinUiActive()) return;
     var range = interactRange();
 
     if (tryFreePow()) return;
@@ -2688,7 +2854,7 @@
         return;
       }
       if (pick && pick.kind === 'shutoff' && pick.dist <= range) {
-        useShutoff(pick.i);
+        openPinUi(pick.i);
         return;
       }
       if (pick && pick.kind === 'door' && pick.dist <= range + 0.8) {
@@ -2733,7 +2899,7 @@
     }
     for (i = 0; i < shutBoxes.length; i++) {
       if (!shutBoxes[i].used && near(shutBoxes[i].x, shutBoxes[i].z, range)) {
-        useShutoff(i);
+        openPinUi(i);
         return;
       }
     }
@@ -2850,7 +3016,7 @@
         } else if (aim && aim.kind === 'refill' && aim.dist <= hintRange + 0.6) {
           hint = btn + ' BEACON REFILL';
         } else if (aim && aim.kind === 'shutoff' && aim.dist <= hintRange + 0.6) {
-          hint = btn + ' SHUTOFF — WIRES DOWN 15s';
+          hint = btn + ' SHUTOFF ' + (shutBoxes[aim.i].section || '') + ' — ENTER CODE';
         } else if (aim && aim.kind === 'door' && aim.dist <= hintRange + 0.8) {
           var ad = M.markers.doors[aim.i];
           var an = doorKeysNeeded(ad);
@@ -2877,7 +3043,7 @@
       }
       for (i = 0; i < shutBoxes.length; i++) {
         if (!shutBoxes[i].used && near(shutBoxes[i].x, shutBoxes[i].z, hintRange)) {
-          hint = btn + ' SHUTOFF — WIRES DOWN 15s';
+          hint = btn + ' SHUTOFF ' + (shutBoxes[i].section || '') + ' — ENTER CODE';
         }
       }
       for (i = 0; i < M.markers.doors.length; i++) {
@@ -3097,6 +3263,11 @@
         return '<span class="energized">LEAD POW TO THE CHOPPER</span>';
       }
       if (uplinkDone) return '<span class="energized">CLONE ON DRIVE</span>';
+      if (pinUiActive()) {
+        var pb = shutBoxes[pinUi.idx];
+        var dots = (pinUi.buf + '___').slice(0, 3);
+        return '<span class="energized">CODE ' + (pb && pb.section ? pb.section : '') + ' ' + dots + '</span>';
+      }
       if (laserShutoffLeft > 0) {
         return '<span class="energized">WIRES DOWN ' + Math.ceil(laserShutoffLeft) + 's</span>';
       }
@@ -3240,6 +3411,23 @@
         }
         updateMsg(dt);
         updateHUD(dt);
+      } else if (pinUiActive()) {
+        if (vrInput && R.setWristModel) {
+          R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
+        }
+        if (vrInput) {
+          handlePinLaser(vrInput);
+          if (vrInput.interactPressed || vrInput.tricklePressed) {
+            if (pinUi.hover >= 0) pinPressKey(pinUi.hover);
+          }
+        }
+        if (inVR()) syncPinPanel();
+        EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
+        updateLasers(dt);
+        updateMsg(dt);
+        updateHUD(dt);
+        vrHudHint = 'SECTION ' + ((shutBoxes[pinUi.idx] && shutBoxes[pinUi.idx].section) || '') +
+          ' · POINT LASER AT DIGITS · TRIGGER';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));

@@ -326,21 +326,27 @@
     markers.refills = [];
     markers.shutoffs = [];
     if (currentLayout === 'tutorial') return;
-    function put(list, id, c, r) {
+    function put(list, id, c, r, extra) {
       if (c < 0 || r < 0 || c >= COLS || r >= ROWS || grid[r][c]) {
         throw new Error('HOLLOW pickup on solid/invalid ' + id + ' @' + c + ',' + r);
       }
-      list.push({
+      var item = {
         id: id, c: c, r: r,
         x: (c + 0.5) * CELL, z: (r + 0.5) * CELL
-      });
+      };
+      if (extra) {
+        var k;
+        for (k in extra) if (Object.prototype.hasOwnProperty.call(extra, k)) item[k] = extra[k];
+      }
+      list.push(item);
     }
     put(markers.refills, 'B1', 12, 12);
     put(markers.refills, 'B2', 10, 32);
     put(markers.refills, 'B3', 43, 16);
-    put(markers.shutoffs, 'K1', 3, 16);
-    put(markers.shutoffs, 'K2', 20, 4);
-    put(markers.shutoffs, 'K3', 40, 26);
+    // One box per wall-code section. Pins are fixed so the printed packet matches live play.
+    put(markers.shutoffs, 'K1', 3, 20, { section: 'N', pin: '417' });
+    put(markers.shutoffs, 'K2', 20, 4, { section: 'C', pin: '862' });
+    put(markers.shutoffs, 'K3', 40, 26, { section: 'T', pin: '305' });
   }
 
   function securityPosts(diff) {
