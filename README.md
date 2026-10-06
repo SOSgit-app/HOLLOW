@@ -27,7 +27,7 @@ primary threat-detection system.
 ## SOS Mission Command (3- or 4-person cyber raid)
 
 HOLLOW is a Squadron Officer School-style exercise: one **Operator** in VR,
-**Watch** (tripwires / harbors / patrol posts) and **Access** (keys / doors / LZ) with the same
+**Watch** (tripwires / safe spaces / patrol posts) and **Access** (keys / doors / LZ) with the same
 floor and wall codes but different overlays, and (in a 4-person team) a
 **Controller** with the clock and POW coords — no maze.
 
@@ -39,8 +39,8 @@ floor and wall codes but different overlays, and (in a 4-person team) a
 **Objective:** recover access keys → unlock blast doors → jack-in (press X, hold X to download) →
 board the **LZ** before the chopper departs (10:00 blackout window).
 
-**Harbor green** = Faraday shelter · **Yellow** = tripwire · **LZ** = chopper pad (map-guided).
-**Headset mic** speech contributes to signature (EMCON).
+**Green** = safe space · **Yellow** = tripwire · **LZ** = chopper pad (map-guided).
+On **Hard**, headset mic speech contributes to signature (EMCON). Easy and Medium ignore operator noise.
 
 ## Quest 2 / WebXR
 
@@ -82,7 +82,7 @@ interaction sounds, and world state.
 | Ctrl | Crouch (near-silent) |
 | E | Interact |
 
-Return colors: phosphor green = surfaces · **harbor green = safe zone** ·
+Return colors: phosphor green = surfaces · **safe-space green** ·
 **yellow = laser alarm** · amber = objectives · cyan = documents ·
 white = energized exit · **red = it**.
 

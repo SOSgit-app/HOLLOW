@@ -223,9 +223,9 @@
         { id: 'D1', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
     } else {
-      // Two Faraday rooms: infil (around P) and the F-code room (key 3 wing)
-      placeHarbor('S1', 'Infil harbor', 8, 19, 20, 25);
-      placeHarbor('S2', 'East harbor', 38, 46, 1, 9);
+      // Two safe spaces: infil (around P) and the F-code room (key 3 wing)
+      placeHarbor('S1', 'Infil safe space', 8, 19, 20, 25);
+      placeHarbor('S2', 'East safe space', 38, 46, 1, 9);
       markers.lasers = missionLasers();
       markers.doors = [
         { id: 'D1', c: 17, r: 10, locked: true, keysRequired: 1 },
@@ -291,7 +291,7 @@
     });
   }
 
-  // Named rooms Watch can call. Medium staffs U1–U3; Easy/Hard also staff U4.
+  // Named rooms Watch can call. Easy staffs U1–U4; Medium/Hard also staff U5–U6.
   function buildSecurityPosts() {
     markers.security = [];
     if (currentLayout === 'tutorial') return;
@@ -313,13 +313,15 @@
     }
     post('U3', seC, seR, 'E', 'SE block');
     post('U4', 5, 24, 'W', 'West annex');
+    post('U5', 22, 8, 'W', 'North lab');
+    post('U6', 32, 34, 'E', 'South hall');
   }
 
   function securityPosts(diff) {
     var all = markers.security || [];
     if (diff === 'tutorial' || currentLayout === 'tutorial') return [];
-    if (diff === 'medium') {
-      return all.filter(function (p) { return p.id !== 'U4'; });
+    if (diff === 'easy') {
+      return all.filter(function (p) { return p.id !== 'U5' && p.id !== 'U6'; });
     }
     return all.slice();
   }

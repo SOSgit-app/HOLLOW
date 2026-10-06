@@ -9,7 +9,8 @@
   var SPEED_ALARM = 5.6;      // tripwire / lockout response
   var SPEED_CONVERGE = 6.4;   // virus success → LZ rush
   var KILL_RANGE = 1.3;
-  var TOUCH_RANGE = 3.5;
+  var TOUCH_RANGE = 3.5;   // Easy/Medium "see" — close enough to notice you
+  var HEAR_RANGE = 9.0;    // Hard hearing — farther than touch, still nearby
   var CHASE_CONF = 0.75;
   var CHASE_LOSE_S = 6.0;
   var CHASE_SOUND_S = 7.0;     // red signature: chase this long, then resume patrol
@@ -70,8 +71,10 @@
   var B = makeUnit(4.5, 4.5, 2.0, 'W');
   var C = makeUnit(106.5, 28.5, 2.8, 'E');
   var D = makeUnit(16.5, 73.5, 3.2, 'W');
-  var ALL_SECONDARIES = [B, C, D];
-  var SECONDARIES = [B, C, D];
+  var F = makeUnit(4.5, 4.5, 3.6, 'W');
+  var H = makeUnit(4.5, 4.5, 4.0, 'E');
+  var UNIT_POOL = [B, C, D, F, H];
+  var SECONDARIES = [];
   var currentDiff = 'medium';
 
   function mapMidX() {
@@ -167,13 +170,13 @@
       for (var pi = 0; pi < posts.length; pi++) if (posts[pi].id === id) return posts[pi];
       return null;
     }
-    var p1 = takePost('U1'), p2 = takePost('U2'), p3 = takePost('U3'), p4 = takePost('U4');
-    // U3 SE primary, U1/U4 west, U2 east — 2 per half when all four are up
-    if (p3) { lairX = p3.x; lairZ = p3.z; }
+    var primary = takePost('U3') || posts[0] || null;
+    // U3 SE primary; remaining posts fill west/east halves
+    if (primary) { lairX = primary.x; lairZ = primary.z; }
     else if (M.markers.C) { lairX = M.markers.C.x; lairZ = M.markers.C.z; }
     else { lairX = 4.5; lairZ = 4.5; }
     E.x = lairX; E.z = lairZ;
-    E.patrolHalf = currentDiff === 'tutorial' ? 'W' : (p3 && p3.half) || 'E';
+    E.patrolHalf = currentDiff === 'tutorial' ? 'W' : (primary && primary.half) || 'E';
     // Tutorial starts with no guard — spawns on tripwire
     suppressed = currentDiff === 'tutorial';
     heldStill = false;
@@ -194,17 +197,21 @@
     lureLeft = 0;
 
     SECONDARIES = [];
-    if (p1) { resetUnit(B, p1.x, p1.z, p1.half, 2.4, 8); SECONDARIES.push(B); }
-    if (p2) { resetUnit(C, p2.x, p2.z, p2.half, 2.8, 8); SECONDARIES.push(C); }
-    if (p4) { resetUnit(D, p4.x, p4.z, p4.half, 3.2, 8); SECONDARIES.push(D); }
+    var ui = 0;
+    for (var spi = 0; spi < posts.length; spi++) {
+      if (primary && posts[spi].id === primary.id) continue;
+      if (ui >= UNIT_POOL.length) break;
+      var U = UNIT_POOL[ui];
+      resetUnit(U, posts[spi].x, posts[spi].z, posts[spi].half, 2.4 + ui * 0.4, 8);
+      SECONDARIES.push(U);
+      ui++;
+    }
     if (suppressed) {
       E.x = -999; E.z = -999;
       bodyCache = null;
     } else {
       unstick(E);
-      unstick(B);
-      unstick(C);
-      unstick(D);
+      for (var uj = 0; uj < SECONDARIES.length; uj++) unstick(SECONDARIES[uj]);
     }
   }
 
@@ -231,8 +238,8 @@
   //   RED           — units that hear chase the player for 7s, then resume patrol
   function hear(x, z, loud, now, isPlayerNoise) {
     if (suppressed || heldStill) return;
-    // Easy: player noise never alerts — only proximity, beacons, and facility alarms
-    if (currentDiff === 'easy' && isPlayerNoise) return;
+    // Easy / Medium: player noise never alerts — only proximity, beacons, facility alarms
+    if (currentDiff !== 'hard' && isPlayerNoise) return;
 
     // Player noise from inside a safe harbor is heavily attenuated (EMCON)
     if (isPlayerNoise && M.isSafeAt(x, z)) {
@@ -249,6 +256,7 @@
   function hearPrimary(x, z, loud, now, isPlayerNoise, band) {
     var dx = x - E.x, dz = z - E.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
+    if (isPlayerNoise && dist > HEAR_RANGE) return;
     var walls = M.wallsBetween(E.x, E.z, x, z);
     var effective = loud * Math.pow(WALL_ATTEN, walls) - dist;
     if (effective <= 0) return;
@@ -301,6 +309,7 @@
     band = band || (isPlayerNoise ? noiseBand(loud) : 'RED');
     var dx = x - U.x, dz = z - U.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
+    if (isPlayerNoise && dist > HEAR_RANGE) return;
     var walls = M.wallsBetween(U.x, U.z, x, z);
     var effective = loud * Math.pow(WALL_ATTEN, walls) - dist;
     if (effective <= 0) return;

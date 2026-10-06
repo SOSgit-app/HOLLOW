@@ -6,7 +6,7 @@ Three- or four-person experiential for **Squadron Officer School**-style mission
 
 - Incomplete information (same floor, different overlays)
 - Shared understanding built over voice
-- Everyone busy from harbor to chopper
+- Everyone busy from the safe space to the chopper
 - Signature / EMCON (scans, movement, speech)
 - Time-sensitive extract
 
@@ -17,8 +17,8 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 | Role | Packet | Has | Missing |
 |---|---|---|---|
 | **Operator** | Quest headset | LiDAR, the live site | Map |
-| **Watch** | Full map + wall codes | Tripwires, Faraday harbors (infil + F-code east), patrol posts U1–U4 | Keys, doors, core, LZ |
-| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, harbors, patrol posts |
+| **Watch** | Full map + wall codes | Tripwires, safe spaces (infil + F-code east), patrol posts U1–U6 | Keys, doors, core, LZ |
+| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, safe spaces, patrol posts |
 
 Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud.
 
@@ -36,7 +36,7 @@ Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **P
 
 ## Commander's intent (read aloud)
 
-> Infiltrate the blackout node, recover three access keys, open the **console-room door (D3)**, jack into the core, and extract via the LZ when the chopper is on station. Other blast doors are optional shortcuts. Minimize emissions. If compromised, break to Faraday harbors and reorient. Success is uplink **and** extract.
+> Infiltrate the blackout node, recover three access keys, open the **console-room door (D3)**, jack into the core, and extract via the LZ when the chopper is on station. Other blast doors are optional shortcuts. Minimize emissions. If compromised, break to a **safe space** and reorient. Success is uplink **and** extract.
 
 ## Mission flow
 
@@ -51,16 +51,16 @@ Watch keeps them off yellow beams the whole time.
 
 1. Print the packet for the team size (2 or 3 landscape pages).
 2. Operator opens the game in Quest Browser.
-3. Allow microphone (speech raises signature).
-4. State intent. Operator backbriefs first route from the harbor. Watch: first wires. Access: first key.
+3. On Hard, allow microphone (speech raises signature). Easy and Medium ignore operator noise.
+4. State intent. Operator backbriefs first route from the safe space. Watch: first wires. Access: first key.
 
 ## Systems
 
-- **Harbor green** — Watch sheet. Infil (S1) and F-code room (S2). Security will not kill/chase inside
-- **Patrol posts U1–U4** — Watch sheet. Units start there, then they walk. Medium has no U4
+- **Safe space (green)** — Watch sheet. Infil (S1) and F-code room (S2). Security will not kill/chase inside
+- **Patrol posts U1–U6** — Watch sheet. Units start there, then they walk. Easy staffs U1–U4; Medium and Hard also staff U5–U6
 - **Blast doors** — Access sheet. D3 is the 3-key console seal. The rest are 1-key optional cuts
 - **Yellow tripwires** — Watch sheet. Alarm + force investigate
-- **Headset mic** — EMCON
+- **Headset mic** — Hard only. Guards hear voice and footsteps from farther than Easy close-range sight
 - **Yellow LZ** — Access sheet. Does not paint on LiDAR — must be voiced
 
 ## Debrief
@@ -68,7 +68,7 @@ Watch keeps them off yellow beams the whole time.
 1. Intent vs outcome?
 2. Did Watch and Access talk, or did one person try to run both jobs?
 3. (4-person) Did the Controller stay off the map?
-4. Harbor vs missed LZ — reversible vs not?
+4. Safe space vs missed LZ — reversible vs not?
 5. Signature vs speed?
 
 ## Safety

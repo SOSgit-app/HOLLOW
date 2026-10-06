@@ -36,14 +36,8 @@
     padding-bottom: 2px; border-bottom: 1px solid #c3cad1;
   }
   section + section { margin-top: 10px; }
-  .legend { display: grid; grid-template-columns: 16px 1fr; gap: 2px 6px; align-items: center; }
-  .sw { width: 14px; height: 11px; border: 1px solid #6a7480; }
-  .glyph {
-    width: 14px; height: 14px; border-radius: 50%; display: flex;
-    align-items: center; justify-content: center;
-    font-size: 8px; font-weight: bold; color: #fff;
-  }
-  .glyph.sq { border-radius: 3px; }
+  .legend { display: grid; grid-template-columns: 18px 1fr; gap: 3px 7px; align-items: center; }
+  .legend canvas { display: block; width: 18px; height: 18px; }
   table { border-collapse: collapse; width: 100%; font-size: 9px; }
   th, td { text-align: left; padding: 0.5px 4px 0.5px 0; vertical-align: top; }
   th { color: #5a6570; font-weight: normal; letter-spacing: .08em; }
@@ -91,7 +85,7 @@
   <div class="page visible" id="page-watch" data-role="WATCH">
     <header>
       <h1 class="map-title">HOLLOW — WATCH</h1>
-      <span class="sub map-sub">FULL FLOOR + WALL CODES · TRIPWIRES · HARBORS · PATROL POSTS</span>
+      <span class="sub map-sub">FULL FLOOR + WALL CODES · TRIPWIRES · SAFE SPACES · PATROL POSTS</span>
       <span class="tag map-tag">WATCH</span>
     </header>
     <div class="sheet">
@@ -141,7 +135,7 @@
           <li>Blackout <b>10:00</b>, then power returns.</li>
           <li>3 keys → open <b>D3</b> (needs all 3) → jack-in at <b>G</b> (press X, hold X to download) → POW <b>or</b> virus → yellow pad <b>X</b>.</li>
           <li><b>X</b> does not paint on LiDAR — Access must voice it.</li>
-          <li>Harbors are on the Watch sheet. Security will not kill them there.</li>
+          <li>Safe spaces are on the Watch sheet. Security will not kill them there.</li>
           <li>After clone: chopper inbound, then <b>1:30</b> on station.</li>
         </ul>
         <div class="check">
@@ -168,7 +162,7 @@
         <div class="pow-box" id="pow-box">POW GRID: —</div>
         <h2>WHO HAS WHAT</h2>
         <ul>
-          <li><b>Watch</b> — tripwires, Faraday harbors, patrol posts U1–U4. No keys, no doors, no LZ.</li>
+          <li><b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6. No keys, no doors, no LZ.</li>
           <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P. No tripwires.</li>
           <li><b>You</b> — clock, checklist, POW, both map legends.</li>
         </ul>
@@ -177,7 +171,7 @@
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=111"></script>
+<script src="src/map.js?v=113"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -204,45 +198,95 @@
   function wx(x) { return PAD_L + (x / M.CELL) * CELLPX; }
   function wy(z) { return PAD_T + (z / M.CELL) * CELLPX; }
 
-  function fillLegend(el, role) {
-    var L = LAYERS[role];
-    var legend = [['sw', C.wall, 'Wall'], ['sw', C.floor, 'Floor'], ['sw', C.code, 'Wall codes']];
-    if (L.harbor) legend.push(['sw', C.harbor, 'Faraday harbor']);
-    if (L.lz) legend.push(['sw', C.lz, 'Landing pad']);
-    if (L.doors) legend.push(['sw', C.door, 'Blast door']);
-    if (L.trips) legend.push(['sw', C.trip, 'Tripwire']);
-    if (L.start) legend.push(['dot', C.start, 'P — infil / start']);
-    if (L.keys) legend.push(['dot', C.key, '1-3 — access keys']);
-    if (L.core) legend.push(['sq', C.core, 'G — AI core (jack-in)']);
-    if (L.lz) legend.push(['sq', '#8a6100', 'X — landing zone']);
-    if (L.security) legend.push(['dot', C.sec, 'U1–U4 — patrol posts (start)']);
-    el.innerHTML = '';
-    legend.forEach(function (row) {
-      var mark = document.createElement('span');
-      if (row[0] === 'sw') { mark.className = 'sw'; mark.style.background = row[1]; }
-      else { mark.className = 'glyph' + (row[0] === 'sq' ? ' sq' : ''); mark.style.background = row[1]; }
-      var text = document.createElement('span');
-      text.textContent = row[2];
-      el.appendChild(mark);
-      el.appendChild(text);
-    });
-  }
-
-  function disc(ctx, p, text, fill, square) {
-    if (!p) return;
-    var x = wx(p.x), y = wy(p.z);
-    var rad = CELLPX * 0.78;
+  function stamp(ctx, x, y, text, fill, square, rad) {
     ctx.beginPath();
     if (square) ctx.rect(x - rad, y - rad, rad * 2, rad * 2);
     else ctx.arc(x, y, rad, 0, Math.PI * 2);
     ctx.fillStyle = fill;
     ctx.fill();
-    ctx.lineWidth = 1.2; ctx.strokeStyle = '#fff'; ctx.stroke();
-    ctx.lineWidth = 0.6; ctx.strokeStyle = C.ink; ctx.stroke();
+    ctx.lineWidth = Math.max(0.8, rad * 0.15); ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.lineWidth = Math.max(0.5, rad * 0.08); ctx.strokeStyle = C.ink; ctx.stroke();
     ctx.fillStyle = '#fff';
-    ctx.font = 'bold ' + Math.round(CELLPX * 0.82) + 'px Consolas, monospace';
+    ctx.font = 'bold ' + Math.round(rad * 1.05) + 'px Consolas, monospace';
     ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
     ctx.fillText(text, x, y + 0.5);
+  }
+
+  function disc(ctx, p, text, fill, square) {
+    if (!p) return;
+    stamp(ctx, wx(p.x), wy(p.z), text, fill, square, CELLPX * 0.78);
+  }
+
+  function legendIcon(draw) {
+    var size = 18, scale = 2;
+    var c = document.createElement('canvas');
+    c.width = size * scale; c.height = size * scale;
+    c.style.width = size + 'px'; c.style.height = size + 'px';
+    var ctx = c.getContext('2d');
+    ctx.scale(scale, scale);
+    draw(ctx, size);
+    return c;
+  }
+
+  function fillLegend(el, role) {
+    var L = LAYERS[role];
+    var items = [];
+    items.push(['cell', C.wall, 'Wall']);
+    items.push(['cell', C.floor, 'Floor']);
+    items.push(['code', null, 'Wall codes']);
+    if (L.harbor) items.push(['cell', C.harbor, 'Safe space']);
+    if (L.lz) items.push(['lz', null, 'Landing pad']);
+    if (L.doors) items.push(['door', null, 'Blast door']);
+    if (L.trips) items.push(['trip', null, 'Tripwire']);
+    if (L.start) items.push(['dot', C.start, 'P — infil / start', 'P']);
+    if (L.keys) items.push(['dot', C.key, '1–3 — access keys', '1']);
+    if (L.core) items.push(['sq', C.core, 'G — AI core (jack-in)', 'G']);
+    if (L.lz) items.push(['sq', '#8a6100', 'X — landing zone', 'X']);
+    if (L.security) items.push(['dot', C.sec, 'U1–U6 — patrol posts (start)', '1']);
+    el.innerHTML = '';
+    items.forEach(function (row) {
+      var kind = row[0], fill = row[1], label = row[2], letter = row[3];
+      var mark = legendIcon(function (ctx, s) {
+        var mid = s / 2;
+        if (kind === 'cell') {
+          ctx.fillStyle = fill;
+          ctx.fillRect(2, 3, s - 4, s - 6);
+          ctx.strokeStyle = '#6a7480'; ctx.lineWidth = 1;
+          ctx.strokeRect(2.5, 3.5, s - 5, s - 7);
+        } else if (kind === 'lz') {
+          ctx.fillStyle = C.lz;
+          ctx.fillRect(2, 3, s - 4, s - 6);
+          ctx.setLineDash([2, 2]); ctx.strokeStyle = '#a8791a'; ctx.lineWidth = 1.2;
+          ctx.strokeRect(2.5, 3.5, s - 5, s - 7);
+          ctx.setLineDash([]);
+        } else if (kind === 'door') {
+          ctx.fillStyle = C.door;
+          ctx.fillRect(2, 2, s - 4, s - 4);
+          ctx.strokeStyle = C.ink; ctx.lineWidth = 1;
+          ctx.strokeRect(2.5, 2.5, s - 5, s - 5);
+        } else if (kind === 'trip') {
+          ctx.lineCap = 'round';
+          ctx.strokeStyle = C.ink; ctx.lineWidth = 7;
+          ctx.beginPath(); ctx.moveTo(1, mid); ctx.lineTo(s - 1, mid); ctx.stroke();
+          ctx.strokeStyle = C.trip; ctx.lineWidth = 4.5;
+          ctx.beginPath(); ctx.moveTo(1, mid); ctx.lineTo(s - 1, mid); ctx.stroke();
+        } else if (kind === 'code') {
+          ctx.strokeStyle = C.code; ctx.lineWidth = 1.6;
+          ctx.beginPath(); ctx.moveTo(3, 4); ctx.lineTo(3, s - 4); ctx.stroke();
+          ctx.font = 'bold 8px Consolas, monospace';
+          ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+          ctx.lineJoin = 'round'; ctx.lineWidth = 3; ctx.strokeStyle = '#fff';
+          ctx.strokeText('A1', 6, mid);
+          ctx.fillStyle = C.code; ctx.fillText('A1', 6, mid);
+        } else {
+          stamp(ctx, mid, mid, letter, fill, kind === 'sq', 7.2);
+        }
+      });
+      var text = document.createElement('span');
+      text.textContent = label;
+      el.appendChild(mark);
+      el.appendChild(text);
+    });
   }
 
   function drawMap(canvas, role) {
@@ -395,7 +439,7 @@
     if (L.lz && M.markers.X) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
     if (L.security) {
       (M.markers.security || []).forEach(function (p) {
-        var extra = p.id === 'U4' ? ' (not on Medium)' : '';
+        var extra = (p.id === 'U5' || p.id === 'U6') ? ' (not on Easy)' : '';
         stations.push([p.id, p.label + extra, p.c + ',' + p.r]);
       });
     }
@@ -424,9 +468,9 @@
   function navFactsHtml(role) {
     var missing = role === 'WATCH'
       ? 'You do <b>not</b> have keys, doors, the core, or the LZ. Ask Access.'
-      : 'You do <b>not</b> have tripwires, the harbors, or patrol posts. Ask Watch.';
+      : 'You do <b>not</b> have tripwires, the safe spaces, or patrol posts. Ask Watch.';
     var yours = role === 'WATCH'
-      ? 'You have tripwires, two Faraday harbors (infil + F-code east), and patrol posts U1–U4. Units <b>start</b> at the posts, then they walk. Medium has no U4. Call wires before they walk a hall.'
+      ? 'You have tripwires, two safe spaces (infil + F-code east), and patrol posts U1–U6. Units <b>start</b> at the posts, then they walk. Easy staffs U1–U4; Medium and Hard also staff U5–U6. Call wires before they walk a hall.'
       : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, and infil P.';
     return (
       '<div><h2>YOUR JOB</h2><ul>' +
@@ -441,7 +485,7 @@
       '</ul></div>' +
       '<div><h2>ROLES</h2><ul>' +
       '<li><b>OPERATOR</b> — VR.</li>' +
-      '<li><b>WATCH</b> — wires / harbors / patrol posts.</li>' +
+      '<li><b>WATCH</b> — wires / safe spaces / patrol posts.</li>' +
       '<li><b>ACCESS</b> — keys / doors / G / X.</li>' +
       (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, POW, both legends. No map.</li>' : '<li>3-person: you two share the clock out loud.</li>') +
       '</ul></div>'

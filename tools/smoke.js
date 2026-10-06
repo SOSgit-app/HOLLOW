@@ -17,14 +17,34 @@ NS.game = { fusesCollected: function () { return 0; } };
 var killed = false;
 var game = { onKill: function () { killed = true; }, onEnemyClick: function () {} };
 
-EN.reset();
+EN.reset('medium');
 var player = { x: M.markers.P.x, z: M.markers.P.z, yaw: 0 };
 var now = 0, dt = 1 / 60;
 
 console.log('initial state:', EN.state.state);
 if (EN.state.state !== 'PATROL') throw new Error('should start PATROL');
-if (!EN.contacts || EN.contacts().length < 3) throw new Error('should have 3 security units');
+if (!EN.contacts || EN.contacts().length !== 6) throw new Error('medium should have 6 security units');
+EN.reset('easy');
+if (EN.contacts().length !== 4) throw new Error('easy should have 4 security units');
+EN.reset('hard');
+if (EN.contacts().length !== 6) throw new Error('hard should have 6 security units');
 console.log('contacts:', EN.contacts().map(function (c) { return c.id + ':' + c.state; }).join(', '));
+
+// Player noise is Hard-only, and only inside HEAR_RANGE (~9 m)
+EN.reset('medium');
+var agMed = EN.state.agitation;
+EN.hear(EN.state.x + 1.5, EN.state.z, 34, 1, true);
+if (EN.state.agitation !== agMed) throw new Error('medium should ignore player noise');
+EN.reset('hard');
+EN.hear(EN.state.x + 1.5, EN.state.z, 34, 1, true);
+if (EN.state.state === 'PATROL' && EN.state.agitation < 10) {
+  throw new Error('hard should hear nearby player noise');
+}
+EN.reset('hard');
+var agFar = EN.state.agitation;
+EN.hear(EN.state.x + 40, EN.state.z, 34, 1, true);
+if (EN.state.agitation !== agFar) throw new Error('hard should not hear player noise past hear range');
+EN.reset('hard');
 
 // 1) loud noise right next to the lair -> escalate off patrol
 for (var i = 0; i < 600; i++) {

@@ -50,9 +50,9 @@ var body = [
   'TRIPWIRES (T): ' + tripLine,
   'INTENT: Infiltrate blacked-out AI site. Keys → console → clone & corrupt → LZ extract.',
   'EMP cut facility power. Operator maps with LiDAR; Wristlink radar tracks security.',
-  'Minimize emissions. One Faraday harbor in the start/infil room. Two security units.',
+  'Minimize emissions. One safe space in the start/infil room. Two security units.',
   '',
-  'LEGEND: # wall  . floor  S harbor  P START  D blast door  T tripwire  1-3 keys  G AI core  X LZ  C security',
+  'LEGEND: # wall  . floor  S safe space  P START  D blast door  T tripwire  1-3 keys  G AI core  X LZ  C security',
   ''
 ].concat(rows).concat([
   '',

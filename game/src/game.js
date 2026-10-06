@@ -90,19 +90,21 @@
     medium: {
       label: 'MEDIUM',
       points: [
-        '<b>3</b> security units on the map',
+        '<b>6</b> security units on the map',
         'Normal patrol and chase speed',
         '<b>2</b> fault beacons',
-        'Headset mic is <b>ON</b> but forgiving — noise level is shown'
+        'Your noise is ignored — security only reacts to <b>proximity</b>',
+        'Headset mic is <b>OFF</b> — no noise-level meter'
       ]
     },
     hard: {
       label: 'HARD',
       points: [
-        '<b>4</b> security units on the map',
+        '<b>6</b> security units on the map',
         'Chase speed is <b>faster</b>',
         '<b>1</b> fault beacon',
-        'Headset mic is <b>ON</b> and sensitive — noise level is shown'
+        'Headset mic is <b>ON</b> — voice and footsteps',
+        'They <b>hear</b> you from farther than Easy proximity'
       ]
     }
   };
@@ -114,7 +116,7 @@
   }
 
   function showNoiseMeter() {
-    return !tutorialMode && currentDifficulty !== 'easy';
+    return !tutorialMode && currentDifficulty === 'hard';
   }
 
   function applyDifficulty(diff) {
@@ -123,9 +125,8 @@
     currentDifficulty = next;
     try { localStorage.setItem('hollow_difficulty', currentDifficulty); } catch (e) { void e; }
     if (NS.mic && NS.mic.setProfile) {
-      if (currentDifficulty === 'easy') NS.mic.setProfile('off');
-      else if (currentDifficulty === 'medium') NS.mic.setProfile('low');
-      else NS.mic.setProfile('high');
+      if (currentDifficulty === 'hard') NS.mic.setProfile('high');
+      else NS.mic.setProfile('off');
     }
     var buttons = document.querySelectorAll('.diff-btn');
     for (var i = 0; i < buttons.length; i++) {
@@ -752,14 +753,14 @@
   var TUTORIAL_STEPS = [
     {
       title: 'LEARN TO MOVE',
-      lines: ['Walk the green harbor.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.',
+      lines: ['Walk the green safe space.', 'Hold left grip to sprint.', 'Hold trigger to scan the dark.',
               'Blue wall codes = say where you are.'],
       buttons: ['LEFT STICK — move', 'LEFT GRIP — sprint', 'RIGHT TRIGGER — LiDAR scan'],
       msg: 'TUTORIAL: MOVE · SPRINT (GRIP) · SCAN (TRIGGER)'
     },
     {
       title: 'PICK UP THE KEY',
-      lines: ['Leave the harbor into the next room.', 'Scan for the amber key.', 'Press X to pick it up.'],
+      lines: ['Leave the safe space into the next room.', 'Scan for the amber key.', 'Press X to pick it up.'],
       buttons: ['RIGHT TRIGGER — scan', 'X — interact / pick up', 'LEFT STICK — move'],
       msg: 'TUTORIAL: SCAN AMBER KEY · X TO PICK UP'
     },
@@ -783,7 +784,7 @@
     },
     {
       title: 'TRIP THE YELLOW WIRE',
-      lines: ['Cross the yellow tripwire on purpose.', 'Security will spawn in the harbor.', 'Then throw a fault beacon to pull them.'],
+      lines: ['Cross the yellow tripwire on purpose.', 'Security will spawn in the safe space.', 'Then throw a fault beacon to pull them.'],
       buttons: ['WALK THROUGH — yellow beam', 'RIGHT TRIGGER — scan beam', 'LEFT GRIP — sprint if needed'],
       msg: 'TUTORIAL: CROSS YELLOW TRIPWIRE — SECURITY SPAWNS'
     },
@@ -1114,9 +1115,8 @@
       M.loadLayout('mission', { lasers: currentDifficulty === 'easy' ? 'easy' : 'standard' });
       EN.reset(currentDifficulty);
       if (NS.mic && NS.mic.setProfile) {
-        if (currentDifficulty === 'easy') NS.mic.setProfile('off');
-        else if (currentDifficulty === 'medium') NS.mic.setProfile('low');
-        else NS.mic.setProfile('high');
+        if (currentDifficulty === 'hard') NS.mic.setProfile('high');
+        else NS.mic.setProfile('off');
       }
     }
     if (R.rebuildWorld) R.rebuildWorld();
@@ -2681,7 +2681,7 @@
     if (tutorialMode && !tutorialTripHit) {
       tutorialTripHit = true;
       spawnTutorialSecurityInHarbor();
-      queueMsg('SECURITY ALARM — GUARD SPAWNED IN HARBOR', 'amber', 4);
+      queueMsg('SECURITY ALARM — GUARD SPAWNED IN SAFE SPACE', 'amber', 4);
     } else {
       EN.hear(mx, mz, NOISE_LASER, now, false);
       EN.forceInvestigate(mx, mz, 2);

@@ -29,10 +29,11 @@ if (M.isSafeCell(31, 2)) throw new Error('east harbor should leave the E room');
 if (M.isSafeCell(40, 2) !== true) throw new Error('east harbor should cover the F room');
 if (M.isSafeCell(37, 6)) throw new Error('F west door should stay outside harbor');
 if (M.isSafeCell(35, 9)) throw new Error('U2 spawn must stay outside east harbor');
-if (!M.markers.security || M.markers.security.length !== 4) throw new Error('need 4 named patrol posts');
-if (M.securityPosts('medium').length !== 3) throw new Error('medium should staff 3 posts');
-if (M.securityPosts('easy').length !== 4 || M.securityPosts('hard').length !== 4) {
-  throw new Error('easy/hard should staff 4 posts');
+if (M.isSafeCell(22, 8) || M.isSafeCell(32, 34)) throw new Error('U5/U6 must stay outside harbors');
+if (!M.markers.security || M.markers.security.length !== 6) throw new Error('need 6 named patrol posts');
+if (M.securityPosts('easy').length !== 4) throw new Error('easy should staff 4 posts');
+if (M.securityPosts('medium').length !== 6 || M.securityPosts('hard').length !== 6) {
+  throw new Error('medium/hard should staff 6 posts');
 }
 
 function mustPath(from, to, label) {
