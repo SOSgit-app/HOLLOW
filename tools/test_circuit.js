@@ -25,7 +25,9 @@ var ids = M.markers.lasers.map(function (L) { return L.id; });
 ['L-EAST', 'L-KEY3', 'L-EWEST', 'L-PINCH3'].forEach(function (id) {
   if (ids.indexOf(id) < 0) throw new Error('missing tripwire ' + id);
 });
-if (M.isSafeCell(31, 2) !== true) throw new Error('east harbor should cover E room');
+if (M.isSafeCell(31, 2)) throw new Error('east harbor should leave the E room');
+if (M.isSafeCell(40, 2) !== true) throw new Error('east harbor should cover the F room');
+if (M.isSafeCell(37, 6)) throw new Error('F west door should stay outside harbor');
 if (M.isSafeCell(35, 9)) throw new Error('U2 spawn must stay outside east harbor');
 if (!M.markers.security || M.markers.security.length !== 4) throw new Error('need 4 named patrol posts');
 if (M.securityPosts('medium').length !== 3) throw new Error('medium should staff 3 posts');
