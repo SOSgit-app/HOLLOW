@@ -161,17 +161,19 @@
 
   function reset(difficulty) {
     currentDiff = difficulty || 'medium';
-    if (currentDiff === 'tutorial') SECONDARIES = [];
-    else if (currentDiff === 'easy') SECONDARIES = [B, C, D];
-    else if (currentDiff === 'medium') SECONDARIES = [B, C];
-    else SECONDARIES = [B, C, D];
-
     M = NS.map; math = NS.math;
-    // SEC-1 east (old lair), SEC-2/4 west, SEC-3 east — 2 per half
-    lairX = M.markers.C ? M.markers.C.x : 4.5;
-    lairZ = M.markers.C ? M.markers.C.z : 4.5;
+    var posts = (M.securityPosts && M.securityPosts(currentDiff)) || [];
+    function takePost(id) {
+      for (var pi = 0; pi < posts.length; pi++) if (posts[pi].id === id) return posts[pi];
+      return null;
+    }
+    var p1 = takePost('U1'), p2 = takePost('U2'), p3 = takePost('U3'), p4 = takePost('U4');
+    // U3 SE primary, U1/U4 west, U2 east — 2 per half when all four are up
+    if (p3) { lairX = p3.x; lairZ = p3.z; }
+    else if (M.markers.C) { lairX = M.markers.C.x; lairZ = M.markers.C.z; }
+    else { lairX = 4.5; lairZ = 4.5; }
     E.x = lairX; E.z = lairZ;
-    E.patrolHalf = currentDiff === 'tutorial' ? 'W' : 'E';
+    E.patrolHalf = currentDiff === 'tutorial' ? 'W' : (p3 && p3.half) || 'E';
     // Tutorial starts with no guard — spawns on tripwire
     suppressed = currentDiff === 'tutorial';
     heldStill = false;
@@ -191,10 +193,10 @@
     investigateDwell = 4;
     lureLeft = 0;
 
-    // Four units: west pair + east pair (cell centers — avoid wall-jammed spawns)
-    resetUnit(B, 4.5, 4.5, 'W', 2.4, 8);
-    resetUnit(C, 106.5, 28.5, 'E', 2.8, 8);
-    resetUnit(D, 16.5, 73.5, 'W', 3.2, 8);
+    SECONDARIES = [];
+    if (p1) { resetUnit(B, p1.x, p1.z, p1.half, 2.4, 8); SECONDARIES.push(B); }
+    if (p2) { resetUnit(C, p2.x, p2.z, p2.half, 2.8, 8); SECONDARIES.push(C); }
+    if (p4) { resetUnit(D, p4.x, p4.z, p4.half, 3.2, 8); SECONDARIES.push(D); }
     if (suppressed) {
       E.x = -999; E.z = -999;
       bodyCache = null;

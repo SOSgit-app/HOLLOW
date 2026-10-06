@@ -75,7 +75,7 @@
   var lz = []; // yellow landing-zone pad
   var consoleRoom = []; // walkable cells of the jack-in room — security cannot enter
   var ROWS = 0, COLS = 0;
-  var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], lasersEasy: [], doors: [] };
+  var markers = { fuses: [], P: null, C: null, G: null, X: null, W: null, safes: [], lasers: [], lasersEasy: [], doors: [], security: [], harbors: [] };
   var doorSolid = {}; // key "c,r" -> true while locked
 
   // Stencilled wall codes ("B4", "K2", ...) painted on wall faces so the
@@ -147,7 +147,12 @@
       laserV(18.5, 6, 7, 'L-LAB'),
       laserV(15.5, 15, 16, 'L-MID'),
       laserV(31.5, 23, 24, 'L-GEN'),
-      laserV(5.5, 34, 35, 'L-EXIT')
+      laserV(5.5, 34, 35, 'L-EXIT'),
+      // E-code room (east Faraday) and L-code hall — 1-cell doors Watch can call
+      laserV(30.5, 6, 7, 'L-EWEST'),     // west → E room
+      laserV(37.5, 6, 7, 'L-KEY3'),      // E room → key 3
+      laserH(34, 35, 10.5, 'L-EAST'),    // E room south → L hall
+      laserH(41, 42, 10.5, 'L-PINCH3')   // key 3 south pinch
     ];
     markers.lasersEasy = missionLasersEasy();
     return laserSet === 'easy' ? core.concat(markers.lasersEasy) : core;
@@ -164,6 +169,8 @@
     markers.safes = [];
     markers.lasers = [];
     markers.doors = [];
+    markers.security = [];
+    markers.harbors = [];
     ROWS = rows.length;
     COLS = rows[0].length;
     grid = [];
@@ -216,19 +223,26 @@
         { id: 'D1', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
     } else {
-      // One Faraday sanctuary = the spawn / infil room (around P)
-      for (var mr = 20; mr <= 25; mr++) {
-        for (var mc = 8; mc <= 19; mc++) placeSafe(mc, mr);
-      }
+      // Two Faraday rooms: infil (around P) and the E-code room west of key 3
+      placeHarbor('S1', 'Infil harbor', 8, 19, 20, 25);
+      placeHarbor('S2', 'East harbor', 31, 35, 1, 8);
       markers.lasers = missionLasers();
       markers.doors = [
         { id: 'D1', c: 17, r: 10, locked: true, keysRequired: 1 },
         { id: 'D2', c: 26, r: 27, locked: true, keysRequired: 1 },
-        { id: 'D3', c: 34, r: 23, locked: true, keysRequired: 3, console: true }
+        { id: 'D3', c: 34, r: 23, locked: true, keysRequired: 3, console: true },
+        // Extra 1-key seals on 1-cell cuts, corners first — optional once you have a key
+        { id: 'D4', c: 7, r: 6, locked: true, keysRequired: 1 },
+        { id: 'D5', c: 46, r: 10, locked: true, keysRequired: 1 },
+        { id: 'D6', c: 7, r: 17, locked: true, keysRequired: 1 },
+        { id: 'D7', c: 6, r: 26, locked: true, keysRequired: 1 },
+        { id: 'D8', c: 46, r: 18, locked: true, keysRequired: 1 },
+        { id: 'D9', c: 34, r: 31, locked: true, keysRequired: 1 }
       ];
     }
 
     placeLzPad();
+    buildSecurityPosts();
 
     buildWallMarks();
 
@@ -252,6 +266,62 @@
       safe[r][c] = true;
       markers.safes.push({ x: (c + 0.5) * CELL, z: (r + 0.5) * CELL, c: c, r: r });
     }
+  }
+
+  function placeHarbor(id, label, c0, c1, r0, r1) {
+    var cells = [];
+    var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+    for (var r = r0; r <= r1; r++) {
+      for (var c = c0; c <= c1; c++) {
+        var n = markers.safes.length;
+        placeSafe(c, r);
+        if (markers.safes.length > n) {
+          cells.push({ c: c, r: r });
+          minC = Math.min(minC, c); maxC = Math.max(maxC, c);
+          minR = Math.min(minR, r); maxR = Math.max(maxR, r);
+        }
+      }
+    }
+    if (!cells.length) {
+      throw new Error('HOLLOW harbor ' + id + ' has no floor cells');
+    }
+    markers.harbors.push({
+      id: id, label: label, cells: cells,
+      c0: minC, c1: maxC, r0: minR, r1: maxR
+    });
+  }
+
+  // Named rooms Watch can call. Medium staffs U1–U3; Easy/Hard also staff U4.
+  function buildSecurityPosts() {
+    markers.security = [];
+    if (currentLayout === 'tutorial') return;
+    function post(id, c, r, half, label) {
+      if (c < 0 || r < 0 || c >= COLS || r >= ROWS || grid[r][c]) {
+        throw new Error('HOLLOW security post on solid/invalid cell ' + id + ' @' + c + ',' + r);
+      }
+      markers.security.push({
+        id: id, c: c, r: r, half: half, label: label,
+        x: (c + 0.5) * CELL, z: (r + 0.5) * CELL
+      });
+    }
+    post('U1', 3, 2, 'W', 'NW storage');
+    post('U2', 35, 9, 'E', 'East lab');
+    var seC = 40, seR = 31;
+    if (markers.C) {
+      seC = Math.floor(markers.C.x / CELL);
+      seR = Math.floor(markers.C.z / CELL);
+    }
+    post('U3', seC, seR, 'E', 'SE block');
+    post('U4', 5, 24, 'W', 'West annex');
+  }
+
+  function securityPosts(diff) {
+    var all = markers.security || [];
+    if (diff === 'tutorial' || currentLayout === 'tutorial') return [];
+    if (diff === 'medium') {
+      return all.filter(function (p) { return p.id !== 'U4'; });
+    }
+    return all.slice();
   }
 
   // Flood-fill the jack-in room from G, treating the console door cell as a
@@ -763,6 +833,7 @@
     unlockDoor: unlockDoor, resetDoors: resetDoors, doorsOpenCount: doorsOpenCount,
     consoleDoor: consoleDoor, isConsoleSealed: isConsoleSealed,
     wallMarks: function () { return wallMarks; },
+    securityPosts: securityPosts,
     wallMarkFor: wallMarkFor, wallMarkBox: wallMarkBox,
     SPLIT_COL: SPLIT_COL,
     sheetForCol: function (c) { return c < SPLIT_COL ? 'WEST' : 'EAST'; },

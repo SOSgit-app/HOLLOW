@@ -10,7 +10,7 @@ vision is a LiDAR scanner: every point is a return you fired. Security is
 blind but hears emissions — scans, footsteps, voice, alarms.
 
 No combat. Recover access keys, unlock blast doors, jack into the core
-(press X — the clone writes itself), then board the chopper LZ
+(press X, then hold X to download onto the drive), then board the chopper LZ
 before it departs.
 
 ## Run it
@@ -27,7 +27,7 @@ primary threat-detection system.
 ## SOS Mission Command (3- or 4-person cyber raid)
 
 HOLLOW is a Squadron Officer School-style exercise: one **Operator** in VR,
-**Watch** (tripwires / harbor) and **Access** (keys / doors / LZ) with the same
+**Watch** (tripwires / harbors / patrol posts) and **Access** (keys / doors / LZ) with the same
 floor and wall codes but different overlays, and (in a 4-person team) a
 **Controller** with the clock and POW coords — no maze.
 
@@ -36,7 +36,7 @@ floor and wall codes but different overlays, and (in a 4-person team) a
 - 4-person packet: [`game/map-print.html?team=4`](game/map-print.html?team=4#easy-watch)
 - Live game: https://sosgit-app.github.io/HOLLOW/game/
 
-**Objective:** recover access keys → unlock blast doors → jack-in (press X) →
+**Objective:** recover access keys → unlock blast doors → jack-in (press X, hold X to download) →
 board the **LZ** before the chopper departs (10:00 blackout window).
 
 **Harbor green** = Faraday shelter · **Yellow** = tripwire · **LZ** = chopper pad (map-guided).

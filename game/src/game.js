@@ -771,9 +771,9 @@
     },
     {
       title: 'JACK INTO THE CONSOLE',
-      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'The AI copies onto your drive — no board, no pads.'],
-      buttons: ['X — jack in', 'THEN HOLD X — upload virus', 'RIGHT TRIGGER — scan console'],
-      msg: 'TUTORIAL: PRESS X AT CONSOLE — JACK IN'
+      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'Hold X to download the AI onto the hard drive.'],
+      buttons: ['X — jack in', 'HOLD X — download to drive', 'RIGHT TRIGGER — scan console'],
+      msg: 'TUTORIAL: PRESS X · HOLD X TO DOWNLOAD'
     },
     {
       title: 'UPLOAD THE VIRUS',
@@ -1259,7 +1259,12 @@
   }
 
   function cloneUiActive() {
-    return clonePhase === 'CLONING' || clonePhase === 'CHOICE';
+    return clonePhase === 'PROMPT' || clonePhase === 'CLONING' || clonePhase === 'CHOICE';
+  }
+
+  function isCloneHold(vrInput) {
+    if (inVR()) return !!(vrInput && vrInput.holdUpload);
+    return !!(keys['KeyX'] || keys['KeyE']);
   }
 
   function pauseUiActive() {
@@ -1481,18 +1486,29 @@
     ctx.font = '16px monospace';
     ctx.textAlign = 'center';
     ctx.fillText('CORE UPLINK', w / 2, 42);
-    if (clonePhase === 'CLONING') {
+    if (clonePhase === 'PROMPT' || clonePhase === 'CLONING') {
       ctx.fillStyle = '#cfe';
       ctx.font = '18px monospace';
-      ctx.fillText('CLONING AI ONTO HARD DRIVE…', w / 2, 120);
-      var barW = 420, barH = 18, bx = (w - barW) / 2, by = 160;
+      if (clonePhase === 'PROMPT' || clonePct <= 0) {
+        ctx.fillText('PRESS AND HOLD X', w / 2, 108);
+        ctx.font = '15px monospace';
+        ctx.fillStyle = '#b8e0c8';
+        ctx.fillText('TO BEGIN THE DOWNLOAD', w / 2, 138);
+        ctx.fillText('ONTO THE HARD DRIVE', w / 2, 160);
+      } else {
+        ctx.fillText('DOWNLOADING ONTO HARD DRIVE…', w / 2, 120);
+      }
+      var barW = 420, barH = 18, bx = (w - barW) / 2, by = 200;
       ctx.strokeStyle = '#7cff9b';
       ctx.strokeRect(bx, by, barW, barH);
       ctx.fillStyle = '#3dff8a';
       ctx.fillRect(bx + 2, by + 2, Math.max(0, (barW - 4) * (clonePct / 100)), barH - 4);
       ctx.fillStyle = '#7cff9b';
       ctx.font = '22px monospace';
-      ctx.fillText(Math.floor(clonePct) + '%', w / 2, 220);
+      ctx.fillText(Math.floor(clonePct) + '%', w / 2, 258);
+      ctx.fillStyle = '#6a8';
+      ctx.font = '13px monospace';
+      ctx.fillText(clonePct > 0 && clonePct < 100 ? 'KEEP HOLDING X' : 'HOLD X TO DOWNLOAD', w / 2, 300);
     } else if (clonePhase === 'CHOICE') {
       ctx.fillStyle = '#b8e0c8';
       ctx.font = '13px monospace';
@@ -1564,36 +1580,62 @@
     }
   }
 
-  function beginCloneSequence() {
-    uplinkDone = true;
-    clonePhase = 'CLONING';
+  function openClonePrompt() {
+    clonePhase = 'PROMPT';
     cloneTimer = 0;
     clonePct = 0;
     cloneChoiceIdx = 0;
     cloneHoverIdx = -1;
     clonePointerU = -1;
     clonePointerV = -1;
-    if (A.uplinkSurge) A.uplinkSurge();
-    else if (A.generatorRoar) A.generatorRoar();
-    queueMsg('CLONE SEQUENCE — WRITING MODEL TO DRIVE', 'amber', 3);
+    queueMsg('HOLD X — DOWNLOAD AI ONTO HARD DRIVE', 'amber', 4);
     if (!inVR()) {
       document.exitPointerLock();
       if (el.cloneChoice) el.cloneChoice.style.display = 'none';
-      if (el.cloneStatus) el.cloneStatus.textContent = 'CLONING AI ONTO HARD DRIVE…';
+      if (el.cloneStatus) {
+        el.cloneStatus.textContent = 'PRESS AND HOLD X TO BEGIN THE DOWNLOAD ONTO THE HARD DRIVE';
+      }
       if (el.cloneFill) el.cloneFill.style.width = '0%';
       if (el.clonePct) el.clonePct.textContent = '0%';
       showScreen('clone');
+    } else {
+      syncClonePanel();
     }
   }
 
+  function syncCloneDesktopBar() {
+    if (inVR()) return;
+    if (el.cloneFill) el.cloneFill.style.width = clonePct + '%';
+    if (el.clonePct) el.clonePct.textContent = Math.floor(clonePct) + '%';
+    if (el.cloneStatus) {
+      el.cloneStatus.textContent = clonePct <= 0
+        ? 'PRESS AND HOLD X TO BEGIN THE DOWNLOAD ONTO THE HARD DRIVE'
+        : (clonePct < 100 ? 'DOWNLOADING ONTO HARD DRIVE… HOLD X' : 'DOWNLOAD COMPLETE');
+    }
+  }
+
+  function finishCloneDownload() {
+    uplinkDone = true;
+    clonePct = 100;
+    if (tutorialMode) {
+      clonePhase = 'DONE';
+      if (el.clone) el.clone.classList.remove('visible');
+      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+      tutorialJackIn();
+      return;
+    }
+    enterCloneChoice();
+  }
+
   function enterCloneChoice() {
+    uplinkDone = true;
     clonePhase = 'CHOICE';
     clonePct = 100;
     cloneHoverIdx = -1;
     clonePointerU = -1;
     clonePointerV = -1;
     if (!inVR()) {
-      if (el.cloneStatus) el.cloneStatus.textContent = 'CLONE COMPLETE';
+      if (el.cloneStatus) el.cloneStatus.textContent = 'DOWNLOAD COMPLETE';
       if (el.cloneFill) el.cloneFill.style.width = '100%';
       if (el.clonePct) el.clonePct.textContent = '100%';
       if (el.cloneIntel) el.cloneIntel.textContent = CLONE_INTEL;
@@ -1672,14 +1714,21 @@
   }
 
   function updateCloneSequence(dt, vrInput) {
-    if (clonePhase === 'CLONING') {
-      cloneTimer += dt;
-      clonePct = Math.min(100, (cloneTimer / CLONE_DURATION_S) * 100);
-      if (!inVR()) {
-        if (el.cloneFill) el.cloneFill.style.width = clonePct + '%';
-        if (el.clonePct) el.clonePct.textContent = Math.floor(clonePct) + '%';
+    if (clonePhase === 'PROMPT' || clonePhase === 'CLONING') {
+      if (isCloneHold(vrInput)) {
+        if (clonePhase === 'PROMPT') {
+          clonePhase = 'CLONING';
+          if (A.uplinkSurge) A.uplinkSurge();
+          else if (A.generatorRoar) A.generatorRoar();
+          queueMsg('DOWNLOADING ONTO HARD DRIVE…', 'amber', 2);
+        }
+        cloneTimer += dt;
+        clonePct = Math.min(100, (cloneTimer / CLONE_DURATION_S) * 100);
+        syncCloneDesktopBar();
+        if (cloneTimer >= CLONE_DURATION_S) finishCloneDownload();
+      } else {
+        syncCloneDesktopBar();
       }
-      if (cloneTimer >= CLONE_DURATION_S) enterCloneChoice();
     } else if (clonePhase === 'CHOICE' && vrInput) {
       handleCloneLaser(vrInput);
       if ((vrInput.interactPressed || vrInput.tricklePressed) && cloneHoverIdx >= 0) {
@@ -1743,7 +1792,7 @@
     virusWristActive = false;
     tutorialTripHit = false;
     armTutorialTripwire();
-    queueMsg('UPLINK CONFIRMED — HOLD X TO UPLOAD VIRUS', 'amber', 4);
+    queueMsg('DOWNLOAD COMPLETE — HOLD X TO UPLOAD VIRUS', 'amber', 4);
     advanceTutorial(4);
   }
 
@@ -2166,12 +2215,7 @@
       pushMsg('CONSOLE SEALED — OPEN CONSOLE DOOR (NEEDS 3 KEYS)', 'red');
       return;
     }
-    if (tutorialMode) {
-      tutorialJackIn();
-      return;
-    }
-    queueMsg('JACK-IN — CLONING MODEL TO DRIVE', 'amber', 3);
-    beginCloneSequence();
+    openClonePrompt();
   }
 
   function powSpheres() {
@@ -2583,7 +2627,7 @@
       }
     }
 
-    // unlock nearest locked door (D3 needs all 3 keys; D1/D2 optional, 1 key)
+    // unlock nearest locked door (D3 needs all 3 keys; other blast doors need 1)
     for (i = 0; i < M.markers.doors.length; i++) {
       var door = M.markers.doors[i];
       if (!door.locked) continue;
@@ -2723,7 +2767,7 @@
         if (M.isConsoleSealed()) {
           hint = 'CONSOLE SEALED — OPEN D3 (3 KEYS)';
         } else {
-          hint = btn + ' JACK INTO CORE';
+          hint = btn + ' JACK IN · HOLD X TO DOWNLOAD';
         }
       }
       if (missionBranch === 'VIRUS' && virusDone && near(M.markers.G.x, M.markers.G.z, hintRange + 0.5)) {
@@ -2893,8 +2937,11 @@
     el.pts.textContent = 'PTS ' + pad(R.pointCount(), 6) + ' / ' + R.CAPACITY;
 
     el.obj.innerHTML = (function () {
+      if (clonePhase === 'PROMPT') {
+        return '<span class="energized">HOLD X — DOWNLOAD TO DRIVE</span>';
+      }
       if (clonePhase === 'CLONING') {
-        return '<span class="energized">CLONING ' + Math.floor(clonePct) + '%</span>';
+        return '<span class="energized">DOWNLOADING ' + Math.floor(clonePct) + '%</span>';
       }
       if (clonePhase === 'CHOICE') {
         return '<span class="energized">CHOOSE: RESCUE OR VIRUS</span>';
@@ -3067,9 +3114,11 @@
         EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
         updateMsg(dt);
         updateHUD(dt);
-        vrHudHint = clonePhase === 'CLONING'
-          ? 'CLONING AI ONTO HARD DRIVE… ' + Math.floor(clonePct) + '%'
-          : 'POINT LASER AT A PATH · TRIGGER TO CONFIRM';
+        vrHudHint = clonePhase === 'PROMPT'
+          ? 'PRESS AND HOLD X — DOWNLOAD TO HARD DRIVE'
+          : (clonePhase === 'CLONING'
+            ? 'HOLD X — DOWNLOADING ' + Math.floor(clonePct) + '%'
+            : 'POINT LASER AT A PATH · TRIGGER TO CONFIRM');
       } else {
         if (R.setCircuitPanel) R.setCircuitPanel(null, null);
         updatePlayer(dt, vrInput);

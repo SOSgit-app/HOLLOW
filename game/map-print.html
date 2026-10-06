@@ -90,7 +90,7 @@
   <div class="page visible" id="page-watch" data-role="WATCH">
     <header>
       <h1 class="map-title">HOLLOW — WATCH</h1>
-      <span class="sub map-sub">FULL FLOOR + WALL CODES · TRIPWIRES · HARBOR · SECURITY</span>
+      <span class="sub map-sub">FULL FLOOR + WALL CODES · TRIPWIRES · HARBORS · PATROL POSTS</span>
       <span class="tag map-tag">WATCH</span>
     </header>
     <div class="sheet">
@@ -140,9 +140,9 @@
         <h2>CLOCK &amp; RULES</h2>
         <ul>
           <li>Blackout <b>10:00</b>, then power returns.</li>
-          <li>3 keys → open <b>D3</b> (needs all 3) → jack-in at <b>G</b> (press X) → POW <b>or</b> virus → yellow pad <b>X</b>.</li>
+          <li>3 keys → open <b>D3</b> (needs all 3) → jack-in at <b>G</b> (press X, hold X to download) → POW <b>or</b> virus → yellow pad <b>X</b>.</li>
           <li><b>X</b> does not paint on LiDAR — Access must voice it.</li>
-          <li>Harbor is on the Watch sheet. Security will not kill them there.</li>
+          <li>Harbors are on the Watch sheet. Security will not kill them there.</li>
           <li>After clone: chopper inbound, then <b>1:30</b> on station.</li>
         </ul>
         <div class="check">
@@ -159,7 +159,7 @@
         <div class="pow-box" id="pow-box">POW GRID: —</div>
         <h2>WHO HAS WHAT</h2>
         <ul>
-          <li><b>Watch</b> — tripwires, Faraday harbor, security start. No keys, no doors, no LZ.</li>
+          <li><b>Watch</b> — tripwires, Faraday harbors, patrol posts U1–U4. No keys, no doors, no LZ.</li>
           <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P. No tripwires.</li>
           <li><b>You</b> — clock, checklist, POW.</li>
         </ul>
@@ -168,7 +168,7 @@
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=107"></script>
+<script src="src/map.js?v=110"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -206,7 +206,7 @@
     if (L.keys) legend.push(['dot', C.key, '1-3 — access keys']);
     if (L.core) legend.push(['sq', C.core, 'G — AI core (jack-in)']);
     if (L.lz) legend.push(['sq', '#8a6100', 'X — landing zone']);
-    if (L.security) legend.push(['dot', C.sec, 'C — security start']);
+    if (L.security) legend.push(['dot', C.sec, 'U1–U4 — patrol posts (start)']);
     el.innerHTML = '';
     legend.forEach(function (row) {
       var mark = document.createElement('span');
@@ -347,21 +347,22 @@
 
     if (L.keys) M.markers.fuses.forEach(function (f, i) { disc(ctx, f, String(i + 1), C.key); });
     if (L.core) disc(ctx, M.markers.G, 'G', C.core, true);
-    if (L.security) disc(ctx, M.markers.C, 'C', C.sec);
+    if (L.security) {
+      (M.markers.security || []).forEach(function (p) {
+        disc(ctx, p, p.id.replace('U', ''), C.sec);
+      });
+    }
     if (L.lz) disc(ctx, M.markers.X, 'X', '#8a6100', true);
     if (L.start) disc(ctx, M.markers.P, 'P', C.start);
 
     if (L.harbor) {
-      var s = M.markers.safes;
-      if (s.length) {
-        minC = Infinity; maxC = -Infinity; minR = Infinity; maxR = -Infinity;
-        s.forEach(function (p) {
-          minC = Math.min(minC, p.c); maxC = Math.max(maxC, p.c);
-          minR = Math.min(minR, p.r); maxR = Math.max(maxR, p.r);
+      var harbors = M.markers.harbors;
+      if (harbors && harbors.length) {
+        harbors.forEach(function (h) {
+          ctx.fillStyle = '#2c6b45'; ctx.font = 'bold 7.5px Consolas, monospace';
+          ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+          ctx.fillText(h.label.toUpperCase(), cx((h.c0 + h.c1 + 1) / 2), cy(h.r0) + CELLPX * 0.9);
         });
-        ctx.fillStyle = '#2c6b45'; ctx.font = 'bold 7.5px Consolas, monospace';
-        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('FARADAY HARBOR', cx((minC + maxC + 1) / 2), cy(minR) + CELLPX * 0.9);
       }
     }
   }
@@ -383,7 +384,12 @@
     }
     if (L.core && M.markers.G) stations.push(['G', 'AI core / jack-in', gridRef(M.markers.G)]);
     if (L.lz && M.markers.X) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
-    if (L.security && M.markers.C) stations.push(['C', 'Security start', gridRef(M.markers.C)]);
+    if (L.security) {
+      (M.markers.security || []).forEach(function (p) {
+        var extra = p.id === 'U4' ? ' (not on Medium)' : '';
+        stations.push([p.id, p.label + extra, p.c + ',' + p.r]);
+      });
+    }
     if (L.trips) {
       (M.markers.lasers || []).forEach(function (Lw) {
         stations.push([
@@ -393,7 +399,11 @@
         ]);
       });
     }
-    if (L.harbor) stations.push(['S', 'Faraday harbor', 'green room']);
+    if (L.harbor) {
+      (M.markers.harbors || []).forEach(function (h) {
+        stations.push([h.id, h.label, h.c0 + ',' + h.r0]);
+      });
+    }
     body.innerHTML = '';
     stations.forEach(function (row) {
       var tr = document.createElement('tr');
@@ -405,10 +415,10 @@
   function navFactsHtml(role) {
     var missing = role === 'WATCH'
       ? 'You do <b>not</b> have keys, doors, the core, or the LZ. Ask Access.'
-      : 'You do <b>not</b> have tripwires, the harbor, or security start. Ask Watch.';
+      : 'You do <b>not</b> have tripwires, the harbors, or patrol posts. Ask Watch.';
     var yours = role === 'WATCH'
-      ? 'You have tripwires, Faraday harbor, and security start. Call wires before they walk a hall.'
-      : 'You have keys 1–3, blast doors, core G, landing zone X, and infil P.';
+      ? 'You have tripwires, two Faraday harbors (infil + east), and patrol posts U1–U4. Units <b>start</b> at the posts, then they walk. Medium has no U4. Call wires before they walk a hall.'
+      : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, and infil P.';
     return (
       '<div><h2>YOUR JOB</h2><ul>' +
       '<li>Full floor. Wall codes. You can place the Operator anywhere they call.</li>' +
@@ -416,12 +426,12 @@
       '<li>' + missing + '</li>' +
       '</ul></div>' +
       '<div><h2>SHARED</h2><ul>' +
-      '<li>3 keys → D3 (all 3) → jack-in at G (press X) → POW or virus → yellow pad X.</li>' +
+      '<li>3 keys → D3 (all 3) → jack-in at G (press X, hold X to download) → POW or virus → yellow pad X.</li>' +
       '<li>Blackout <b>10:00</b>. X does not paint on LiDAR.</li>' +
       '</ul></div>' +
       '<div><h2>ROLES</h2><ul>' +
       '<li><b>OPERATOR</b> — VR.</li>' +
-      '<li><b>WATCH</b> — wires / harbor / security.</li>' +
+      '<li><b>WATCH</b> — wires / harbors / patrol posts.</li>' +
       '<li><b>ACCESS</b> — keys / doors / G / X.</li>' +
       (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, POW coords. No map.</li>' : '<li>3-person: you two share the clock out loud.</li>') +
       '</ul></div>'

@@ -17,8 +17,8 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 | Role | Packet | Has | Missing |
 |---|---|---|---|
 | **Operator** | Quest headset | LiDAR, the live site | Map |
-| **Watch** | Full map + wall codes | Tripwires, Faraday harbor, security start | Keys, doors, core, LZ |
-| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, harbor, security |
+| **Watch** | Full map + wall codes | Tripwires, Faraday harbors (infil + east), patrol posts U1–U4 | Keys, doors, core, LZ |
+| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, harbors, patrol posts |
 
 Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud.
 
@@ -41,8 +41,8 @@ Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **P
 ## Mission flow
 
 1. Recover **3 access keys** (amber) — Access has the marks
-2. Open **console door D3** (all 3 keys) — Access has the doors
-3. **Jack-in** at G — press X. Clone writes itself. Then POW (Controller has coords) **or** virus
+2. Open **console door D3** (all 3 keys) — Access has the doors. D1–D2 and D4–D9 are optional 1-key cuts
+3. **Jack-in** at G — press X, then **hold X** to download onto the drive. When it finishes: POW (Controller has coords) **or** virus
 4. **Chopper inbound**, then **on station** — Access voices the yellow pad
 
 Watch keeps them off yellow beams the whole time.
@@ -56,7 +56,9 @@ Watch keeps them off yellow beams the whole time.
 
 ## Systems
 
-- **Harbor green** — Watch sheet. Security will not kill/chase inside
+- **Harbor green** — Watch sheet. Infil (S1) and east / E-code room (S2). Security will not kill/chase inside
+- **Patrol posts U1–U4** — Watch sheet. Units start there, then they walk. Medium has no U4
+- **Blast doors** — Access sheet. D3 is the 3-key console seal. The rest are 1-key optional cuts
 - **Yellow tripwires** — Watch sheet. Alarm + force investigate
 - **Headset mic** — EMCON
 - **Yellow LZ** — Access sheet. Does not paint on LiDAR — must be voiced
