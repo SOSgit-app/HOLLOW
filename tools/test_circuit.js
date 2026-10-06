@@ -1,27 +1,16 @@
-/* Headless check: mission map splits west/east and wall marks exist for the Controller index. */
+/* Headless check: overlay packets can load the mission map and POW mark. */
 'use strict';
 require('../game/src/math.js');
 require('../game/src/map.js');
 var M = global.HOLLOW.map;
 M.loadLayout('mission', { lasers: 'standard' });
 
-if (M.SPLIT_COL !== 24) throw new Error('SPLIT_COL should be 24');
-if (M.sheetForCol(0) !== 'WEST') throw new Error('col 0 should be WEST');
-if (M.sheetForCol(24) !== 'EAST') throw new Error('col 24 should be EAST');
+if (!M.wallMarks().length) throw new Error('wall codes missing');
+if (!M.markers.P || !M.markers.G || !M.markers.X) throw new Error('missing P/G/X');
+if (!M.markers.fuses || M.markers.fuses.length < 3) throw new Error('need 3 keys');
+if (!M.markers.doors || !M.markers.doors.length) throw new Error('need blast doors');
+if (!M.markers.lasers || !M.markers.lasers.length) throw new Error('need tripwires');
+if (!M.markers.W) throw new Error('POW mark W required for Controller sheet');
+if (!M.markers.safes || !M.markers.safes.length) throw new Error('harbor missing');
 
-var marks = M.wallMarks();
-if (!marks.length) throw new Error('expected wall marks for controller index');
-var west = 0, east = 0;
-marks.forEach(function (m) {
-  if (M.sheetForCol(m.c) === 'WEST') west++;
-  else east++;
-});
-if (!west || !east) throw new Error('wall marks must exist on both halves');
-
-var p = M.markers.P, g = M.markers.G, x = M.markers.X;
-if (!p || !g || !x) throw new Error('missing P/G/X');
-if (M.sheetForCol(Math.floor(p.x / M.CELL)) !== 'WEST') throw new Error('start should be WEST');
-if (M.sheetForCol(Math.floor(g.x / M.CELL)) !== 'EAST') throw new Error('core G should be EAST');
-if (M.sheetForCol(Math.floor(x.x / M.CELL)) !== 'WEST') throw new Error('LZ X should be WEST');
-
-console.log(marks.length + ' wall marks, west ' + west + ' / east ' + east + '. SPLIT MAP OK');
+console.log('overlay packet marks OK — codes, keys, doors, wires, harbor, POW');

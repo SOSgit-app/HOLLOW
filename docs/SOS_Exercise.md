@@ -4,7 +4,7 @@
 
 Three- or four-person experiential for **Squadron Officer School**-style mission command:
 
-- Incomplete information (split maps)
+- Incomplete information (same floor, different overlays)
 - Shared understanding built over voice
 - Everyone busy from harbor to chopper
 - Signature / EMCON (scans, movement, speech)
@@ -14,26 +14,25 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 
 ## 3-person team
 
-| Role | Packet | Does |
-|---|---|---|
-| **Operator** | Quest headset | LiDAR, keys, doors, jack-in, extract |
-| **West navigator** | West half of the map **with** wall codes | Routes while the Operator is west of the dashed seam |
-| **East navigator** | East half **with** wall codes | Routes east of the seam (keys 2–3, console G) |
+| Role | Packet | Has | Missing |
+|---|---|---|---|
+| **Operator** | Quest headset | LiDAR, the live site | Map |
+| **Watch** | Full map + wall codes | Tripwires, Faraday harbor, security start | Keys, doors, core, LZ |
+| **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, harbor, security |
 
-You two share the clock out loud. Hand the Operator off at the seam.
+Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud.
 
-Print: [map-print.html?team=3](../game/map-print.html?team=3#easy-west) — **PRINT PACKET** (2 pages: West, East). Easy vs Med/Hard tabs.
+Print: [map-print.html?team=3](../game/map-print.html?team=3#easy-watch) — **PRINT PACKET** (2 pages: Watch, Access).
 
 ## 4-person team
 
+Same two maps, plus:
+
 | Role | Packet | Does |
 |---|---|---|
-| **Operator** | Quest headset | Same as above |
-| **West navigator** | West half, **no** wall codes | Hallways west of the seam |
-| **East navigator** | East half, **no** wall codes | Hallways east of the seam |
-| **Controller** | One card, no maze | Clock, objective ticks, **wall-code index**. Operator calls a code; Controller names West or East and which wall |
+| **Controller** | One card, **no map** | Clock, objective ticks, **POW grid** (not on Watch or Access) |
 
-Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-west) — **PRINT PACKET** (3 pages: West, East, Controller).
+Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **PRINT PACKET** (3 pages: Watch, Access, Controller).
 
 ## Commander's intent (read aloud)
 
@@ -41,30 +40,31 @@ Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-west) — **PR
 
 ## Mission flow
 
-1. Recover **3 access keys** (amber)
-2. Open **console door D3** (requires all 3 keys). D1/D2 optional (1 key each)
-3. **Jack-in** at G — press X. The clone writes itself. Then rescue the POW **or** plant the virus
-4. **Chopper inbound**, then **on station** — board the yellow pad or **left behind**
+1. Recover **3 access keys** (amber) — Access has the marks
+2. Open **console door D3** (all 3 keys) — Access has the doors
+3. **Jack-in** at G — press X. Clone writes itself. Then POW (Controller has coords) **or** virus
+4. **Chopper inbound**, then **on station** — Access voices the yellow pad
+
+Watch keeps them off yellow beams the whole time.
 
 ## Setup
 
-1. Print the packet for the team size (duplex not required; 2 or 3 landscape pages).
+1. Print the packet for the team size (2 or 3 landscape pages).
 2. Operator opens the game in Quest Browser.
 3. Allow microphone (speech raises signature).
-4. Controller (4-person) or both navigators (3-person) state intent. Operator backbriefs first route from the harbor.
+4. State intent. Operator backbriefs first route from the harbor. Watch: first wires. Access: first key.
 
 ## Systems
 
-- **Harbor green** — Faraday shelter (security will not kill/chase inside)
-- **Yellow tripwires** — alarm + force investigate
+- **Harbor green** — Watch sheet. Security will not kill/chase inside
+- **Yellow tripwires** — Watch sheet. Alarm + force investigate
 - **Headset mic** — EMCON
-- **Yellow LZ** — chopper pad; does not paint on LiDAR — must be voiced
-- **Dashed seam** on the prints — West / East handoff
+- **Yellow LZ** — Access sheet. Does not paint on LiDAR — must be voiced
 
 ## Debrief
 
 1. Intent vs outcome?
-2. Where did the handoff at the seam break?
+2. Did Watch and Access talk, or did one person try to run both jobs?
 3. (4-person) Did the Controller stay off the map?
 4. Harbor vs missed LZ — reversible vs not?
 5. Signature vs speed?
