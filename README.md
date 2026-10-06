@@ -9,8 +9,9 @@ A first-person **cyber raid** prototype played in total darkness. The only
 vision is a LiDAR scanner: every point is a return you fired. Security is
 blind but hears emissions — scans, footsteps, voice, alarms.
 
-No combat. Recover access keys, unlock blast doors, jack into the core,
-then board the chopper LZ before it departs.
+No combat. Recover access keys, unlock blast doors, jack into the core
+(handshake pads — Solver has the dossier), then board the chopper LZ
+before it departs.
 
 ## Run it
 
@@ -26,15 +27,17 @@ primary threat-detection system.
 ## SOS Mission Command (two-person cyber raid)
 
 HOLLOW supports a Squadron Officer School-style exercise: one **Operator** in
-VR, one **Mission Director** with a printed/PDF map directing by voice.
+VR, one or two **Mission Directors** with the printed map, and one **Solver**
+with the two-page core-access dossier.
 
 - Exercise guide: [`docs/SOS_Exercise.md`](docs/SOS_Exercise.md)
 - Mission map PDF: [`game/assets/HOLLOW_Mission_Map.pdf`](game/assets/HOLLOW_Mission_Map.pdf)
 - Printable diagram: [`game/map-print.html`](game/map-print.html)
+- Solver dossier (front and back): [`game/circuit-print.html`](game/circuit-print.html)
 - Live game: https://smallerbytes.github.io/HOLLOW/game/
 
-**Objective:** recover access keys → unlock blast doors → jack-in circuit puzzle →
-board the **LZ** before the chopper departs (8:00 blackout window).
+**Objective:** recover access keys → unlock blast doors → jack-in handshake →
+board the **LZ** before the chopper departs (10:00 blackout window).
 
 **Harbor green** = Faraday shelter · **Yellow** = tripwire · **LZ** = chopper pad (map-guided).
 **Headset mic** speech contributes to signature (EMCON).

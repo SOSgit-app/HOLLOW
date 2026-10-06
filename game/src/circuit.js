@@ -1,168 +1,111 @@
-/* HOLLOW — circuit.js : jack-in routing puzzles (mission boards + tutorial). */
+/* HOLLOW — circuit.js : jack-in core handshake (pad sequences + solver dossier). */
 (function (NS) {
   'use strict';
 
-  // Tile masks: bit0=N bit1=E bit2=S bit3=W
-  var STRAIGHT = 5;   // N+S
-  var BEND = 3;       // N+E
-  var TEE = 7;        // N+E+S (three-way)
-
-  var SIZE = 6;
+  var SIZE = 3;
+  var COL_LABELS = 'ABC';
   var TIMEOUT = 60;
-  var COL_LABELS = 'ABCDEF';
-
-  // STRAIGHT: 0=NS 1=EW · BEND: 0=NE 1=ES 2=SW 3=WN · TEE: 0=NES 1=ESW 2=SWN 3=WNE
-  // Stage 1 path: ENTRY→A1→B1→B2→C2→D2→D3→D4→E4→E5→F5→F6→CORE
-  var STAGE1 = {
-    tiles: [
-      STRAIGHT, BEND,   TEE,     BEND,   STRAIGHT, BEND,
-      BEND,     BEND,   STRAIGHT, BEND,   TEE,     STRAIGHT,
-      TEE,      STRAIGHT, BEND,   STRAIGHT, BEND,   BEND,
-      BEND,     TEE,    STRAIGHT, BEND,   BEND,    TEE,
-      STRAIGHT, BEND,   TEE,     BEND,   BEND,    BEND,
-      BEND,     STRAIGHT, BEND,   TEE,    STRAIGHT, BEND
-    ],
-    solution: [
-      1, 2, 0, 1, 0, 0,
-      1, 0, 1, 2, 2, 1,
-      0, 0, 3, 0, 1, 2,
-      2, 1, 0, 0, 2, 0,
-      0, 3, 2, 1, 0, 2,
-      1, 0, 0, 3, 1, 0
-    ],
-    start: [
-      0, 0, 1, 0, 1, 2,
-      0, 2, 0, 0, 0, 0,
-      2, 1, 1, 1, 0, 0,
-      0, 0, 2, 2, 0, 1,
-      1, 1, 0, 0, 3, 0,
-      0, 1, 2, 1, 0, 2
-    ]
-  };
-
-  // Stage 2 path: ENTRY→A1→B1→C1→D1→D2→D3→E3→F3→F4→F5→F6→CORE
-  var STAGE2 = {
-    tiles: [
-      STRAIGHT, STRAIGHT, STRAIGHT, BEND,   STRAIGHT, BEND,
-      BEND,     TEE,      BEND,     STRAIGHT, TEE,     BEND,
-      TEE,      STRAIGHT, BEND,     BEND,   STRAIGHT, BEND,
-      BEND,     BEND,     TEE,      STRAIGHT, BEND,    STRAIGHT,
-      STRAIGHT, TEE,      BEND,     BEND,   STRAIGHT, STRAIGHT,
-      BEND,     STRAIGHT, TEE,      BEND,   STRAIGHT, BEND
-    ],
-    solution: [
-      1, 1, 1, 2, 0, 0,
-      0, 0, 1, 0, 1, 2,
-      2, 1, 0, 0, 1, 2,
-      1, 3, 0, 1, 0, 0,
-      0, 2, 1, 3, 0, 0,
-      2, 0, 1, 0, 1, 0
-    ],
-    start: [
-      0, 0, 0, 0, 1, 2,
-      2, 1, 0, 2, 0, 0,
-      0, 0, 2, 1, 0, 1,
-      0, 1, 2, 0, 3, 1,
-      1, 0, 0, 1, 1, 2,
-      0, 2, 0, 2, 0, 3
-    ]
-  };
-
-  // Stage 3 path: ENTRY→A1→A2→B2→B3→B4→C4→D4→E4→E5→E6→F6→CORE
-  var STAGE3 = {
-    tiles: [
-      BEND,     TEE,      STRAIGHT, BEND,   BEND,     STRAIGHT,
-      BEND,     BEND,     TEE,      STRAIGHT, BEND,    BEND,
-      STRAIGHT, STRAIGHT, BEND,     TEE,      BEND,    STRAIGHT,
-      BEND,     BEND,     STRAIGHT, STRAIGHT, BEND,    TEE,
-      TEE,      STRAIGHT, BEND,     BEND,     STRAIGHT, BEND,
-      BEND,     TEE,      STRAIGHT, BEND,     BEND,     STRAIGHT
-    ],
-    solution: [
-      2, 0, 1, 0, 1, 0,
-      0, 2, 1, 0, 0, 2,
-      1, 0, 0, 2, 1, 0,
-      0, 0, 1, 1, 2, 0,
-      1, 1, 3, 0, 0, 2,
-      2, 0, 0, 1, 0, 1
-    ],
-    start: [
-      0, 1, 0, 2, 0, 1,
-      2, 0, 0, 1, 3, 0,
-      0, 1, 2, 0, 0, 1,
-      1, 2, 0, 0, 0, 1,
-      0, 0, 1, 2, 1, 0,
-      0, 1, 2, 0, 2, 0
-    ]
-  };
-
-  var STAGES = [STAGE1, STAGE2, STAGE3];
-
-  // Tutorial only: top-row then right-column L-path. Start is almost solved (~4 one-click fixes).
-  // Path: ENTRY→A1→B1→C1→D1→E1→F1→F2→F3→F4→F5→F6→CORE
-  var TUTORIAL_STAGE = {
-    tiles: [
-      STRAIGHT, STRAIGHT, STRAIGHT, STRAIGHT, STRAIGHT, BEND,
-      BEND,     BEND,     TEE,      BEND,     BEND,     STRAIGHT,
-      BEND,     TEE,      BEND,     TEE,      BEND,     STRAIGHT,
-      TEE,      BEND,     BEND,     BEND,     TEE,      STRAIGHT,
-      BEND,     BEND,     TEE,      BEND,     BEND,     STRAIGHT,
-      BEND,     TEE,      BEND,     BEND,     TEE,      BEND
-    ],
-    solution: [
-      1, 1, 1, 1, 1, 2,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0
-    ],
-    start: [
-      0, 1, 0, 1, 1, 1,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 0,
-      0, 0, 0, 0, 0, 1
-    ]
-  };
-
-  var activeStages = STAGES;
-  var isTutorialPuzzle = false;
   var TIMEOUT_TUTORIAL = 90;
+  var SEQ_LEN = 3;
+
+  var PADS = [
+    { id: 'A1', color: 'RED', shape: 'CIRCLE' },
+    { id: 'B1', color: 'BLUE', shape: 'SQUARE' },
+    { id: 'C1', color: 'GREEN', shape: 'TRIANGLE' },
+    { id: 'A2', color: 'AMBER', shape: 'DIAMOND' },
+    { id: 'B2', color: 'WHITE', shape: 'STAR' },
+    { id: 'C2', color: 'RED', shape: 'SQUARE' },
+    { id: 'A3', color: 'BLUE', shape: 'CIRCLE' },
+    { id: 'B3', color: 'GREEN', shape: 'DIAMOND' },
+    { id: 'C3', color: 'AMBER', shape: 'HASH' }
+  ];
+
+  var FILL = {
+    RED: '#c43d3d',
+    BLUE: '#3d7ad4',
+    GREEN: '#2faf5c',
+    AMBER: '#d4922a',
+    WHITE: '#c8c8c8'
+  };
+
+  var BANDS = [
+    { id: 'WEST', starts: '123', serialLabel: '1–3', title: 'WEST BAND' },
+    { id: 'EAST', starts: '456', serialLabel: '4–6', title: 'EAST BAND' },
+    { id: 'CORE', starts: '789ABCDEF', serialLabel: '7–9 / A–F', title: 'CORE BAND' }
+  ];
+
+  // Exact sequences the headset accepts. Dossier intercepts must reduce to these.
+  var SOLUTIONS = {
+    WEST: [['C1', 'B3', 'B2'], ['A3', 'B1', 'C3'], ['B2', 'A2', 'A3']],
+    EAST: [['B1', 'A3', 'C1'], ['C3', 'B2', 'B3'], ['A2', 'C1', 'B1']],
+    CORE: [['B3', 'C1', 'A2'], ['B2', 'C3', 'A3'], ['A3', 'B3', 'C1']]
+  };
+
+  var BLACKOUT_TIME = '02:14Z';
+  var DUTY_LOG = [
+    { t: '01:47Z', ink: 'RED', text: 'GRID TEST. FILE ALL RED TRAFFIC. SAMPLE W1: A1 · C2 · B1.' },
+    { t: '01:58Z', ink: 'BLUE', text: 'HARBOR CHECK. NO ACTION. FARADAY STILL GREEN.' },
+    { t: '02:06Z', ink: 'AMBER', text: 'SHIFT CHANGE. FOUR KEYS ON THE BOARD. USE FOUR-PAD STRIPS.' },
+    { t: '02:14Z', ink: 'GREEN', text: 'HARBOR HOLDS. COPY THREE KEYS. WEST STAGE 1 OPENS ON HARBOR COLOR. DISCARD RED TRAFFIC. DISCARD ANY STRIP THAT INCLUDES A RED PAD. GENUINE STRIPS HAVE EXACTLY THREE PADS. INVALID IDS ARE NOISE.' },
+    { t: '02:21Z', ink: 'RED', text: 'CORE PING. TRUST FOUR-PAD STRIPS. IGNORE GREEN INK.' },
+    { t: '02:33Z', ink: 'BLUE', text: 'CORRECTION: BLACKOUT WAS 14:02Z. READ EAST FIRST.' }
+  ];
+
+  // Mixed authentic intercepts + decoys. Solver crosses out fakes using the 02:14 line.
+  var INTERCEPTS = [
+    { id: 'I-01', stamp: 'RED', band: 'WEST', stage: 1, pads: ['C1', 'B3', 'B2'] },
+    { id: 'I-02', stamp: 'GREEN', band: 'EAST', stage: 1, pads: ['B1', 'A3', 'C1'] },
+    { id: 'I-03', stamp: 'GREEN', band: 'WEST', stage: 1, pads: ['B1', 'A3', 'C1'] },
+    { id: 'I-04', stamp: 'GREEN', band: 'WEST', stage: 1, pads: ['C1', 'B3', 'B2'] },
+    { id: 'I-05', stamp: 'GREEN', band: 'EAST', stage: 1, pads: ['A1', 'B2', 'C3'] },
+    { id: 'I-06', stamp: 'GREEN', band: 'CORE', stage: 1, pads: ['B3', 'C1', 'A2'] },
+    { id: 'I-07', stamp: 'GREEN', band: 'WEST', stage: 2, pads: ['A3', 'B1', 'C3'] },
+    { id: 'I-08', stamp: 'GREEN', band: 'CORE', stage: 2, pads: ['C2', 'B1', 'A3'] },
+    { id: 'I-09', stamp: 'GREEN', band: 'EAST', stage: 2, pads: ['C3', 'B2', 'B3'] },
+    { id: 'I-10', stamp: 'GREEN', band: 'EAST', stage: 2, pads: ['C3', 'B2'] },
+    { id: 'I-11', stamp: 'GREEN', band: 'WEST', stage: 3, pads: ['B2', 'A2', 'A3'] },
+    { id: 'I-12', stamp: 'GREEN', band: 'CORE', stage: 2, pads: ['B2', 'C3', 'A3'] },
+    { id: 'I-13', stamp: 'GREEN', band: 'WEST', stage: 3, pads: ['B2', 'A2', 'A3', 'B1'] },
+    { id: 'I-14', stamp: 'GREEN', band: 'CORE', stage: 1, pads: ['B3', 'A1', 'A2'] },
+    { id: 'I-15', stamp: 'GREEN', band: 'EAST', stage: 3, pads: ['A2', 'C1', 'B1'] },
+    { id: 'I-16', stamp: 'GREEN', band: 'EAST', stage: 3, pads: ['A2', 'C1', 'D1'] },
+    { id: 'I-17', stamp: 'RED', band: 'CORE', stage: 3, pads: ['A3', 'B3', 'C1'] },
+    { id: 'I-18', stamp: 'GREEN', band: 'CORE', stage: 3, pads: ['A3', 'B3', 'C1'] }
+  ];
+
+  var CELL = 118;
+  var PAD = 46;
+  var TOP = 128;
+  var BOTTOM = 78;
 
   var active = false;
+  var isTutorialPuzzle = false;
   var stageIndex = 0;
-  var tiles = [];
-  var rot = [];
-  var solutionRot = [];
-  var selected = 0;
+  var stageSolutions = [];
+  var selected = 0; // 0..8, or -1 = CLEAR
+  var sequence = [];
   var timeLeft = TIMEOUT;
+  var confirmHold = 0;
+  var matched = false;
+  var rejectFlash = 0;
+  var serial = '4B7';
+  var bandId = 'EAST';
+  var raidSerial = null;
+  var raidBand = null;
   var onSuccess = null;
   var onTimeout = null;
   var onStageClear = null;
   var canvas = null, ctx = null;
-  var confirmHold = 0;
   var dirty = true;
-  var CELL = 58;
-  var PAD = 52;
-  var TOP = 72;
   var pointerU = -1;
   var pointerV = -1;
   var pointerFresh = 0;
 
-  function rotateMask(mask, turns) {
-    turns = ((turns % 4) + 4) % 4;
-    var m = mask;
-    for (var i = 0; i < turns; i++) {
-      var n = 0;
-      if (m & 1) n |= 2;
-      if (m & 2) n |= 4;
-      if (m & 4) n |= 8;
-      if (m & 8) n |= 1;
-      m = n;
+  function padById(id) {
+    for (var i = 0; i < PADS.length; i++) {
+      if (PADS[i].id === id) return PADS[i];
     }
-    return m;
+    return null;
   }
 
   function idx(c, r) { return r * SIZE + c; }
@@ -171,74 +114,107 @@
     return COL_LABELS.charAt(c) + (r + 1);
   }
 
+  function isGenuine(strip) {
+    if (!strip || strip.stamp === 'RED') return false;
+    var pads = strip.pads || [];
+    if (pads.length !== SEQ_LEN) return false;
+    for (var i = 0; i < pads.length; i++) {
+      var p = padById(pads[i]);
+      if (!p) return false;
+      if (p.color === 'RED') return false;
+    }
+    if (strip.band === 'WEST' && strip.stage === 1) {
+      var first = padById(pads[0]);
+      if (!first || first.color !== 'GREEN') return false;
+    }
+    return true;
+  }
+
+  function bandById(id) {
+    for (var i = 0; i < BANDS.length; i++) {
+      if (BANDS[i].id === id) return BANDS[i];
+    }
+    return BANDS[1];
+  }
+
+  function randChar(s) {
+    return s.charAt(Math.floor(Math.random() * s.length));
+  }
+
+  function assignRaidSerial() {
+    var band = BANDS[Math.floor(Math.random() * BANDS.length)];
+    var rest = '0123456789ABCDEF';
+    raidBand = band.id;
+    raidSerial = randChar(band.starts) + randChar(rest) + randChar(rest);
+  }
+
+  function resetRun() {
+    raidSerial = null;
+    raidBand = null;
+  }
+
   function loadStage(i) {
-    var s = activeStages[i];
-    tiles = s.tiles.slice();
-    solutionRot = s.solution.slice();
-    rot = s.start.slice();
+    stageIndex = i;
+    sequence = [];
+    matched = false;
+    rejectFlash = 0;
     selected = 0;
-    timeLeft = isTutorialPuzzle ? TIMEOUT_TUTORIAL : TIMEOUT;
     confirmHold = 0;
+    timeLeft = isTutorialPuzzle ? TIMEOUT_TUTORIAL : TIMEOUT;
     pointerU = -1;
     pointerV = -1;
     dirty = true;
   }
 
   function resetPuzzle() {
-    stageIndex = 0;
     loadStage(0);
   }
 
-  function applySolution() {
-    for (var i = 0; i < SIZE * SIZE; i++) rot[i] = solutionRot[i];
+  function currentSolution() {
+    return stageSolutions[stageIndex] || [];
   }
 
-  function maskAt(c, r) {
-    return rotateMask(tiles[idx(c, r)], rot[idx(c, r)]);
-  }
-
-  function connected() {
-    return liveSet()[idx(SIZE - 1, SIZE - 1)] === true && !!(maskAt(SIZE - 1, SIZE - 1) & 2);
-  }
-
-  function liveSet() {
-    var live = {};
-    if (!(maskAt(0, 0) & 8)) return live;
-    var q = [{ c: 0, r: 0 }];
-    live[idx(0, 0)] = true;
-    var dirs = [
-      { b: 1, dc: 0, dr: -1, opp: 4 },
-      { b: 2, dc: 1, dr: 0, opp: 8 },
-      { b: 4, dc: 0, dr: 1, opp: 1 },
-      { b: 8, dc: -1, dr: 0, opp: 2 }
-    ];
-    while (q.length) {
-      var cur = q.shift();
-      var m = maskAt(cur.c, cur.r);
-      for (var d = 0; d < 4; d++) {
-        if (!(m & dirs[d].b)) continue;
-        var nc = cur.c + dirs[d].dc, nr = cur.r + dirs[d].dr;
-        if (nc < 0 || nr < 0 || nc >= SIZE || nr >= SIZE) continue;
-        if (!(maskAt(nc, nr) & dirs[d].opp)) continue;
-        var k = idx(nc, nr);
-        if (live[k]) continue;
-        live[k] = true;
-        q.push({ c: nc, r: nr });
-      }
+  function sequenceMatches() {
+    var need = currentSolution();
+    if (sequence.length !== need.length) return false;
+    for (var i = 0; i < need.length; i++) {
+      if (sequence[i] !== need[i]) return false;
     }
-    return live;
+    return true;
+  }
+
+  function applySolution() {
+    sequence = currentSolution().slice();
+    matched = true;
+    confirmHold = 0.6;
+    dirty = true;
+  }
+
+  function clearSequence() {
+    if (!active) return;
+    sequence = [];
+    matched = false;
+    confirmHold = 0;
+    dirty = true;
   }
 
   function inVR() {
     return !!(NS.vr && NS.vr.active && NS.vr.active());
   }
 
+  function clearRect() {
+    var w = canvas ? canvas.width : 0;
+    var h = canvas ? canvas.height : 0;
+    return { x: w * 0.5 - 70, y: h - 52, w: 140, h: 32 };
+  }
+
   function ensureCanvas() {
     if (canvas) return;
+    if (typeof document === 'undefined') return;
     canvas = document.createElement('canvas');
     canvas.id = 'circuit-overlay';
     canvas.width = PAD * 2 + CELL * SIZE;
-    canvas.height = TOP + CELL * SIZE + 36;
+    canvas.height = TOP + CELL * SIZE + BOTTOM;
     canvas.style.cssText = [
       'position:absolute', 'left:50%', 'top:50%', 'transform:translate(-50%,-50%)',
       'z-index:8', 'pointer-events:auto', 'display:none',
@@ -255,59 +231,57 @@
       var rect = canvas.getBoundingClientRect();
       var x = (e.clientX - rect.left) * (canvas.width / rect.width);
       var y = (e.clientY - rect.top) * (canvas.height / rect.height);
-      var c = Math.floor((x - PAD) / CELL);
-      var r = Math.floor((y - TOP) / CELL);
-      if (c >= 0 && r >= 0 && c < SIZE && r < SIZE) {
-        selected = idx(c, r);
-        rotateSelected();
-      }
+      hitAt(x, y, true);
     });
   }
 
-  function arm() { return CELL * 0.42; }
-
-  function drawPipe(cx, cy, mask, color, width) {
-    var a = arm();
-    ctx.strokeStyle = color;
-    ctx.lineWidth = width || Math.max(5, CELL * 0.12);
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    if (mask & 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - a); }
-    if (mask & 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx + a, cy); }
-    if (mask & 4) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + a); }
-    if (mask & 8) { ctx.moveTo(cx, cy); ctx.lineTo(cx - a, cy); }
-    ctx.stroke();
+  function drawShape(cx, cy, r, shape, color) {
     ctx.fillStyle = color;
-    ctx.beginPath();
-    ctx.arc(cx, cy, Math.max(3, CELL * 0.07), 0, Math.PI * 2);
-    ctx.fill();
-  }
-
-  // Operator-blind orientation marker: corner pip moves with tile rotation
-  // turns 0=NW, 1=NE, 2=SE, 3=SW — matches print sheet
-  function drawOrientDot(cellX, cellY, turns, selectedTile, big) {
-    var corner = ((turns % 4) + 4) % 4;
-    var inset = CELL * 0.2;
-    var ox, oy;
-    if (corner === 0) { ox = cellX + inset; oy = cellY + inset; }
-    else if (corner === 1) { ox = cellX + CELL - inset; oy = cellY + inset; }
-    else if (corner === 2) { ox = cellX + CELL - inset; oy = cellY + CELL - inset; }
-    else { ox = cellX + inset; oy = cellY + CELL - inset; }
-    // with the wires hidden this dot is the whole readout, so make it carry
-    var k = big ? 1.55 : 1;
-    ctx.fillStyle = selectedTile ? '#ffcc66' : '#e0a030';
-    ctx.beginPath();
-    ctx.arc(ox, oy, Math.max(3, CELL * 0.075) * k, 0, Math.PI * 2);
-    ctx.fill();
-    ctx.strokeStyle = selectedTile ? '#fff0c0' : 'rgba(255,200,100,0.55)';
+    ctx.strokeStyle = '#04140a';
     ctx.lineWidth = 1.5;
     ctx.beginPath();
-    ctx.arc(ox, oy, Math.max(4.5, CELL * 0.1) * k, 0, Math.PI * 2);
+    if (shape === 'CIRCLE') {
+      ctx.arc(cx, cy, r, 0, Math.PI * 2);
+    } else if (shape === 'SQUARE') {
+      ctx.rect(cx - r, cy - r, r * 2, r * 2);
+    } else if (shape === 'TRIANGLE') {
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy + r);
+      ctx.lineTo(cx - r, cy + r);
+      ctx.closePath();
+    } else if (shape === 'DIAMOND') {
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx + r, cy);
+      ctx.lineTo(cx, cy + r);
+      ctx.lineTo(cx - r, cy);
+      ctx.closePath();
+    } else if (shape === 'STAR') {
+      for (var i = 0; i < 5; i++) {
+        var a = -Math.PI / 2 + i * Math.PI * 2 / 5;
+        var x = cx + Math.cos(a) * r;
+        var y = cy + Math.sin(a) * r;
+        if (i === 0) ctx.moveTo(x, y);
+        else ctx.lineTo(x, y);
+        var a2 = a + Math.PI / 5;
+        ctx.lineTo(cx + Math.cos(a2) * r * 0.42, cy + Math.sin(a2) * r * 0.42);
+      }
+      ctx.closePath();
+    } else {
+      ctx.strokeStyle = color;
+      ctx.lineWidth = 4;
+      ctx.moveTo(cx - r, cy);
+      ctx.lineTo(cx + r, cy);
+      ctx.moveTo(cx, cy - r);
+      ctx.lineTo(cx, cy + r);
+      ctx.stroke();
+      return;
+    }
+    ctx.fill();
     ctx.stroke();
   }
 
   function drawPointer() {
-    if (pointerU < 0 || pointerV < 0 || pointerFresh <= 0) return;
+    if (pointerU < 0 || pointerV < 0 || pointerFresh <= 0 || !ctx) return;
     var x = pointerU * canvas.width;
     var y = pointerV * canvas.height;
     var pulse = 0.65 + 0.35 * Math.sin(pointerFresh * 18);
@@ -324,200 +298,184 @@
     ctx.arc(x, y, 4, 0, Math.PI * 2);
     ctx.fillStyle = '#ffeeee';
     ctx.fill();
-    ctx.beginPath();
-    ctx.moveTo(x - 18, y); ctx.lineTo(x - 7, y);
-    ctx.moveTo(x + 7, y); ctx.lineTo(x + 18, y);
-    ctx.moveTo(x, y - 18); ctx.lineTo(x, y - 7);
-    ctx.moveTo(x, y + 7); ctx.lineTo(x, y + 18);
-    ctx.strokeStyle = '#ff4444';
-    ctx.lineWidth = 2;
-    ctx.stroke();
     ctx.restore();
+  }
+
+  function seqText() {
+    var parts = [];
+    for (var i = 0; i < SEQ_LEN; i++) {
+      parts.push(sequence[i] || '·');
+    }
+    return parts.join('  →  ');
   }
 
   function render() {
     if (!active || !ctx) return;
-    // The Operator is deliberately blind in VR: wires, junctions and the
-    // powered state all live on the Solver's printed sheet, so the headset
-    // shows only the tile frame, its ID and the orientation dot. The tutorial
-    // board stays wired — it is solo practice with nobody on the sheet.
-    var blind = inVR() && !isTutorialPuzzle;
-    ctx.fillStyle = '#020805';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
+    var w = canvas.width, h = canvas.height;
+    ctx.fillStyle = rejectFlash > 0 ? '#1a0808' : '#020805';
+    ctx.fillRect(0, 0, w, h);
+
     ctx.fillStyle = '#7cff9b';
     ctx.font = 'bold 15px Consolas, monospace';
     ctx.textAlign = 'center';
     ctx.fillText(
       isTutorialPuzzle
-        ? 'PRACTICE JACK-IN  —  MATCH THE CORNER DOTS'
-        : ('JACK-IN ROUTING  6×6  —  STAGE ' + (stageIndex + 1) + '/' + activeStages.length),
-      canvas.width / 2, 22
+        ? 'PRACTICE HANDSHAKE  —  PRESS THE PADS SHOWN'
+        : ('CORE HANDSHAKE  —  STAGE ' + (stageIndex + 1) + '/' + stageSolutions.length),
+      w / 2, 22
     );
+
+    ctx.fillStyle = '#ffb347';
+    ctx.font = 'bold 20px Consolas, monospace';
+    ctx.fillText('SERIAL  ' + serial, w / 2, 48);
+
     ctx.fillStyle = '#3f8a55';
     ctx.font = '11px Consolas, monospace';
-    if (blind) {
-      ctx.fillText('WIRES ARE ON THE SOLVER SHEET · CALL THE TILE ID AND ITS DOT CORNER', canvas.width / 2, 42);
-    } else if (inVR()) {
-      ctx.fillText('LASER SELECT · X OR TRIGGER ROTATE · REAL BOARDS HIDE THE WIRES', canvas.width / 2, 42);
+    if (isTutorialPuzzle) {
+      var hint = currentSolution();
+      var names = hint.map(function (id) {
+        var p = padById(id);
+        return p ? (p.color + ' ' + p.shape + ' (' + p.id + ')') : id;
+      });
+      ctx.fillText('SOLO — NO DOSSIER · ' + names.join('  THEN  '), w / 2, 68);
     } else {
-      ctx.fillText('CLICK TO ROTATE — CORNER DOT SHOWS ORIENTATION · TILE IDs A1…F6', canvas.width / 2, 42);
+      ctx.fillText('READ THE SERIAL ALOUD · SOLVER HAS THE PAD ORDER · POINT AND PRESS', w / 2, 68);
     }
+
     ctx.fillStyle = timeLeft < 8 ? '#ff4444' : '#ffb347';
-    ctx.fillText('LOCKOUT T-' + Math.ceil(timeLeft) + 's', canvas.width / 2, 60);
+    ctx.fillText('LOCKOUT T-' + Math.ceil(timeLeft) + 's', w / 2, 86);
 
-    var live = liveSet();
-    var ok = connected();
-
-    ctx.strokeStyle = blind ? '#3f8a55' : (live[idx(0, 0)] ? '#9fffbb' : '#ffb347');
-    ctx.lineWidth = 6;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(PAD - 22, TOP + CELL * 0.5);
-    ctx.lineTo(PAD + 6, TOP + CELL * 0.5);
-    ctx.stroke();
-    ctx.strokeStyle = blind ? '#3f8a55' : (ok ? '#9fffbb' : '#ffb347');
-    ctx.beginPath();
-    ctx.moveTo(PAD + SIZE * CELL - 6, TOP + CELL * (SIZE - 0.5));
-    ctx.lineTo(PAD + SIZE * CELL + 22, TOP + CELL * (SIZE - 0.5));
-    ctx.stroke();
-
-    ctx.fillStyle = '#7cff9b';
-    ctx.font = '11px Consolas, monospace';
-    ctx.fillText('ENTRY', 20, TOP + CELL * 0.5 + 14);
-    ctx.fillText('CORE', canvas.width - 20, TOP + CELL * (SIZE - 0.5) + 14);
+    ctx.fillStyle = matched ? '#9fffbb' : (rejectFlash > 0 ? '#ff6666' : '#7cff9b');
+    ctx.font = 'bold 16px Consolas, monospace';
+    ctx.fillText(seqText(), w / 2, 110);
 
     ctx.fillStyle = '#3f8a55';
     ctx.font = '10px Consolas, monospace';
     for (var c = 0; c < SIZE; c++) {
-      ctx.fillText(COL_LABELS.charAt(c), PAD + c * CELL + CELL * 0.5, TOP - 6);
+      ctx.fillText(COL_LABELS.charAt(c), PAD + c * CELL + CELL * 0.5, TOP - 8);
     }
 
     for (var r = 0; r < SIZE; r++) {
-      ctx.fillStyle = '#3f8a55';
-      ctx.fillText(String(r + 1), PAD - 12, TOP + r * CELL + CELL * 0.55);
+      ctx.fillText(String(r + 1), PAD - 14, TOP + r * CELL + CELL * 0.55);
       for (c = 0; c < SIZE; c++) {
         var i = idx(c, r);
+        var pad = PADS[i];
         var x = PAD + c * CELL, y = TOP + r * CELL;
-        var powered = !blind && !!live[i];
-        ctx.strokeStyle = i === selected ? '#ffb347' : (powered ? '#7cff9b' : '#3f8a55');
-        ctx.lineWidth = i === selected ? 2.5 : 1;
-        ctx.strokeRect(x + 3, y + 3, CELL - 6, CELL - 6);
-        if (!blind) {
-          var col = ok ? '#9fffbb' : (powered ? '#b8ffd0' : '#4a7a58');
-          drawPipe(x + CELL / 2, y + CELL / 2, maskAt(c, r), col, powered ? 8 : 6);
-        }
-        drawOrientDot(x, y, rot[i], i === selected, blind);
+        var seqPos = sequence.indexOf(pad.id);
+        var isSel = i === selected;
+        ctx.fillStyle = 'rgba(8,24,12,0.9)';
+        ctx.fillRect(x + 4, y + 4, CELL - 8, CELL - 8);
+        ctx.strokeStyle = isSel ? '#ffb347' : (seqPos >= 0 ? '#7cff9b' : '#3f8a55');
+        ctx.lineWidth = isSel ? 3 : 1.4;
+        ctx.strokeRect(x + 4, y + 4, CELL - 8, CELL - 8);
 
-        // The ID is how the Operator names a tile, so it has to carry once the
-        // wires are gone. Blind tiles are empty in the middle and the dot owns
-        // the corners, so centre it there instead of tucking it top-left.
-        if (blind) {
-          ctx.fillStyle = i === selected ? '#ffb347' : '#5aa877';
-          ctx.font = 'bold 13px Consolas, monospace';
-          ctx.fillText(tileLabel(c, r), x + CELL / 2, y + CELL / 2 + 5);
-        } else {
-          ctx.fillStyle = i === selected ? '#ffb347' : '#2a5a3a';
-          ctx.font = '9px Consolas, monospace';
-          ctx.textAlign = 'left';
-          ctx.fillText(tileLabel(c, r), x + 6, y + 14);
-          ctx.textAlign = 'center';
-        }
+        drawShape(x + CELL / 2, y + CELL / 2 - 8, 18, pad.shape, FILL[pad.color] || '#888');
 
-        if (blind) continue; // junction pips would give the wiring away
+        ctx.fillStyle = isSel ? '#ffb347' : '#8fd9a8';
+        ctx.font = 'bold 13px Consolas, monospace';
+        ctx.textAlign = 'center';
+        ctx.fillText(pad.id, x + CELL / 2, y + CELL - 28);
+        ctx.fillStyle = '#5aa877';
+        ctx.font = '9px Consolas, monospace';
+        ctx.fillText(pad.color + ' ' + pad.shape, x + CELL / 2, y + CELL - 14);
 
-        var m = maskAt(c, r);
-        if ((m & 2) && c + 1 < SIZE && (maskAt(c + 1, r) & 8)) {
+        if (seqPos >= 0) {
           ctx.fillStyle = '#ffb347';
-          ctx.beginPath();
-          ctx.arc(x + CELL - 2, y + CELL / 2, 3, 0, Math.PI * 2);
-          ctx.fill();
-        }
-        if ((m & 4) && r + 1 < SIZE && (maskAt(c, r + 1) & 1)) {
-          ctx.fillStyle = '#ffb347';
-          ctx.beginPath();
-          ctx.arc(x + CELL / 2, y + CELL - 2, 3, 0, Math.PI * 2);
-          ctx.fill();
+          ctx.font = 'bold 16px Consolas, monospace';
+          ctx.fillText(String(seqPos + 1), x + 18, y + 22);
         }
       }
     }
-    if (ok) {
+
+    var cr = clearRect();
+    var clearHot = selected < 0;
+    ctx.strokeStyle = clearHot ? '#ffb347' : '#3f8a55';
+    ctx.lineWidth = clearHot ? 2.5 : 1;
+    ctx.strokeRect(cr.x, cr.y, cr.w, cr.h);
+    ctx.fillStyle = clearHot ? '#ffb347' : '#5aa877';
+    ctx.font = 'bold 12px Consolas, monospace';
+    ctx.fillText('CLEAR SEQUENCE', w / 2, cr.y + 21);
+
+    ctx.fillStyle = '#3f8a55';
+    ctx.font = '10px Consolas, monospace';
+    if (matched) {
       ctx.fillStyle = '#ffb347';
       ctx.font = '13px Consolas, monospace';
-      var confirmMsg = stageIndex < activeStages.length - 1
-        ? 'PATH VALID — HOLDING TO ADVANCE…'
-        : 'PATH VALID — HOLDING TO CONFIRM…';
-      ctx.fillText(confirmMsg, canvas.width / 2, canvas.height - 12);
+      ctx.fillText(stageIndex < stageSolutions.length - 1
+        ? 'SEQUENCE VALID — HOLDING TO ADVANCE…'
+        : 'SEQUENCE VALID — HOLDING TO CONFIRM…', w / 2, h - 10);
+    } else if (rejectFlash > 0) {
+      ctx.fillStyle = '#ff6666';
+      ctx.fillText('REJECTED — CLEAR AND RETRY', w / 2, h - 10);
     } else {
-      ctx.fillStyle = '#3f8a55';
-      ctx.font = '10px Consolas, monospace';
-      ctx.fillText(blind
-        ? 'CALL OUT EACH TILE ID AND ITS DOT CORNER · THE SOLVER HAS THE WIRING'
-        : 'LIT = POWERED FROM ENTRY · CALL OUT TILE IDs TO ROTATE',
-        canvas.width / 2, canvas.height - 12);
+      ctx.fillText(isTutorialPuzzle
+        ? 'CLICK / LASER + X TO PRESS · MATCH THE ORDER ABOVE'
+        : 'CALL THE SERIAL · PRESS THREE PADS IN SOLVER ORDER', w / 2, h - 10);
     }
+
     drawPointer();
     dirty = true;
   }
 
-  function finishStageOrDone() {
-    if (stageIndex < activeStages.length - 1) {
-      var next = stageIndex + 1;
-      if (onStageClear) onStageClear(stageIndex + 1, activeStages.length);
-      stageIndex = next;
-      loadStage(stageIndex);
-      render();
+  function hitAt(x, y, press) {
+    var cr = clearRect();
+    if (x >= cr.x && x <= cr.x + cr.w && y >= cr.y && y <= cr.y + cr.h) {
+      selected = -1;
+      if (press) clearSequence();
+      else dirty = true;
+      return -1;
+    }
+    var c = Math.floor((x - PAD) / CELL);
+    var r = Math.floor((y - TOP) / CELL);
+    if (c < 0 || r < 0 || c >= SIZE || r >= SIZE) return -2;
+    var i = idx(c, r);
+    selected = i;
+    if (press) pressSelected();
+    else dirty = true;
+    return i;
+  }
+
+  function pressSelected() {
+    if (!active || matched) return;
+    if (selected < 0) {
+      clearSequence();
       return;
     }
-    var ok = onSuccess;
-    close();
-    if (ok) ok();
-  }
-
-  function update(dt) {
-    if (!active) return false;
-    timeLeft -= dt;
-    if (pointerFresh > 0) pointerFresh -= dt;
-    if (timeLeft <= 0) {
-      var cb = onTimeout;
-      close();
-      if (cb) cb();
-      return true;
-    }
-    if (connected()) {
-      confirmHold += dt;
-      if (confirmHold > 0.55) {
-        finishStageOrDone();
-        return true;
-      }
-    } else {
-      confirmHold = 0;
-    }
-    render();
-    return true;
-  }
-
-  function rotateSelected() {
-    if (!active) return;
-    rot[selected] = (rot[selected] + 1) % 4;
+    if (sequence.length >= SEQ_LEN) return;
+    var pad = PADS[selected];
+    if (!pad) return;
+    if (sequence.indexOf(pad.id) >= 0) return;
+    sequence.push(pad.id);
     confirmHold = 0;
+    if (sequence.length === SEQ_LEN) {
+      if (sequenceMatches()) {
+        matched = true;
+      } else {
+        rejectFlash = 0.85;
+        sequence = [];
+      }
+    }
+    dirty = true;
     render();
   }
 
   function moveSelection(dc, dr) {
     if (!active) return;
+    if (selected < 0) selected = 0;
     var c = selected % SIZE;
     var r = Math.floor(selected / SIZE);
     c = Math.max(0, Math.min(SIZE - 1, c + dc));
     r = Math.max(0, Math.min(SIZE - 1, r + dr));
     selected = idx(c, r);
-    confirmHold = 0;
+    dirty = true;
     render();
   }
 
   function nextTile() {
     if (!active) return;
-    selected = (selected + 1) % (SIZE * SIZE);
-    confirmHold = 0;
+    if (selected < 0) selected = 0;
+    else selected = (selected + 1) % (SIZE * SIZE);
+    dirty = true;
     render();
   }
 
@@ -526,16 +484,7 @@
     setPointer(u, v);
     var x = u * canvas.width;
     var y = v * canvas.height;
-    var c = Math.floor((x - PAD) / CELL);
-    var r = Math.floor((y - TOP) / CELL);
-    if (c < 0 || r < 0 || c >= SIZE || r >= SIZE) return -1;
-    var i = idx(c, r);
-    if (i !== selected) {
-      selected = i;
-      confirmHold = 0;
-      render();
-    }
-    return i;
+    return hitAt(x, y, false);
   }
 
   function setPointer(u, v) {
@@ -555,30 +504,39 @@
   }
 
   function missionStageCount(opts) {
-    var n = opts && opts.stageCount != null ? opts.stageCount : STAGES.length;
+    var n = opts && opts.stageCount != null ? opts.stageCount : 3;
     n = n | 0;
     if (n < 1) n = 1;
-    if (n > STAGES.length) n = STAGES.length;
+    if (n > 3) n = 3;
     return n;
   }
 
   function open(successCb, timeoutCb, stageClearCb, opts) {
     ensureCanvas();
     isTutorialPuzzle = !!(opts && opts.tutorial);
-    activeStages = isTutorialPuzzle ? [TUTORIAL_STAGE] : STAGES.slice(0, missionStageCount(opts));
+    if (isTutorialPuzzle) {
+      bandId = 'EAST';
+      serial = '4B7';
+    } else {
+      if (!raidSerial) assignRaidSerial();
+      bandId = raidBand;
+      serial = raidSerial;
+    }
+    var n = isTutorialPuzzle ? 1 : missionStageCount(opts);
+    stageSolutions = (SOLUTIONS[bandId] || SOLUTIONS.EAST).slice(0, n);
     resetPuzzle();
     onSuccess = successCb;
     onTimeout = timeoutCb;
     onStageClear = stageClearCb || null;
     active = true;
-    canvas.style.display = inVR() ? 'none' : 'block';
+    if (canvas) canvas.style.display = inVR() ? 'none' : 'block';
     render();
   }
 
   function close() {
     active = false;
     isTutorialPuzzle = false;
-    activeStages = STAGES;
+    stageSolutions = [];
     if (canvas) canvas.style.display = 'none';
     onSuccess = null;
     onTimeout = null;
@@ -588,37 +546,86 @@
     dirty = true;
   }
 
+  function finishStageOrDone() {
+    if (stageIndex < stageSolutions.length - 1) {
+      var next = stageIndex + 1;
+      if (onStageClear) onStageClear(stageIndex + 1, stageSolutions.length);
+      loadStage(next);
+      render();
+      return;
+    }
+    var ok = onSuccess;
+    close();
+    if (ok) ok();
+  }
+
+  function update(dt) {
+    if (!active) return false;
+    timeLeft -= dt;
+    if (pointerFresh > 0) pointerFresh -= dt;
+    if (rejectFlash > 0) rejectFlash -= dt;
+    if (timeLeft <= 0) {
+      var cb = onTimeout;
+      close();
+      if (cb) cb();
+      return true;
+    }
+    if (matched) {
+      confirmHold += dt;
+      if (confirmHold > 0.55) {
+        finishStageOrDone();
+        return true;
+      }
+    } else {
+      confirmHold = 0;
+    }
+    render();
+    return true;
+  }
+
   function getSheetData() {
     return {
       size: SIZE,
       colLabels: COL_LABELS,
-      stages: STAGES.map(function (s, i) {
+      pads: PADS.map(function (p) { return { id: p.id, color: p.color, shape: p.shape }; }),
+      bands: BANDS.map(function (b) {
+        return { id: b.id, serialLabel: b.serialLabel, title: b.title, starts: b.starts };
+      }),
+      solutions: {
+        WEST: SOLUTIONS.WEST.map(function (s) { return s.slice(); }),
+        EAST: SOLUTIONS.EAST.map(function (s) { return s.slice(); }),
+        CORE: SOLUTIONS.CORE.map(function (s) { return s.slice(); })
+      },
+      blackoutTime: BLACKOUT_TIME,
+      dutyLog: DUTY_LOG.map(function (row) {
+        return { t: row.t, ink: row.ink, text: row.text };
+      }),
+      intercepts: INTERCEPTS.map(function (row) {
         return {
-          index: i + 1,
-          tiles: s.tiles.slice(),
-          start: s.start.slice(),
-          solution: s.solution.slice()
+          id: row.id, stamp: row.stamp, band: row.band, stage: row.stage,
+          pads: row.pads.slice()
         };
       }),
-      // legacy single-board fields = stage 1
-      tiles: STAGE1.tiles.slice(),
-      start: STAGE1.start.slice(),
-      solution: STAGE1.solution.slice(),
-      straight: STRAIGHT,
-      bend: BEND,
-      tee: TEE
+      tutorialSerial: '4B7',
+      tutorialBand: 'EAST'
     };
   }
 
   NS.circuit = {
-    open: open, close: close, update: update, rotateSelected: rotateSelected,
+    open: open, close: close, update: update,
+    rotateSelected: pressSelected,
+    pressSelected: pressSelected,
     moveSelection: moveSelection, nextTile: nextTile, pickUv: pickUv,
     setPointer: setPointer, clearPointer: clearPointer,
+    clearSequence: clearSequence,
+    resetRun: resetRun,
     isActive: function () { return active; },
     getStage: function () { return stageIndex + 1; },
-    getStageCount: function () { return activeStages.length; },
+    getStageCount: function () { return stageSolutions.length || 3; },
     getCanvas: function () { return canvas; },
+    getSerial: function () { return serial; },
     getSheetData: getSheetData,
+    isGenuine: isGenuine,
     consumeDirty: function () {
       var d = dirty;
       dirty = false;
@@ -626,13 +633,30 @@
     },
     debug: {
       reset: resetPuzzle,
+      resetRun: resetRun,
       loadStage: loadStage,
-      setStage: function (i) { stageIndex = i; loadStage(i); },
+      setStage: function (i) { loadStage(i); },
+      start: function (opts) {
+        opts = opts || {};
+        isTutorialPuzzle = !!opts.tutorial;
+        bandId = opts.band || 'EAST';
+        serial = opts.serial || '4B7';
+        var n = opts.stageCount != null ? opts.stageCount : 3;
+        stageSolutions = (SOLUTIONS[bandId] || SOLUTIONS.EAST).slice(0, n);
+        active = true;
+        resetPuzzle();
+      },
       solve: applySolution,
-      connected: connected,
-      rot: function () { return rot.slice(); },
-      solutionRot: function () { return solutionRot.slice(); },
-      stageCount: function () { return activeStages.length; }
+      connected: sequenceMatches,
+      matched: function () { return matched; },
+      sequence: function () { return sequence.slice(); },
+      solution: function () { return currentSolution().slice(); },
+      serial: function () { return serial; },
+      band: function () { return bandId; },
+      stageCount: function () { return stageSolutions.length; },
+      isGenuine: isGenuine,
+      intercepts: function () { return INTERCEPTS; },
+      solutions: SOLUTIONS
     }
   };
 })(typeof window !== 'undefined' ? (window.HOLLOW = window.HOLLOW || {})

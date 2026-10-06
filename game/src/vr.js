@@ -210,7 +210,7 @@
       } else if (source.handedness === 'right') {
         rightSource = source;
         if (panelLock) {
-          // Right stick navigates circuit tiles / clone choice (latched)
+          // Right stick navigates handshake pads / clone choice (latched)
           if (Math.abs(axes[0]) > 0.65 && !navLatchX) {
             currentInput.navX = axes[0] > 0 ? 1 : -1;
             navLatchX = true;

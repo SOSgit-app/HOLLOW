@@ -196,8 +196,8 @@
     if (label) label.textContent = info.label;
     if (points) {
       var boards = circuitBoards[currentDifficulty] || CIRCUIT_DEFAULTS[currentDifficulty] || 3;
-      var extra = '<b>' + boards + '</b> circuit board' + (boards === 1 ? '' : 's') +
-        (boards === 1 ? ' (stage 1)' : '');
+      var extra = '<b>' + boards + '</b> jack-in stage' + (boards === 1 ? '' : 's') +
+        (boards === 1 ? ' (handshake 1)' : '');
       points.innerHTML = info.points.concat([extra]).map(function (p) {
         return '<li>' + p + '</li>';
       }).join('');
@@ -836,9 +836,9 @@
     },
     {
       title: 'JACK INTO THE CONSOLE',
-      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'Point laser + X to rotate tiles.'],
-      buttons: ['X — jack in / rotate tile', 'POINT CONTROLLER — aim laser', 'CLEAR 1 BOARD TO CONTINUE'],
-      msg: 'TUTORIAL: JACK IN · SOLVE 1 CIRCUIT BOARD'
+      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'Point laser + X to press pads in the order shown.'],
+      buttons: ['X — jack in / press pad', 'POINT CONTROLLER — aim laser', 'CLEAR 1 HANDSHAKE TO CONTINUE'],
+      msg: 'TUTORIAL: JACK IN · PRESS THE THREE PADS SHOWN'
     },
     {
       title: 'UPLOAD THE VIRUS',
@@ -1203,6 +1203,7 @@
     beaconsLeft = beaconsMax;
     uplinkDone = false;
     jackInCooldownUntil = 0;
+    if (CIR && CIR.resetRun) CIR.resetRun();
     exfilPhase = 'NONE'; exfilTimer = 0;
     missionBranch = 'NONE';
     clonePhase = 'NONE'; cloneTimer = 0; clonePct = 0; cloneChoiceIdx = 0;
@@ -1818,21 +1819,21 @@
       virusWristActive = false;
       tutorialTripHit = false;
       armTutorialTripwire();
-      queueMsg('CIRCUIT CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
+      queueMsg('HANDSHAKE CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
       advanceTutorial(4);
       return;
     }
-    queueMsg('MATRIX STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT BOARD', 'amber', 3);
+    queueMsg('HANDSHAKE STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT SEQUENCE', 'amber', 3);
   }
 
   function onCircuitTimeout() {
     if (tutorialMode) {
       jackInCooldownUntil = now + JACKIN_RETRY_S;
-      queueMsg('LOCKOUT — TRY AGAIN. ROTATE TILES TO MATCH YOUR SOLVER.', 'amber', 4);
+      queueMsg('LOCKOUT — TRY AGAIN. PRESS THE PADS IN THE ORDER SHOWN.', 'amber', 4);
       return;
     }
     jackInCooldownUntil = now + JACKIN_RETRY_S;
-    queueMsg('ROUTING LOCKOUT — RETRY IN ' + JACKIN_RETRY_S + 's · SECURITY RUSHING', 'red', 4);
+    queueMsg('HANDSHAKE LOCKOUT — RETRY IN ' + JACKIN_RETRY_S + 's · ASK SOLVER TO RECHECK', 'red', 4);
     A.securityAlarm();
     // Loud trip at the core — nearest two rush the console room
     EN.hear(M.markers.G.x, M.markers.G.z, NOISE_LASER, now, true);
@@ -1850,7 +1851,7 @@
       virusDone = false;
       tutorialTripHit = false;
       armTutorialTripwire();
-      queueMsg('CIRCUIT CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
+      queueMsg('HANDSHAKE CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
       advanceTutorial(4);
       return;
     }
@@ -2283,15 +2284,15 @@
       return;
     }
     var boards = circuitQuota();
-    var boardWord = boards === 1 ? '1 BOARD' : (boards + ' BOARDS');
-    var matrixWord = boards === 1 ? 'ONE ROUTING MATRIX' : (boards + ' ROUTING MATRICES');
+    var boardWord = boards === 1 ? '1 STAGE' : (boards + ' STAGES');
+    var matrixWord = boards === 1 ? 'ONE HANDSHAKE' : (boards + ' HANDSHAKE STAGES');
     pushMsg(inVR()
       ? (tutorialMode
-        ? 'PRACTICE JACK-IN — 1 BOARD · POINT LASER / X ROTATE'
-        : 'JACK-IN — ' + boardWord + ' · 60s EACH · POINT LASER / X ROTATE')
+        ? 'PRACTICE JACK-IN — PRESS THE THREE PADS SHOWN'
+        : 'JACK-IN — ' + boardWord + ' · 60s EACH · READ SERIAL · POINT AND PRESS')
       : (tutorialMode
-        ? 'PRACTICE JACK-IN — CLEAR ONE BOARD'
-        : 'JACK-IN SEQUENCE — ' + matrixWord), 'amber');
+        ? 'PRACTICE JACK-IN — PRESS THE THREE PADS SHOWN'
+        : 'JACK-IN — ' + matrixWord + ' · CALL THE SERIAL'), 'amber');
     CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear,
       tutorialMode ? { tutorial: true } : { stageCount: boards });
   }
@@ -3192,7 +3193,7 @@
           if (vrInput.navY) CIR.moveSelection(0, vrInput.navY);
           if (vrInput.interactPressed) CIR.rotateSelected();
           else if (vrInput.tricklePressed) CIR.rotateSelected();
-          if (vrInput.secondaryPressed && CIR.nextTile) CIR.nextTile();
+          if (vrInput.secondaryPressed && CIR.clearSequence) CIR.clearSequence();
           if (R.setWristModel) {
             R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
           }
@@ -3206,7 +3207,10 @@
         updateExfil(dt);
         updateMsg(dt);
         updateHUD(dt);
-        vrHudHint = 'STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/' + (CIR.getStageCount ? CIR.getStageCount() : 3) + ' · POINT LASER · X OR TRIGGER: ROTATE';
+        vrHudHint = 'SERIAL ' + (CIR.getSerial ? CIR.getSerial() : '') +
+          ' · STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/' +
+          (CIR.getStageCount ? CIR.getStageCount() : 3) +
+          ' · POINT LASER · X TO PRESS';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));

@@ -2,208 +2,182 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>HOLLOW — Jack-In Circuit Sheets (Unsolved)</title>
+<title>HOLLOW — Core Access Dossier (Solver)</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  @page { size: landscape; margin: 10mm; }
+  @page { size: letter portrait; margin: 0.42in; }
   * { box-sizing: border-box; }
   body {
-    margin: 0; padding: 16px;
+    margin: 0; padding: 12px 16px;
     font-family: Consolas, "Lucida Console", monospace;
-    background: #fff; color: #111;
+    background: #fff; color: #111; font-size: 11px; line-height: 1.35;
   }
-  h1 { font-size: 18px; letter-spacing: .18em; margin: 0 0 4px; }
-  .sub { font-size: 11px; color: #444; margin-bottom: 10px; }
-  .grid-wrap { display: flex; gap: 18px; flex-wrap: wrap; align-items: flex-start; margin-bottom: 22px; }
-  canvas { border: 1px solid #222; }
-  .panel { max-width: 320px; font-size: 11px; line-height: 1.55; }
-  .panel h2 { font-size: 12px; letter-spacing: .12em; margin: 10px 0 4px; }
-  .actions { margin: 12px 0; }
+  h1 { font-size: 16px; letter-spacing: .16em; margin: 0 0 2px; }
+  h2 { font-size: 11px; letter-spacing: .14em; margin: 8px 0 4px; border-bottom: 1px solid #111; padding-bottom: 2px; }
+  .sub { font-size: 10px; color: #333; margin-bottom: 8px; }
+  .actions { margin: 0 0 12px; }
   .actions button, .actions a {
     font: inherit; font-size: 12px; padding: 8px 12px; margin-right: 8px;
     border: 1px solid #111; background: #f4f4f4; color: #111; cursor: pointer; text-decoration: none;
+    display: inline-block;
   }
-  .stage-title { font-size: 13px; letter-spacing: .14em; margin: 0 0 8px; }
+  .page { page-break-after: always; }
+  .page:last-child { page-break-after: auto; }
+  .row { display: flex; gap: 14px; align-items: flex-start; }
+  .col { flex: 1; min-width: 0; }
+  table { width: 100%; border-collapse: collapse; }
+  th, td { border: 1px solid #111; padding: 3px 5px; text-align: left; vertical-align: top; }
+  th { font-size: 9px; letter-spacing: .08em; background: #eee; }
+  .ink-RED { font-weight: bold; }
+  .rules { display: grid; grid-template-columns: 1fr 1fr; gap: 6px 12px; }
+  .rules label { display: block; border: 1px solid #111; padding: 6px 7px; min-height: 44px; }
+  .atlas { display: grid; grid-template-columns: repeat(3, 1fr); gap: 6px; }
+  .pad {
+    border: 1px solid #111; padding: 4px 4px 3px; text-align: center; min-height: 68px;
+  }
+  .pad .id { font-size: 14px; font-weight: bold; letter-spacing: .08em; }
+  .pad .shape { font-size: 20px; line-height: 1.05; margin: 1px 0; }
+  .pad .name { font-size: 9px; }
+  .answer { display: grid; grid-template-columns: 1.1fr 1fr 1fr 1fr; gap: 0; }
+  .answer div { border: 1px solid #111; padding: 7px 6px; min-height: 46px; }
+  .answer .head { background: #eee; font-size: 9px; letter-spacing: .08em; min-height: 0; }
+  .note { font-size: 10px; line-height: 1.45; }
+  .warn { border: 1px solid #111; padding: 6px 8px; margin: 0 0 8px; }
   @media print {
     .actions { display: none; }
     body { padding: 0; }
-    .grid-wrap { page-break-inside: avoid; }
   }
 </style>
 </head>
 <body>
-  <h1>HOLLOW — JACK-IN ROUTING MATRICES (UNSOLVED)</h1>
-  <div class="sub">MISSION DIRECTOR PACKET · THREE BOARDS · 60s LOCKOUT EACH · SAME AS IN-HEADSET</div>
   <div class="actions">
-    <button type="button" onclick="window.print()">PRINT / SAVE AS PDF</button>
+    <button type="button" onclick="window.print()">PRINT / SAVE AS PDF — 2 PAGES, FRONT AND BACK</button>
     <a href="map-print.html">MAP SHEET</a>
     <a href="index.html">BACK TO GAME</a>
   </div>
-  <div class="panel" style="max-width:720px;margin-bottom:16px">
-    <h2>PURPOSE</h2>
-    <b>The Operator cannot see the wires.</b> In the headset every tile is blank
-    except its ID and one amber corner dot, so these sheets are the only copy of
-    the wiring — you solve, they turn. Pre-solve all three offline. Operator must
-    clear <b>stages 1–3</b> (each has its own 60s lockout).
-    <b>ENTRY</b> feeds west into <b>A1</b>. <b>CORE</b> exits east from <b>F6</b>.
-    Rotate 90° clockwise per step.
+
+  <div class="page" id="page-1">
+    <h1>HOLLOW — CORE ACCESS DOSSIER</h1>
+    <div class="sub">SOLVER PACKET · ONE SHEET, FRONT AND BACK · START WHEN THE OPERATOR ENTERS THE HARBOR · DO NOT GIVE THIS TO THE DIRECTOR</div>
+    <div class="warn">
+      <b>YOUR JOB.</b> Crack this packet <b>before</b> the operator reaches the AI core (G).
+      At jack-in they will read a <b>CORE SERIAL</b> (three characters). The first character
+      picks the band. You already have that row filled in. Read the three-pad order.
+      They have <b>60 seconds per stage</b>. Wrong order can be retried until the lockout hits.
+      Then the core goes dark for 10 seconds and security hears it.
+    </div>
+    <div class="row">
+      <div class="col">
+        <h2>1 · BLACKOUT LOG</h2>
+        <p class="note" style="margin:0 0 6px">
+          Header stamp: <b>BLACKOUT DECLARED <span id="blackout-time">02:14Z</span></b>.
+          Only the line that matches that time is lawful. Other lines are noise or lies.
+          Copy the lawful line into the rule boxes.
+        </p>
+        <table id="duty-log">
+          <thead><tr><th>TIME</th><th>INK</th><th>TRAFFIC</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="col" style="max-width:46%">
+        <h2>2 · AUTH RULES (FILL FROM THE LAWFUL LINE)</h2>
+        <div class="rules">
+          <label>Ink color you always discard:<br><br>________________</label>
+          <label>Pad colors that never appear on a real strip:<br><br>________________</label>
+          <label>How many pads on a genuine strip?<br><br>________________</label>
+          <label>WEST STAGE 1 must start with (harbor color):<br><br>________________</label>
+        </div>
+        <p class="note" style="margin:8px 0 0">
+          Faraday harbor = <b>GREEN</b>. Invalid pad IDs (anything not on the atlas) are noise.
+          A strip can have the right pads and still be fake — check the stamp.
+        </p>
+      </div>
+    </div>
+    <h2>3 · PAD ATLAS (SAME 3×3 THE OPERATOR SEES)</h2>
+    <p class="note" style="margin:0 0 6px">Call <b>B1</b> or <b>BLUE SQUARE</b>. Both work. Color names matter even if you print in black and white.</p>
+    <div class="atlas" id="atlas"></div>
   </div>
-  <div id="boards"></div>
-<script src="src/circuit.js?v=99"></script>
+
+  <div class="page" id="page-2">
+    <h1>HOLLOW — CORE ACCESS DOSSIER (BACK)</h1>
+    <div class="sub">CROSS OUT FAKES WITH THE RULES FROM THE FRONT · COPY SURVIVORS ONTO THE ANSWER CARD · DO NOT LEAVE THIS PAGE WITH THE OPERATOR</div>
+    <h2>4 · INTERCEPT STRIPS</h2>
+    <p class="note" style="margin:0 0 6px">
+      Eighteen strips. Nine are real — one for each band and stage. Apply every rule.
+      Then copy pad order onto the card. Serial first character: <b>1–3 = WEST</b> ·
+      <b>4–6 = EAST</b> · <b>7–9 or A–F = CORE</b>.
+    </p>
+    <table id="intercepts">
+      <thead>
+        <tr>
+          <th>ID</th><th>STAMP</th><th>MARKED</th><th>PADS</th>
+          <th>ID</th><th>STAMP</th><th>MARKED</th><th>PADS</th>
+        </tr>
+      </thead>
+      <tbody></tbody>
+    </table>
+    <h2>5 · ANSWER CARD (FILL THIS · THIS IS WHAT YOU READ AT JACK-IN)</h2>
+    <div class="answer">
+      <div class="head">SERIAL STARTS</div>
+      <div class="head">STAGE 1</div>
+      <div class="head">STAGE 2</div>
+      <div class="head">STAGE 3</div>
+      <div><b>1–3 WEST</b></div><div></div><div></div><div></div>
+      <div><b>4–6 EAST</b></div><div></div><div></div><div></div>
+      <div><b>7–9 / A–F CORE</b></div><div></div><div></div><div></div>
+    </div>
+    <h2>6 · RADIO</h2>
+    <p class="note" style="margin:0">
+      Operator: <b>“Serial four B seven.”</b> You: find EAST, read Stage 1 only:
+      <b>“Blue square, blue circle, green triangle”</b> (or B1, A3, C1). Wait for them to confirm.
+      Then Stage 2, then Stage 3. Easy raids may only need Stage 1. Do not grab the map.
+      If they lock out, re-read the same card — the serial does not change.
+    </p>
+  </div>
+
+<script src="src/circuit.js?v=109"></script>
 <script>
 (function () {
-  var data = window.HOLLOW.circuit.getSheetData();
-  var size = data.size;
-  var cols = data.colLabels;
-  var stages = data.stages || [{ index: 1, tiles: data.tiles, start: data.start }];
-  var host = document.getElementById('boards');
-
-  function rotateMask(mask, turns) {
-    turns = ((turns % 4) + 4) % 4;
-    var m = mask;
-    for (var i = 0; i < turns; i++) {
-      var n = 0;
-      if (m & 1) n |= 2;
-      if (m & 2) n |= 4;
-      if (m & 4) n |= 8;
-      if (m & 8) n |= 1;
-      m = n;
-    }
-    return m;
+  var data = window.HOLLOW && window.HOLLOW.circuit && window.HOLLOW.circuit.getSheetData();
+  if (!data) {
+    document.body.insertAdjacentHTML('afterbegin', '<p>Failed to load dossier data.</p>');
+    return;
   }
+  var SHAPE = { CIRCLE: '●', SQUARE: '■', TRIANGLE: '▲', DIAMOND: '◆', STAR: '★', HASH: '#' };
+  document.getElementById('blackout-time').textContent = data.blackoutTime;
 
-  function drawBoard(stage) {
-    var wrap = document.createElement('div');
-    wrap.className = 'grid-wrap';
-    var title = document.createElement('div');
-    title.className = 'stage-title';
-    title.textContent = 'STAGE ' + stage.index + ' OF ' + stages.length + ' — UNSOLVED';
-    wrap.appendChild(title);
+  var logBody = document.querySelector('#duty-log tbody');
+  data.dutyLog.forEach(function (row) {
+    var tr = document.createElement('tr');
+    tr.innerHTML = '<td>' + row.t + '</td><td class="ink-' + row.ink + '">' + row.ink +
+      '</td><td>' + row.text + '</td>';
+    logBody.appendChild(tr);
+  });
 
-    var canvas = document.createElement('canvas');
-    canvas.width = 700;
-    canvas.height = 700;
-    wrap.appendChild(canvas);
+  var atlas = document.getElementById('atlas');
+  data.pads.forEach(function (p) {
+    var el = document.createElement('div');
+    el.className = 'pad';
+    el.innerHTML = '<div class="id">' + p.id + '</div><div class="shape">' +
+      (SHAPE[p.shape] || '?') + '</div><div class="name">' + p.color + ' ' + p.shape + '</div>';
+    atlas.appendChild(el);
+  });
 
-    var note = document.createElement('div');
-    note.className = 'panel';
-    note.innerHTML = '<h2>THE DOT</h2>The amber dot is the tile\u2019s orientation, and the only ' +
-      'thing the Operator can see. One rotate moves it one corner clockwise:<br>' +
-      '<b>NW</b> \u2192 <b>NE</b> \u2192 <b>SE</b> \u2192 <b>SW</b> \u2192 NW.' +
-      '<h2>CALLOUT</h2>“C3 — where is your dot?” · “Select C3, rotate twice.”<br>' +
-      'Dots below are the start state, so track every rotation you call. ' +
-      'Do not mark the solution path.';
-    wrap.appendChild(note);
-    host.appendChild(wrap);
-
-    var tiles = stage.tiles;
-    var start = stage.start;
-    var ctx = canvas.getContext('2d');
-    var pad = 56, top = 56, cell = 96;
-
-    function maskAt(c, r) {
-      var i = r * size + c;
-      return rotateMask(tiles[i], start[i]);
+  var body = document.querySelector('#intercepts tbody');
+  var list = data.intercepts;
+  var half = Math.ceil(list.length / 2);
+  for (var i = 0; i < half; i++) {
+    var a = list[i];
+    var b = list[i + half];
+    var tr = document.createElement('tr');
+    function cells(row) {
+      if (!row) return '<td></td><td></td><td></td><td></td>';
+      return '<td>' + row.id + '</td><td>' + row.stamp + '</td><td>' +
+        row.band + ' ST' + row.stage + '</td><td>' + row.pads.join(' · ') + '</td>';
     }
-
-    function drawPipe(cx, cy, mask) {
-      var a = cell * 0.38;
-      ctx.strokeStyle = '#111';
-      ctx.lineWidth = 7;
-      ctx.lineCap = 'round';
-      ctx.beginPath();
-      if (mask & 1) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy - a); }
-      if (mask & 2) { ctx.moveTo(cx, cy); ctx.lineTo(cx + a, cy); }
-      if (mask & 4) { ctx.moveTo(cx, cy); ctx.lineTo(cx, cy + a); }
-      if (mask & 8) { ctx.moveTo(cx, cy); ctx.lineTo(cx - a, cy); }
-      ctx.stroke();
-      ctx.fillStyle = '#111';
-      ctx.beginPath();
-      ctx.arc(cx, cy, 5, 0, Math.PI * 2);
-      ctx.fill();
-    }
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, canvas.width, canvas.height);
-
-    ctx.strokeStyle = '#111';
-    ctx.lineWidth = 5;
-    ctx.lineCap = 'round';
-    ctx.beginPath();
-    ctx.moveTo(pad - 28, top + cell * 0.5);
-    ctx.lineTo(pad + 4, top + cell * 0.5);
-    ctx.stroke();
-    ctx.beginPath();
-    ctx.moveTo(pad + size * cell - 4, top + cell * (size - 0.5));
-    ctx.lineTo(pad + size * cell + 28, top + cell * (size - 0.5));
-    ctx.stroke();
-
-    ctx.fillStyle = '#111';
-    ctx.font = 'bold 13px Consolas, monospace';
-    ctx.textAlign = 'center';
-    ctx.fillText('ENTRY', 28, top + cell * 0.5 + 18);
-    ctx.fillText('CORE', canvas.width - 28, top + cell * (size - 0.5) + 18);
-
-    ctx.font = '12px Consolas, monospace';
-    for (var c = 0; c < size; c++) {
-      ctx.fillText(cols.charAt(c), pad + c * cell + cell * 0.5, top - 12);
-    }
-
-    for (var r = 0; r < size; r++) {
-      ctx.fillText(String(r + 1), pad - 18, top + r * cell + cell * 0.55);
-      for (c = 0; c < size; c++) {
-        var x = pad + c * cell, y = top + r * cell;
-        ctx.strokeStyle = '#111';
-        ctx.lineWidth = 1.5;
-        ctx.strokeRect(x + 4, y + 4, cell - 8, cell - 8);
-        drawPipe(x + cell / 2, y + cell / 2, maskAt(c, r));
-        // Orientation corner pip (0=NW 1=NE 2=SE 3=SW) — matches headset
-        var pipCorner = start[r * size + c] % 4;
-        (function () {
-          var turns = pipCorner;
-          var inset = cell * 0.2;
-          var ox, oy;
-          if (turns === 0) { ox = x + inset; oy = y + inset; }
-          else if (turns === 1) { ox = x + cell - inset; oy = y + inset; }
-          else if (turns === 2) { ox = x + cell - inset; oy = y + cell - inset; }
-          else { ox = x + inset; oy = y + cell - inset; }
-          // Sized and coloured to match the headset dot, since it is now the
-          // only thing the Operator can describe. Dark ring so it survives a
-          // black-and-white printer.
-          ctx.fillStyle = '#f0a81e';
-          ctx.beginPath();
-          ctx.arc(ox, oy, 9, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.strokeStyle = '#111';
-          ctx.lineWidth = 1.4;
-          ctx.beginPath();
-          ctx.arc(ox, oy, 11.5, 0, Math.PI * 2);
-          ctx.stroke();
-        })();
-        // ID last and haloed, tucked into whichever top corner the pip is not
-        // using — this is the name the Solver calls over voice, so it has to
-        // stay clean
-        var label = cols.charAt(c) + (r + 1);
-        var right = pipCorner === 0;
-        ctx.font = 'bold 11px Consolas, monospace';
-        ctx.textAlign = right ? 'right' : 'left';
-        ctx.lineJoin = 'round';
-        ctx.lineWidth = 3;
-        ctx.strokeStyle = '#fff';
-        var lx = right ? x + cell - 8 : x + 8;
-        ctx.strokeText(label, lx, y + 18);
-        ctx.fillStyle = '#555';
-        ctx.fillText(label, lx, y + 18);
-        ctx.textAlign = 'center';
-        ctx.fillStyle = '#111';
-      }
-    }
-
-    ctx.font = '11px Consolas, monospace';
-    ctx.fillText('UNSOLVED — MATCHES IN-HEADSET START · 60s LOCKOUT', canvas.width / 2, canvas.height - 16);
+    tr.innerHTML = cells(a) + cells(b);
+    body.appendChild(tr);
   }
-
-  for (var i = 0; i < stages.length; i++) drawBoard(stages[i]);
 })();
 </script>
 </body>
