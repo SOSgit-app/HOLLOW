@@ -42,7 +42,14 @@ if (M.isSafeCell(39, 6) || M.isSafeCell(44, 6)) throw new Error('E4/F6 should st
 if (M.isSafeCell(37, 6)) throw new Error('F west door should stay outside harbor');
 if (M.isSafeCell(35, 9)) throw new Error('U2 spawn must stay outside east harbor');
 if (M.isSafeCell(22, 8) || M.isSafeCell(32, 34)) throw new Error('U5/U6 must stay outside harbors');
-if (!M.markers.security || M.markers.security.length !== 6) throw new Error('need 6 named patrol posts');
+if (!M.markers.refills || M.markers.refills.length !== 3) throw new Error('need 3 beacon refills');
+if (!M.markers.shutoffs || M.markers.shutoffs.length !== 3) throw new Error('need 3 shutoff boxes');
+['B1', 'B2', 'B3'].forEach(function (id) {
+  if (!M.markers.refills.filter(function (p) { return p.id === id; }).length) throw new Error('missing ' + id);
+});
+['K1', 'K2', 'K3'].forEach(function (id) {
+  if (!M.markers.shutoffs.filter(function (p) { return p.id === id; }).length) throw new Error('missing ' + id);
+});
 if (M.securityPosts('easy').length !== 4) throw new Error('easy should staff 4 posts');
 if (M.securityPosts('medium').length !== 6 || M.securityPosts('hard').length !== 6) {
   throw new Error('medium/hard should staff 6 posts');
@@ -55,6 +62,8 @@ mustPath(M.markers.P, M.markers.fuses[0], 'P→key1');
 mustPath(M.markers.P, M.markers.fuses[1], 'P→key2');
 mustPath(M.markers.P, M.markers.fuses[2], 'P→key3');
 mustPath(M.markers.P, M.markers.X, 'P→LZ');
+M.markers.refills.forEach(function (p) { mustPath(M.markers.P, p, 'P→' + p.id); });
+M.markers.shutoffs.forEach(function (p) { mustPath(M.markers.P, p, 'P→' + p.id); });
 M.markers.security.forEach(function (p) {
   mustPath(p, M.markers.P, p.id + '→P');
 });

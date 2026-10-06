@@ -164,6 +164,7 @@
   var C_YELLOW = [1.0, 0.92, 0.12];   // laser alarm beams
   var C_AMBER = [1.0, 0.70, 0.28];
   var C_CYAN = [0.43, 0.91, 0.91];
+  var C_SHUT = [0.92, 0.22, 0.58];
   var C_RED = [1.0, 0.27, 0.27];
   var C_POW = [0.08, 0.45, 0.18];   // rescued POW — dark green LiDAR
   var C_DOOR = [0.12, 0.28, 0.72];   // locked blast doors — dark blue
@@ -245,6 +246,10 @@
   var beacons = [];
   var beaconsLeft = 0;
   var beaconsMax = 0;
+  var beaconPacks = [];
+  var shutBoxes = [];
+  var laserShutoffLeft = 0;
+  var SHUTOFF_S = 15;
   var BEACON_LIFE = 10;
   var BEACON_PULSE = 0.72;
   var BEACON_LOUD = 38;
@@ -1129,6 +1134,13 @@
     accessKeys = M.markers.fuses.filter(Boolean).map(function (f) {
       return { x: f.x, z: f.z, taken: false };
     });
+    beaconPacks = (M.markers.refills || []).map(function (p) {
+      return { x: p.x, z: p.z, taken: false, id: p.id };
+    });
+    shutBoxes = (M.markers.shutoffs || []).map(function (p) {
+      return { x: p.x, z: p.z, used: false, id: p.id };
+    });
+    laserShutoffLeft = 0;
     keysCollected = 0; doorsOpen = 0;
     beacons = [];
     beaconsMax = beaconQuota();
@@ -1950,8 +1962,8 @@
       bestT = hit.t;
     }
 
-    // yellow laser beams
-    var lt = M.rayLaser(ox, oy, oz, dx, dy, dz, SCAN_RANGE);
+    // yellow laser beams (silent while a shutoff is live)
+    var lt = laserShutoffLeft > 0 ? -1 : M.rayLaser(ox, oy, oz, dx, dy, dz, SCAN_RANGE);
     if (lt > 0 && lt < bestT) {
       bestT = lt; color = C_YELLOW; life = 8;
     }
@@ -1977,6 +1989,16 @@
         bestT = t; color = C_AMBER; life = ITEM_LIFE;
         keyHit = accessKeys[i]; keyHitT = t;
       }
+    }
+    for (i = 0; i < beaconPacks.length; i++) {
+      if (beaconPacks[i].taken) continue;
+      t = raySphere(ox, oy, oz, dx, dy, dz, { x: beaconPacks[i].x, y: 0.7, z: beaconPacks[i].z, r: 0.28 });
+      if (t > 0 && t < bestT) { bestT = t; color = C_CYAN; life = ITEM_LIFE; }
+    }
+    for (i = 0; i < shutBoxes.length; i++) {
+      if (shutBoxes[i].used) continue;
+      t = raySphere(ox, oy, oz, dx, dy, dz, { x: shutBoxes[i].x, y: 0.85, z: shutBoxes[i].z, r: 0.32 });
+      if (t > 0 && t < bestT) { bestT = t; color = C_SHUT; life = ITEM_LIFE; }
     }
     // locked blast doors — dark blue slab (also fills gaps if ray grazes)
     if (!skipArch) {
@@ -2151,6 +2173,22 @@
       dot = (tfx * dx + tfz * dz) / dist;
       if (dot >= bestDot) { bestDot = dot; best = { kind: 'key', i: i, dist: dist }; }
     }
+    for (i = 0; i < beaconPacks.length; i++) {
+      if (beaconPacks[i].taken) continue;
+      tfx = beaconPacks[i].x - ox; tfz = beaconPacks[i].z - oz;
+      dist = Math.sqrt(tfx * tfx + tfz * tfz);
+      if (dist > VR_AIM_MAX) continue;
+      dot = (tfx * dx + tfz * dz) / dist;
+      if (dot >= bestDot) { bestDot = dot; best = { kind: 'refill', i: i, dist: dist }; }
+    }
+    for (i = 0; i < shutBoxes.length; i++) {
+      if (shutBoxes[i].used) continue;
+      tfx = shutBoxes[i].x - ox; tfz = shutBoxes[i].z - oz;
+      dist = Math.sqrt(tfx * tfx + tfz * tfz);
+      if (dist > VR_AIM_MAX) continue;
+      dot = (tfx * dx + tfz * dz) / dist;
+      if (dot >= bestDot) { bestDot = dot; best = { kind: 'shutoff', i: i, dist: dist }; }
+    }
     for (i = 0; i < M.markers.doors.length; i++) {
       if (!M.markers.doors[i].locked) continue;
       tfx = M.markers.doors[i].x - ox; tfz = M.markers.doors[i].z - oz;
@@ -2194,6 +2232,27 @@
     queueMsg(tutorialMode
       ? 'ACCESS KEY RECOVERED — OPEN THE NEXT DOOR'
       : 'ACCESS KEY RECOVERED ' + keysCollected + '/3', 'amber');
+  }
+
+  function takeRefill(i) {
+    if (!beaconPacks[i] || beaconPacks[i].taken) return;
+    beaconPacks[i].taken = true;
+    beaconsLeft++;
+    if (beaconsLeft > beaconsMax) beaconsMax = beaconsLeft;
+    A.fuseChime();
+    emitNoise(NOISE_INTERACT * 0.5);
+    if (R.expirePointsNear) R.expirePointsNear(beaconPacks[i].x, beaconPacks[i].z, 1.4, now);
+    queueMsg('BEACON REFILL +1 — ' + beaconsLeft + ' READY', 'amber', 3);
+  }
+
+  function useShutoff(i) {
+    if (!shutBoxes[i] || shutBoxes[i].used) return;
+    shutBoxes[i].used = true;
+    laserShutoffLeft = SHUTOFF_S;
+    A.clunk && A.clunk(0);
+    emitNoise(NOISE_INTERACT);
+    if (R.expirePointsNear) R.expirePointsNear(shutBoxes[i].x, shutBoxes[i].z, 1.4, now);
+    queueMsg('TRIPWIRES DOWN — 15 SECONDS', 'amber', 4);
   }
 
   function tryJackIn() {
@@ -2624,6 +2683,14 @@
         takeKey(pick.i);
         return;
       }
+      if (pick && pick.kind === 'refill' && pick.dist <= range) {
+        takeRefill(pick.i);
+        return;
+      }
+      if (pick && pick.kind === 'shutoff' && pick.dist <= range) {
+        useShutoff(pick.i);
+        return;
+      }
       if (pick && pick.kind === 'door' && pick.dist <= range + 0.8) {
         // fall through to door unlock using that door via near() — force proximity by using door coords
         var aimed = M.markers.doors[pick.i];
@@ -2655,6 +2722,18 @@
     for (var i = 0; i < accessKeys.length; i++) {
       if (!accessKeys[i].taken && near(accessKeys[i].x, accessKeys[i].z, range)) {
         takeKey(i);
+        return;
+      }
+    }
+    for (i = 0; i < beaconPacks.length; i++) {
+      if (!beaconPacks[i].taken && near(beaconPacks[i].x, beaconPacks[i].z, range)) {
+        takeRefill(i);
+        return;
+      }
+    }
+    for (i = 0; i < shutBoxes.length; i++) {
+      if (!shutBoxes[i].used && near(shutBoxes[i].x, shutBoxes[i].z, range)) {
+        useShutoff(i);
         return;
       }
     }
@@ -2701,9 +2780,17 @@
 
   function updateLasers(dt) {
     var id;
+    if (laserShutoffLeft > 0) {
+      laserShutoffLeft -= dt;
+      if (laserShutoffLeft <= 0) {
+        laserShutoffLeft = 0;
+        queueMsg('TRIPWIRES LIVE', 'amber', 3);
+      }
+    }
     for (id in laserCooldown) {
       if (laserCooldown[id] > 0) laserCooldown[id] -= dt;
     }
+    if (laserShutoffLeft > 0) return;
     var hit = M.laserHitPlayer(player.x, player.z, PLAYER_RADIUS + 0.15);
     if (!hit) return;
     if (laserCooldown[hit.id] > 0) return;
@@ -2760,6 +2847,10 @@
         var aim = vrAimPick();
         if (aim && aim.kind === 'key' && aim.dist <= hintRange + 0.6) {
           hint = btn + ' RECOVER ACCESS KEY';
+        } else if (aim && aim.kind === 'refill' && aim.dist <= hintRange + 0.6) {
+          hint = btn + ' BEACON REFILL';
+        } else if (aim && aim.kind === 'shutoff' && aim.dist <= hintRange + 0.6) {
+          hint = btn + ' SHUTOFF — WIRES DOWN 15s';
         } else if (aim && aim.kind === 'door' && aim.dist <= hintRange + 0.8) {
           var ad = M.markers.doors[aim.i];
           var an = doorKeysNeeded(ad);
@@ -2777,6 +2868,16 @@
       for (i = 0; i < accessKeys.length; i++) {
         if (!accessKeys[i].taken && near(accessKeys[i].x, accessKeys[i].z, hintRange)) {
           hint = btn + ' RECOVER ACCESS KEY';
+        }
+      }
+      for (i = 0; i < beaconPacks.length; i++) {
+        if (!beaconPacks[i].taken && near(beaconPacks[i].x, beaconPacks[i].z, hintRange)) {
+          hint = btn + ' BEACON REFILL';
+        }
+      }
+      for (i = 0; i < shutBoxes.length; i++) {
+        if (!shutBoxes[i].used && near(shutBoxes[i].x, shutBoxes[i].z, hintRange)) {
+          hint = btn + ' SHUTOFF — WIRES DOWN 15s';
         }
       }
       for (i = 0; i < M.markers.doors.length; i++) {
@@ -2996,6 +3097,9 @@
         return '<span class="energized">LEAD POW TO THE CHOPPER</span>';
       }
       if (uplinkDone) return '<span class="energized">CLONE ON DRIVE</span>';
+      if (laserShutoffLeft > 0) {
+        return '<span class="energized">WIRES DOWN ' + Math.ceil(laserShutoffLeft) + 's</span>';
+      }
       if (M.isConsoleSealed()) {
         return 'KEY ' + keysCollected + '/3 · CONSOLE DOOR';
       }

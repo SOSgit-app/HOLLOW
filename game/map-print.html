@@ -31,21 +31,17 @@
   .sheet { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
   canvas { border: 1px solid #14181c; display: block; }
   aside { width: 250px; flex: none; font-size: 9.5px; line-height: 1.45; }
+  body.team-4 aside { display: none; }
   h2 {
     font-size: 9.5px; letter-spacing: .16em; margin: 0 0 4px;
     padding-bottom: 2px; border-bottom: 1px solid #c3cad1;
   }
-  section + section { margin-top: 10px; }
-  .nav-legend { margin-bottom: 10px; }
+  .nav-legend { margin-bottom: 0; }
   body.team-4 .nav-legend { display: none; }
   .legend { display: flex; flex-direction: column; gap: 3px; }
   .legend-row { display: flex; align-items: center; gap: 6px; }
   .legend canvas { display: block; width: 18px; height: 18px; flex: none; }
   .legend-row span { line-height: 1.2; }
-  table { border-collapse: collapse; width: 100%; font-size: 9px; }
-  th, td { text-align: left; padding: 0.5px 4px 0.5px 0; vertical-align: top; }
-  th { color: #5a6570; font-weight: normal; letter-spacing: .08em; }
-  td.ref { color: #5a6570; white-space: nowrap; }
   .facts { display: flex; gap: 14px; margin-top: 10px; font-size: 9.5px; line-height: 1.45; }
   .facts > div { flex: 1; }
   ul { margin: 0; padding-left: 13px; }
@@ -65,6 +61,7 @@
     .page:last-child { page-break-after: auto; }
     .team-3 .ctrl-page { display: none !important; }
     body.team-4 .nav-legend { display: none !important; }
+    body.team-4 aside { display: none !important; }
   }
 </style>
 </head>
@@ -90,7 +87,7 @@
   <div class="page visible" id="page-watch" data-role="WATCH">
     <header>
       <h1 class="map-title">HOLLOW — WATCH</h1>
-      <span class="sub map-sub">FULL FLOOR + WALL CODES · TRIPWIRES · SAFE SPACES · PATROL POSTS</span>
+      <span class="sub map-sub">FULL FLOOR + WALL CODES · TRIPWIRES · SAFE SPACES · PATROL POSTS · SHUTOFFS</span>
       <span class="tag map-tag">WATCH</span>
     </header>
     <div class="sheet">
@@ -100,10 +97,6 @@
           <h2>LEGEND</h2>
           <div class="legend" data-legend="WATCH"></div>
         </section>
-        <section>
-          <h2>ON YOUR SHEET</h2>
-          <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
-        </section>
       </aside>
     </div>
     <div class="facts nav-facts"></div>
@@ -112,7 +105,7 @@
   <div class="page" id="page-access" data-role="ACCESS">
     <header>
       <h1 class="map-title">HOLLOW — ACCESS</h1>
-      <span class="sub map-sub">FULL FLOOR + WALL CODES · KEYS · DOORS · CORE · LZ</span>
+      <span class="sub map-sub">FULL FLOOR + WALL CODES · KEYS · DOORS · CORE · LZ · BEACON REFILLS</span>
       <span class="tag map-tag">ACCESS</span>
     </header>
     <div class="sheet">
@@ -121,10 +114,6 @@
         <section class="nav-legend">
           <h2>LEGEND</h2>
           <div class="legend" data-legend="ACCESS"></div>
-        </section>
-        <section>
-          <h2>ON YOUR SHEET</h2>
-          <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
         </section>
       </aside>
     </div>
@@ -175,8 +164,8 @@
         <div class="pow-box" id="pow-box">POW: Operator hears the wall code.</div>
         <h2>WHO HAS WHAT</h2>
         <ul>
-          <li id="ctrl-watch-who"><b>Watch</b> — tripwires, safe spaces, patrol posts. No keys, no doors, no LZ.</li>
-          <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P. No tripwires.</li>
+          <li id="ctrl-watch-who"><b>Watch</b> — tripwires, safe spaces, patrol posts, shutoff boxes. No keys, no doors, no LZ.</li>
+          <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P, beacon refills. No tripwires.</li>
           <li><b>You</b> — clock, checklist, both map legends. POW wall code comes from the Operator.</li>
         </ul>
       </div>
@@ -184,7 +173,7 @@
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=115"></script>
+<script src="src/map.js?v=116"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -196,19 +185,20 @@
     wall: '#333c46', floor: '#ffffff', grid: '#e4e8ec', harbor: '#c9e9d5',
     lz: '#ffe9a3', door: '#e07b2c', trip: '#d4a017', start: '#1f7a44',
     key: '#b3641b', core: '#4a3fa6', sec: '#b32530', code: '#1f6f8b',
+    refill: '#0d7a7a', shut: '#8a1560',
     ink: '#14181c', rule: '#8a949e'
   };
 
   var LAYERS = {
-    WATCH: { codes: true, trips: true, harbor: true, security: true },
-    ACCESS: { codes: true, keys: true, doors: true, core: true, lz: true, start: true }
+    WATCH: { codes: true, trips: true, harbor: true, security: true, shutoffs: true },
+    ACCESS: { codes: true, keys: true, doors: true, core: true, lz: true, start: true, refills: true }
   };
 
   function staffedPosts() {
     return M.securityPosts(sheetMode === 'easy' ? 'easy' : 'medium');
   }
 
-  var CELLPX = 13, PAD_L = 20, PAD_T = 18, PAD_R = 8, PAD_B = 8, SCALE = 3;
+  var CELLPX = 18, PAD_L = 24, PAD_T = 20, PAD_R = 10, PAD_B = 10, SCALE = 3;
 
   function cx(c) { return PAD_L + c * CELLPX; }
   function cy(r) { return PAD_T + r * CELLPX; }
@@ -257,6 +247,7 @@
     if (L.trips) items.push(['trip', null, 'Tripwire']);
     if (L.start) items.push(['dot', C.start, 'P — infil / start', 'P']);
     if (L.keys) items.push(['dot', C.key, '1–3 — access keys', '1']);
+    if (L.refills) items.push(['dot', C.refill, 'B — beacon refill', 'B']);
     if (L.core) items.push(['sq', C.core, 'G — AI core (jack-in)', 'G']);
     if (L.lz) items.push(['sq', '#8a6100', 'X — landing zone', 'X']);
     if (L.security) {
@@ -264,6 +255,7 @@
         ? 'U1–U4 — patrol posts (start)'
         : 'U1–U6 — patrol posts (start)', '1']);
     }
+    if (L.shutoffs) items.push(['sq', C.shut, 'K — shutoff (15s, one-shot)', 'K']);
     el.innerHTML = '';
     items.forEach(function (row) {
       var kind = row[0], fill = row[1], label = row[2], letter = row[3];
@@ -355,7 +347,7 @@
       }
     }
 
-    ctx.fillStyle = C.rule; ctx.font = '7px Consolas, monospace';
+    ctx.fillStyle = C.rule; ctx.font = '8px Consolas, monospace';
     ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
     for (c = 0; c < COLS; c += 5) ctx.fillText(String(c), cx(c) + CELLPX / 2, PAD_T - 3);
     ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
@@ -371,7 +363,7 @@
         ctx.stroke();
         var tx = cx(m.c) + CELLPX / 2 + m.faceC * CELLPX * 0.18;
         var ty = cy(m.r) + CELLPX / 2 + m.faceR * CELLPX * 0.18;
-        ctx.font = 'bold 8px Consolas, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.font = 'bold 9.5px Consolas, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.lineJoin = 'round'; ctx.lineWidth = 3.2; ctx.strokeStyle = '#fff'; ctx.strokeText(m.code, tx, ty);
         ctx.fillStyle = C.code; ctx.fillText(m.code, tx, ty);
       });
@@ -423,12 +415,14 @@
     }
 
     if (L.keys) M.markers.fuses.forEach(function (f, i) { disc(ctx, f, String(i + 1), C.key); });
+    if (L.refills) (M.markers.refills || []).forEach(function (p) { disc(ctx, p, 'B', C.refill); });
     if (L.core) disc(ctx, M.markers.G, 'G', C.core, true);
     if (L.security) {
       staffedPosts().forEach(function (p) {
         disc(ctx, p, p.id.replace('U', ''), C.sec);
       });
     }
+    if (L.shutoffs) (M.markers.shutoffs || []).forEach(function (p) { disc(ctx, p, 'K', C.shut, true); });
     if (L.lz) disc(ctx, M.markers.X, 'X', '#8a6100', true);
     if (L.start) disc(ctx, M.markers.P, 'P', C.start);
 
@@ -437,7 +431,7 @@
       if (harbors && harbors.length) {
         harbors.forEach(function (h) {
           var wide = (h.c1 - h.c0) >= 4;
-          ctx.fillStyle = '#2c6b45'; ctx.font = 'bold 7.5px Consolas, monospace';
+          ctx.fillStyle = '#2c6b45'; ctx.font = 'bold 9px Consolas, monospace';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
           ctx.fillText(
             wide ? h.label.toUpperCase() : 'SAFE',
@@ -449,59 +443,15 @@
     }
   }
 
-  function fillStations(body, role) {
-    var L = LAYERS[role];
-    function gridRef(p) { return Math.floor(p.x / M.CELL) + ',' + Math.floor(p.z / M.CELL); }
-    var stations = [];
-    if (L.start && M.markers.P) stations.push(['P', 'Infil / start', gridRef(M.markers.P)]);
-    if (L.keys) {
-      M.markers.fuses.forEach(function (f, i) {
-        stations.push([String(i + 1), 'Access key', gridRef(f)]);
-      });
-    }
-    if (L.doors) {
-      M.markers.doors.forEach(function (d) {
-        stations.push([d.id, d.console ? 'Console door (3 keys)' : 'Blast door (1 key)', d.c + ',' + d.r]);
-      });
-    }
-    if (L.core && M.markers.G) stations.push(['G', 'AI core / jack-in', gridRef(M.markers.G)]);
-    if (L.lz && M.markers.X) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
-    if (L.security) {
-      staffedPosts().forEach(function (p) {
-        stations.push([p.id, p.label, p.c + ',' + p.r]);
-      });
-    }
-    if (L.trips) {
-      (M.markers.lasers || []).forEach(function (Lw) {
-        stations.push([
-          'T',
-          'Tripwire ' + Lw.id.replace('L-', '').toLowerCase(),
-          Math.floor(((Lw.x0 + Lw.x1) * 0.5) / M.CELL) + ',' + Math.floor(((Lw.z0 + Lw.z1) * 0.5) / M.CELL)
-        ]);
-      });
-    }
-    if (L.harbor) {
-      (M.markers.harbors || []).forEach(function (h) {
-        stations.push([h.id, h.label, h.c0 + ',' + h.r0]);
-      });
-    }
-    body.innerHTML = '';
-    stations.forEach(function (row) {
-      var tr = document.createElement('tr');
-      tr.innerHTML = '<td><b>' + row[0] + '</b></td><td>' + row[1] + '</td><td class="ref">' + row[2] + '</td>';
-      body.appendChild(tr);
-    });
-  }
-
   function navFactsHtml(role) {
     var missing = role === 'WATCH'
-      ? 'You do <b>not</b> have keys, doors, the core, or the LZ. Ask Access.'
-      : 'You do <b>not</b> have tripwires, the safe spaces, or patrol posts. Ask Watch.';
+      ? 'You do <b>not</b> have keys, doors, the core, the LZ, or beacon refills. Ask Access.'
+      : 'You do <b>not</b> have tripwires, the safe spaces, patrol posts, or shutoff boxes. Ask Watch.';
     var yours = role === 'WATCH'
       ? (sheetMode === 'easy'
-        ? 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), and patrol posts <b>U1–U4</b>. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.'
-        : 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), and patrol posts <b>U1–U6</b>. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.')
-      : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, and infil P.';
+        ? 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U4</b>, and three shutoff boxes <b>K</b>. Press X on a box kills every tripwire for 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.'
+        : 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U6</b>, and three shutoff boxes <b>K</b>. Press X on a box kills every tripwire for 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.')
+      : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, infil P, and three beacon refills <b>B</b> (+1 throw each).';
     return (
       '<div><h2>YOUR JOB</h2><ul>' +
       '<li>Full floor. Wall codes. You can place the Operator anywhere they call.</li>' +
@@ -517,8 +467,8 @@
       '</ul></div>' +
       '<div><h2>ROLES</h2><ul>' +
       '<li><b>OPERATOR</b> — VR.</li>' +
-      '<li><b>WATCH</b> — wires / safe spaces / patrol posts.</li>' +
-      '<li><b>ACCESS</b> — keys / doors / G / X.</li>' +
+      '<li><b>WATCH</b> — wires / safe spaces / patrol posts / shutoffs.</li>' +
+      '<li><b>ACCESS</b> — keys / doors / G / X / beacon refills.</li>' +
       (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, both legends. No map. POW code comes from the Operator.</li>' : '<li>3-person: you two share the clock out loud. POW code comes from the Operator.</li>') +
       '</ul></div>'
     );
@@ -565,7 +515,6 @@
       page.querySelector('.map-title').textContent = 'HOLLOW — ' + role;
       page.querySelector('.map-tag').textContent = pack + ' · ' + diff + ' · ' + role;
       drawMap(page.querySelector('.map-canvas'), role);
-      fillStations(page.querySelector('.stations'), role);
       fillLegend(page.querySelector('[data-legend]'), role);
       page.querySelector('.nav-facts').innerHTML = navFactsHtml(role);
     });
@@ -576,8 +525,8 @@
     var watchWho = document.getElementById('ctrl-watch-who');
     if (watchWho) {
       watchWho.innerHTML = easy
-        ? '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U4. No keys, no doors, no LZ.'
-        : '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6. No keys, no doors, no LZ.';
+        ? '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U4, shutoff boxes K. No keys, no doors, no LZ.'
+        : '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6, shutoff boxes K. No keys, no doors, no LZ.';
     }
     document.title = 'HOLLOW — ' + pack + ' ' + diff;
   }

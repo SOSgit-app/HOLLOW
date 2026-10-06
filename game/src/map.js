@@ -171,6 +171,8 @@
     markers.doors = [];
     markers.security = [];
     markers.harbors = [];
+    markers.refills = [];
+    markers.shutoffs = [];
     ROWS = rows.length;
     COLS = rows[0].length;
     grid = [];
@@ -243,6 +245,7 @@
 
     placeLzPad();
     buildSecurityPosts();
+    placeWorldPickups();
 
     buildWallMarks();
     buildPowSites();
@@ -316,6 +319,28 @@
     post('U4', 5, 24, 'W', 'West annex');
     post('U5', 22, 8, 'W', 'North lab');
     post('U6', 32, 34, 'E', 'South hall');
+  }
+
+  // Access: beacon refills (B). Watch: one-shot tripwire shutoffs (K).
+  function placeWorldPickups() {
+    markers.refills = [];
+    markers.shutoffs = [];
+    if (currentLayout === 'tutorial') return;
+    function put(list, id, c, r) {
+      if (c < 0 || r < 0 || c >= COLS || r >= ROWS || grid[r][c]) {
+        throw new Error('HOLLOW pickup on solid/invalid ' + id + ' @' + c + ',' + r);
+      }
+      list.push({
+        id: id, c: c, r: r,
+        x: (c + 0.5) * CELL, z: (r + 0.5) * CELL
+      });
+    }
+    put(markers.refills, 'B1', 12, 12);
+    put(markers.refills, 'B2', 10, 32);
+    put(markers.refills, 'B3', 43, 16);
+    put(markers.shutoffs, 'K1', 3, 16);
+    put(markers.shutoffs, 'K2', 20, 4);
+    put(markers.shutoffs, 'K3', 40, 26);
   }
 
   function securityPosts(diff) {
