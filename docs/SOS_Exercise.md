@@ -30,7 +30,7 @@ Same two maps, plus:
 
 | Role | Packet | Does |
 |---|---|---|
-| **Controller** | One card, **no map** | Clock, objective ticks, **POW grid** (not on Watch or Access) |
+| **Controller** | One card, **no map** | Clock, objective ticks, **POW grid**, **Watch + Access legends** |
 
 Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **PRINT PACKET** (3 pages: Watch, Access, Controller).
 

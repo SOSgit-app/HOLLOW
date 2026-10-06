@@ -54,7 +54,8 @@
   li { margin-bottom: 2px; }
   .page { display: none; }
   .page.visible { display: block; }
-  .ctrl-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 16px; margin-top: 10px; }
+  .ctrl-grid { display: grid; grid-template-columns: 1.05fr 0.85fr 1fr; gap: 14px; margin-top: 10px; }
+  .ctrl-legends { display: grid; grid-template-columns: 1fr; gap: 12px; }
   .check { border: 1px solid #14181c; padding: 8px 10px; margin-top: 8px; }
   .check label { display: block; margin: 3px 0; }
   .note { font-size: 10px; line-height: 1.45; }
@@ -96,7 +97,6 @@
     <div class="sheet">
       <canvas class="map-canvas"></canvas>
       <aside>
-        <section><h2>LEGEND</h2><div class="legend"></div></section>
         <section>
           <h2>ON YOUR SHEET</h2>
           <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
@@ -115,7 +115,6 @@
     <div class="sheet">
       <canvas class="map-canvas"></canvas>
       <aside>
-        <section><h2>LEGEND</h2><div class="legend"></div></section>
         <section>
           <h2>ON YOUR SHEET</h2>
           <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
@@ -128,13 +127,13 @@
   <div class="page ctrl-page" id="page-ctrl">
     <header>
       <h1>HOLLOW — CONTROLLER</h1>
-      <span class="sub">NO FLOOR PLAN · CLOCK · OBJECTIVES · POW COORDS</span>
+      <span class="sub">NO FLOOR PLAN · CLOCK · OBJECTIVES · POW · BOTH MAP LEGENDS</span>
       <span class="tag" id="ctrl-tag">4-PERSON ONLY</span>
     </header>
     <div class="ctrl-grid">
       <div>
         <h2>YOUR JOB</h2>
-        <p class="note">Watch and Access both have the full map and wall codes. You do <b>not</b>. You run the 10:00 clock, tick the objectives, and you are the only one who knows where the POW is. Do not grab a navigator sheet.</p>
+        <p class="note">Watch and Access both have the full map and wall codes. You do <b>not</b>. You run the 10:00 clock, tick the objectives, hold both legends, and you are the only one who knows where the POW is. Do not grab a navigator sheet.</p>
         <h2>RADIO</h2>
         <p class="note">Operator lost? Tell them to read a wall code. <b>Both</b> navigators can place it. Then ask Watch “is that hall wired?” and Access “keys / door / LZ from here?”</p>
         <h2>CLOCK &amp; RULES</h2>
@@ -153,6 +152,16 @@
           <label>☐ Chopper inbound &nbsp; ☐ On the pad</label>
         </div>
       </div>
+      <div class="ctrl-legends">
+        <section>
+          <h2>WATCH LEGEND</h2>
+          <div class="legend" id="legend-watch"></div>
+        </section>
+        <section>
+          <h2>ACCESS LEGEND</h2>
+          <div class="legend" id="legend-access"></div>
+        </section>
+      </div>
       <div>
         <h2>POW — YOU ONLY</h2>
         <p class="note">Not printed on Watch or Access. If they choose rescue, read this grid. Operator paints the POW dark green on LiDAR.</p>
@@ -161,7 +170,7 @@
         <ul>
           <li><b>Watch</b> — tripwires, Faraday harbors, patrol posts U1–U4. No keys, no doors, no LZ.</li>
           <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P. No tripwires.</li>
-          <li><b>You</b> — clock, checklist, POW.</li>
+          <li><b>You</b> — clock, checklist, POW, both map legends.</li>
         </ul>
       </div>
     </div>
@@ -424,6 +433,7 @@
       '<li>Full floor. Wall codes. You can place the Operator anywhere they call.</li>' +
       '<li>' + yours + '</li>' +
       '<li>' + missing + '</li>' +
+      (team === 4 ? '<li>Color legend is on the <b>Controller</b> card. Ask them what a mark means.</li>' : '') +
       '</ul></div>' +
       '<div><h2>SHARED</h2><ul>' +
       '<li>3 keys → D3 (all 3) → jack-in at G (press X, hold X to download) → POW or virus → yellow pad X.</li>' +
@@ -433,7 +443,7 @@
       '<li><b>OPERATOR</b> — VR.</li>' +
       '<li><b>WATCH</b> — wires / harbors / patrol posts.</li>' +
       '<li><b>ACCESS</b> — keys / doors / G / X.</li>' +
-      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, POW coords. No map.</li>' : '<li>3-person: you two share the clock out loud.</li>') +
+      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, POW, both legends. No map.</li>' : '<li>3-person: you two share the clock out loud.</li>') +
       '</ul></div>'
     );
   }
@@ -476,10 +486,11 @@
       page.querySelector('.map-title').textContent = 'HOLLOW — ' + role;
       page.querySelector('.map-tag').textContent = pack + ' · ' + diff + ' · ' + role;
       drawMap(page.querySelector('.map-canvas'), role);
-      fillLegend(page.querySelector('.legend'), role);
       fillStations(page.querySelector('.stations'), role);
       page.querySelector('.nav-facts').innerHTML = navFactsHtml(role);
     });
+    fillLegend(document.getElementById('legend-watch'), 'WATCH');
+    fillLegend(document.getElementById('legend-access'), 'ACCESS');
     fillPow();
     document.getElementById('ctrl-tag').textContent = pack + ' · ' + diff;
     document.title = 'HOLLOW — ' + pack + ' ' + diff;
