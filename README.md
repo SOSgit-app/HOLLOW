@@ -10,7 +10,7 @@ vision is a LiDAR scanner: every point is a return you fired. Security is
 blind but hears emissions — scans, footsteps, voice, alarms.
 
 No combat. Recover access keys, unlock blast doors, jack into the core
-(handshake pads — Solver has the dossier), then board the chopper LZ
+(press X — the clone writes itself), then board the chopper LZ
 before it departs.
 
 ## Run it
@@ -24,19 +24,18 @@ No build step, no dependencies, no network. Either:
 Headphones strongly recommended. Sound is not decoration here — it is the
 primary threat-detection system.
 
-## SOS Mission Command (two-person cyber raid)
+## SOS Mission Command (3- or 4-person cyber raid)
 
-HOLLOW supports a Squadron Officer School-style exercise: one **Operator** in
-VR, one or two **Mission Directors** with the printed map, and one **Solver**
-with the two-page core-access dossier.
+HOLLOW is a Squadron Officer School-style exercise: one **Operator** in VR,
+two **navigators** with incomplete half-maps, and (in a 4-person team) a
+**Controller** with the clock and wall-code index — no maze.
 
 - Exercise guide: [`docs/SOS_Exercise.md`](docs/SOS_Exercise.md)
-- Mission map PDF: [`game/assets/HOLLOW_Mission_Map.pdf`](game/assets/HOLLOW_Mission_Map.pdf)
-- Printable diagram: [`game/map-print.html`](game/map-print.html)
-- Solver dossier (front and back): [`game/circuit-print.html`](game/circuit-print.html)
-- Live game: https://smallerbytes.github.io/HOLLOW/game/
+- 3-person maps: [`game/map-print.html?team=3`](game/map-print.html?team=3#easy-west)
+- 4-person packet: [`game/map-print.html?team=4`](game/map-print.html?team=4#easy-west)
+- Live game: https://sosgit-app.github.io/HOLLOW/game/
 
-**Objective:** recover access keys → unlock blast doors → jack-in handshake →
+**Objective:** recover access keys → unlock blast doors → jack-in (press X) →
 board the **LZ** before the chopper departs (10:00 blackout window).
 
 **Harbor green** = Faraday shelter · **Yellow** = tripwire · **LZ** = chopper pad (map-guided).

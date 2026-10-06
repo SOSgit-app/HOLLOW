@@ -2,23 +2,38 @@
 
 ## Purpose
 
-Three-to-four-person experiential for **Squadron Officer School**-style mission command:
+Three- or four-person experiential for **Squadron Officer School**-style mission command:
 
-- Incomplete information (fog of war)
+- Incomplete information (split maps)
 - Shared understanding built over voice
-- Parallel work on a clock (map vs core-access dossier)
-- Signature / EMCON management (scans, movement, speech)
-- Time-sensitive extract after objective complete
+- Everyone busy from harbor to chopper
+- Signature / EMCON (scans, movement, speech)
+- Time-sensitive extract
 
 Fictional enemy C2 node raid. No real unit OPSEC.
 
-## Roles
+## 3-person team
 
-| Role | Position | Sees | Does |
-|---|---|---|---|
-| **Operator** | Quest 2 VR (or desktop) | LiDAR only | Recover keys, unlock doors, jack-in, board LZ |
-| **Mission Director** (1–2) | Laptop / printout | [Mission Map](../game/assets/HOLLOW_Mission_Map.pdf) / [map-print.html](../game/map-print.html) | Routes Operator by voice; no live threat picture; **does not** open the dossier |
-| **Solver** | Printout | [Core Access Dossier](../game/circuit-print.html) (2 pages, front and back) | Starts at briefing. Finishes **before** the Operator reaches the core. At jack-in, listens for the serial and reads the pad order |
+| Role | Packet | Does |
+|---|---|---|
+| **Operator** | Quest headset | LiDAR, keys, doors, jack-in, extract |
+| **West navigator** | West half of the map **with** wall codes | Routes while the Operator is west of the dashed seam |
+| **East navigator** | East half **with** wall codes | Routes east of the seam (keys 2–3, console G) |
+
+You two share the clock out loud. Hand the Operator off at the seam.
+
+Print: [map-print.html?team=3](../game/map-print.html?team=3#easy-west) — **PRINT PACKET** (2 pages: West, East). Easy vs Med/Hard tabs.
+
+## 4-person team
+
+| Role | Packet | Does |
+|---|---|---|
+| **Operator** | Quest headset | Same as above |
+| **West navigator** | West half, **no** wall codes | Hallways west of the seam |
+| **East navigator** | East half, **no** wall codes | Hallways east of the seam |
+| **Controller** | One card, no maze | Clock, objective ticks, **wall-code index**. Operator calls a code; Controller names West or East and which wall |
+
+Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-west) — **PRINT PACKET** (3 pages: West, East, Controller).
 
 ## Commander's intent (read aloud)
 
@@ -28,53 +43,32 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 
 1. Recover **3 access keys** (amber)
 2. Open **console door D3** (requires all 3 keys). D1/D2 optional (1 key each)
-3. **Jack-in** at the console (core handshake). Operator reads the **CORE SERIAL**. Solver already has the pad order from the dossier. 60s lockout per stage.
-4. Clone the model, then rescue the POW **or** plant the virus
-5. **Chopper inbound** — LZ pulses slowly
-6. **On station** — board the pad or **left behind**
+3. **Jack-in** at G — press X. The clone writes itself. Then rescue the POW **or** plant the virus
+4. **Chopper inbound**, then **on station** — board the yellow pad or **left behind**
 
 ## Setup
 
-1. Print the Mission Map for the Director (single-sided is fine).
-2. Print the [Core Access Dossier](../game/circuit-print.html) for the Solver — **one sheet, duplex (front and back)**.
-3. Operator opens the game in Quest Browser.
-4. Allow microphone (speech raises signature).
-5. Director states intent; Operator backbriefs first route. Solver starts the dossier immediately — do not wait for the console.
-
-## Jack-in (what each person sees)
-
-- **Operator:** a 3×3 of colored pads plus a three-character serial. They can name pads (`B1` or `blue square`). They cannot see which order is correct. Tutorial shows the order so they can learn the buttons alone.
-- **Solver:** the only copy of the intercepts. First character of the serial picks the band: **1–3 WEST**, **4–6 EAST**, **7–9 / A–F CORE**.
-- **Director:** stays on the map. Wall codes, keys, doors, LZ.
-
-Wrong sequence can be retried until the 60s lockout. Lockout alerts security. Serial does not change on retry.
+1. Print the packet for the team size (duplex not required; 2 or 3 landscape pages).
+2. Operator opens the game in Quest Browser.
+3. Allow microphone (speech raises signature).
+4. Controller (4-person) or both navigators (3-person) state intent. Operator backbriefs first route from the harbor.
 
 ## Systems
 
-- **Harbor green** — Faraday shelters (security will not kill/chase inside)
+- **Harbor green** — Faraday shelter (security will not kill/chase inside)
 - **Yellow tripwires** — alarm + force investigate
 - **Headset mic** — EMCON
-- **Flashing white LZ** — chopper pad (no 3D model)
+- **Yellow LZ** — chopper pad; does not paint on LiDAR — must be voiced
+- **Dashed seam** on the prints — West / East handoff
 
 ## Debrief
 
 1. Intent vs outcome?
-2. Where shared understanding broke (map vs dossier vs headset)?
-3. Was the Solver done before jack-in, or was the Operator waiting?
-4. Initiative under compromise — aligned?
-5. Reversible (harbor) vs irreversible (uplink alarm / missed LZ)?
-6. Signature vs speed tradeoffs?
+2. Where did the handoff at the seam break?
+3. (4-person) Did the Controller stay off the map?
+4. Harbor vs missed LZ — reversible vs not?
+5. Signature vs speed?
 
 ## Safety
 
 Stop word ends the exercise. Reduced Flash available. Limit VR sessions ~20–30 minutes.
-
-## Facilitator answer key (do not print for the Solver)
-
-Lawful log line is **02:14Z GREEN**. Discard RED-stamped traffic, any strip with a RED pad (A1 or C2), strips that are not exactly three pads, and invalid IDs. WEST stage 1 must start with GREEN (harbor).
-
-| Serial starts | Stage 1 | Stage 2 | Stage 3 |
-|---|---|---|---|
-| 1–3 WEST | C1 · B3 · B2 | A3 · B1 · C3 | B2 · A2 · A3 |
-| 4–6 EAST | B1 · A3 · C1 | C3 · B2 · B3 | A2 · C1 · B1 |
-| 7–9 / A–F CORE | B3 · C1 · A2 | B2 · C3 · A3 | A3 · B3 · C1 |

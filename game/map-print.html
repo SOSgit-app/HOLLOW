@@ -2,7 +2,7 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<title>HOLLOW — Mission Map (SOS)</title>
+<title>HOLLOW — Team Map Packet</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
   @page { size: landscape; margin: 8mm; }
@@ -14,36 +14,28 @@
     color: #14181c;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-
   header { display: flex; align-items: baseline; gap: 14px; border-bottom: 2px solid #14181c; padding-bottom: 6px; }
-  h1 { font-size: 17px; letter-spacing: .18em; margin: 0; }
+  h1 { font-size: 16px; letter-spacing: .16em; margin: 0; }
   header .sub { font-size: 10px; letter-spacing: .1em; color: #5a6570; }
   header .tag { margin-left: auto; font-size: 10px; letter-spacing: .14em; color: #5a6570; }
-
   .actions { margin: 12px 0 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .actions button, .actions a {
     font: inherit; font-size: 12px; padding: 8px 12px; margin: 0;
     border: 1px solid #14181c; background: #f2f4f6; color: #14181c;
     cursor: pointer; text-decoration: none;
   }
-  .tabs { display: inline-flex; border: 1px solid #14181c; margin-right: 8px; }
-  .tabs button {
-    border: none; margin: 0; background: #fff;
-    letter-spacing: .12em; font-size: 11px;
-  }
+  .tabs { display: inline-flex; border: 1px solid #14181c; }
+  .tabs button { border: none; margin: 0; background: #fff; letter-spacing: .12em; font-size: 11px; }
   .tabs button + button { border-left: 1px solid #14181c; }
   .tabs button.active { background: #14181c; color: #fff; }
-
   .sheet { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
   canvas { border: 1px solid #14181c; display: block; }
-
-  aside { width: 262px; flex: none; font-size: 9.5px; line-height: 1.45; }
+  aside { width: 250px; flex: none; font-size: 9.5px; line-height: 1.45; }
   h2 {
     font-size: 9.5px; letter-spacing: .16em; margin: 0 0 4px;
-    padding-bottom: 2px; border-bottom: 1px solid #c3cad1; color: #14181c;
+    padding-bottom: 2px; border-bottom: 1px solid #c3cad1;
   }
   section + section { margin-top: 10px; }
-
   .legend { display: grid; grid-template-columns: 16px 1fr; gap: 2px 6px; align-items: center; }
   .sw { width: 14px; height: 11px; border: 1px solid #6a7480; }
   .glyph {
@@ -52,338 +44,155 @@
     font-size: 8px; font-weight: bold; color: #fff;
   }
   .glyph.sq { border-radius: 3px; }
-
   table { border-collapse: collapse; width: 100%; font-size: 9px; }
   th, td { text-align: left; padding: 0.5px 4px 0.5px 0; vertical-align: top; }
   th { color: #5a6570; font-weight: normal; letter-spacing: .08em; }
   td.ref { color: #5a6570; white-space: nowrap; }
-
   .facts { display: flex; gap: 14px; margin-top: 10px; font-size: 9.5px; line-height: 1.45; }
   .facts > div { flex: 1; }
-  .facts b { letter-spacing: .04em; }
   ul { margin: 0; padding-left: 13px; }
   li { margin-bottom: 2px; }
-
+  .page { display: none; }
+  .page.visible { display: block; }
+  .ctrl-grid { display: grid; grid-template-columns: 1.1fr 1fr; gap: 16px; margin-top: 10px; }
+  .codes { font-size: 8.5px; column-count: 4; column-gap: 10px; }
+  .codes div { break-inside: avoid; padding: 1px 0; }
+  .codes b { letter-spacing: .04em; }
+  .check { border: 1px solid #14181c; padding: 8px 10px; margin-top: 8px; }
+  .check label { display: block; margin: 3px 0; }
+  .note { font-size: 10px; line-height: 1.45; }
   @media print {
     .actions { display: none; }
     body { padding: 0; }
-    .sheet, .facts { page-break-inside: avoid; }
+    .page { display: block !important; page-break-after: always; }
+    .page:last-child { page-break-after: auto; }
+    .team-3 .ctrl-page { display: none !important; }
   }
 </style>
 </head>
 <body>
-  <header>
-    <h1 id="map-title">HOLLOW — SITE C — EASY MAP</h1>
-    <span class="sub" id="map-sub">SUBLEVEL 2 · EMP BLACKOUT · EASY</span>
-    <span class="tag" id="map-tag">MISSION DIRECTOR SHEET</span>
-  </header>
-
   <div class="actions">
     <span class="tabs" role="tablist">
-      <button type="button" id="tab-easy" class="tab active" role="tab" aria-selected="true">EASY MAP</button>
-      <button type="button" id="tab-raid" class="tab" role="tab" aria-selected="false">MED / HARD MAP</button>
+      <button type="button" id="tab-team3" class="tab active">3-PERSON</button>
+      <button type="button" id="tab-team4" class="tab">4-PERSON</button>
     </span>
-    <button type="button" onclick="window.print()">PRINT / SAVE AS PDF</button>
-    <a href="circuit-print.html">SOLVER DOSSIER</a>
+    <span class="tabs" role="tablist">
+      <button type="button" id="tab-easy" class="tab active">EASY MAP</button>
+      <button type="button" id="tab-raid" class="tab">MED / HARD MAP</button>
+    </span>
+    <span class="tabs" role="tablist">
+      <button type="button" id="tab-west" class="tab active">WEST</button>
+      <button type="button" id="tab-east" class="tab">EAST</button>
+      <button type="button" id="tab-ctrl" class="tab">CONTROLLER</button>
+    </span>
+    <button type="button" onclick="window.print()">PRINT PACKET</button>
     <a href="index.html">BACK TO GAME</a>
   </div>
 
-  <div class="sheet">
-    <canvas id="map"></canvas>
-    <aside>
-      <section>
-        <h2>LEGEND</h2>
-        <div class="legend" id="legend"></div>
-      </section>
-
-      <section>
-        <h2>STATIONS</h2>
-        <table>
-          <thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead>
-          <tbody id="stations"></tbody>
-        </table>
-      </section>
-    </aside>
+  <div class="page visible" id="page-west" data-half="WEST">
+    <header>
+      <h1 class="map-title">HOLLOW — WEST NAVIGATOR</h1>
+      <span class="sub map-sub">YOUR HALF ONLY · HAND OFF AT THE SEAM</span>
+      <span class="tag map-tag">3-PERSON · WEST</span>
+    </header>
+    <div class="sheet">
+      <canvas class="map-canvas"></canvas>
+      <aside>
+        <section><h2>LEGEND</h2><div class="legend"></div></section>
+        <section>
+          <h2>ON YOUR SHEET</h2>
+          <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
+        </section>
+      </aside>
+    </div>
+    <div class="facts nav-facts"></div>
   </div>
 
-  <div class="facts">
-    <div>
-      <h2>OBJECTIVE</h2>
-      An EMP has blacked out the site. Recover the <b>3 access keys</b>,
-      open the console door <b>D3</b>, jack into the AI core at <b>G</b>
-      and clone the model. The Operator then locks an exfil path in VR
-      and extracts from the landing zone at <b>X</b>.
+  <div class="page" id="page-east" data-half="EAST">
+    <header>
+      <h1 class="map-title">HOLLOW — EAST NAVIGATOR</h1>
+      <span class="sub map-sub">YOUR HALF ONLY · HAND OFF AT THE SEAM</span>
+      <span class="tag map-tag">3-PERSON · EAST</span>
+    </header>
+    <div class="sheet">
+      <canvas class="map-canvas"></canvas>
+      <aside>
+        <section><h2>LEGEND</h2><div class="legend"></div></section>
+        <section>
+          <h2>ON YOUR SHEET</h2>
+          <table><thead><tr><th>ID</th><th>WHAT</th><th>GRID</th></tr></thead><tbody class="stations"></tbody></table>
+        </section>
+      </aside>
     </div>
-    <div>
-      <h2>ROLES</h2>
-      <ul>
-        <li><b>OPERATOR</b> — in VR. LiDAR goggles, Wristlink radar.</li>
-        <li><b>DIRECTOR</b> — this sheet. Holds the only full picture.</li>
-        <li><b>SOLVER</b> — core-access dossier (2 pages). Finish before jack-in.</li>
-      </ul>
-    </div>
-    <div>
-      <h2>ACCESS</h2>
-      <ul>
-        <li><b>D3</b> console door — needs all 3 keys.</li>
-        <li><b>D1 / D2</b> — 1 key each, optional shortcuts.</li>
-        <li>Jack-in is 1–3 handshake stages (set in Settings), 60s lockout each. Operator reads the serial; Solver has the pad order.</li>
-        <li><b>X</b> does not paint on LiDAR — it must be voiced.</li>
-      </ul>
-    </div>
-    <div>
-      <h2>WALL CODES</h2>
-      <ul>
-        <li>Every wall is stencilled with a code the Operator can read on LiDAR.</li>
-        <li>Lost? Have them sweep a wall and call the code — the tick mark on
-            this sheet is the exact wall they are facing.</li>
-        <li>Letter = zone, digit = mark within it. Codes count left to right,
-            top to bottom, so <b>K1</b> is above and left of <b>K6</b>.</li>
-      </ul>
-    </div>
-    <div>
-      <h2>THREAT &amp; CLOCK</h2>
-      <ul>
-        <li>Blackout window <b>10:00</b>, then site power returns.</li>
-        <li>After uplink: chopper inbound, then <b>1:30</b> on station — miss it and the Operator is left behind.</li>
-        <li id="fact-units"><b>4 security units</b> — 2 west half, 2 east half.</li>
-        <li id="fact-wires"><b>10 tripwires</b> — Easy adds 5 hallway beams.</li>
-        <li>Harbor is the one Faraday room — noise is masked there.</li>
-      </ul>
+    <div class="facts nav-facts"></div>
+  </div>
+
+  <div class="page ctrl-page" id="page-ctrl">
+    <header>
+      <h1>HOLLOW — CONTROLLER</h1>
+      <span class="sub">NO MAP · YOU OWN THE CLOCK AND THE WALL-CODE INDEX</span>
+      <span class="tag" id="ctrl-tag">4-PERSON ONLY</span>
+    </header>
+    <div class="ctrl-grid">
+      <div>
+        <h2>YOUR JOB</h2>
+        <p class="note">The Operator calls a wall code. You look it up. You tell <b>West</b> or <b>East</b> who is talking, and which wall they are on. You never describe hallways — that is the navigator. You run the 10:00 clock and the objective list.</p>
+        <h2>RADIO</h2>
+        <p class="note">Operator: <b>“K4.”</b><br>You: <b>“West — north wall. West, you have them.”</b><br>When they cross the dashed seam, hand the talker to the other navigator.</p>
+        <h2>CLOCK &amp; RULES</h2>
+        <ul>
+          <li>Blackout <b>10:00</b>, then power returns.</li>
+          <li>3 keys → open <b>D3</b> (needs all 3) → jack-in at <b>G</b> (press X, clone writes itself) → POW <b>or</b> virus → yellow pad <b>X</b>.</li>
+          <li><b>X</b> does not paint on LiDAR. You or the navigator must voice it.</li>
+          <li>Harbor (green) — security will not kill them there.</li>
+          <li>After clone: chopper inbound, then <b>1:30</b> on station.</li>
+        </ul>
+        <div class="check">
+          <b>TICK OFF</b>
+          <label>☐ Key 1 &nbsp; ☐ Key 2 &nbsp; ☐ Key 3</label>
+          <label>☐ D3 open &nbsp; ☐ Clone on drive</label>
+          <label>☐ POW &nbsp; or &nbsp; ☐ Virus</label>
+          <label>☐ Chopper inbound &nbsp; ☐ On the pad</label>
+        </div>
+      </div>
+      <div>
+        <h2>WALL-CODE INDEX (MISSION MAP)</h2>
+        <p class="note" style="margin:0 0 6px">Letter = zone. Digit = mark in that zone, left-to-right / top-to-bottom.</p>
+        <div class="codes" id="code-index"></div>
+      </div>
     </div>
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=106"></script>
+<script src="src/map.js?v=107"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
+  var team = 3;
   var sheetMode = 'easy';
+  var view = 'WEST';
 
   var C = {
-    wall:   '#333c46',
-    floor:  '#ffffff',
-    grid:   '#e4e8ec',
-    harbor: '#c9e9d5',
-    lz:     '#ffe9a3',
-    door:   '#e07b2c',
-    trip:   '#d4a017',
-    start:  '#1f7a44',
-    key:    '#b3641b',
-    core:   '#4a3fa6',
-    sec:    '#b32530',
-    code:   '#1f6f8b',
-    ink:    '#14181c',
-    rule:   '#8a949e'
+    wall: '#333c46', floor: '#ffffff', grid: '#e4e8ec', harbor: '#c9e9d5',
+    lz: '#ffe9a3', door: '#e07b2c', trip: '#d4a017', start: '#1f7a44',
+    key: '#b3641b', core: '#4a3fa6', sec: '#b32530', code: '#1f6f8b',
+    ink: '#14181c', rule: '#8a949e', fog: '#c5cbd2'
   };
 
-  var CELLPX = 13;
-  var PAD_L = 20, PAD_T = 18, PAD_R = 8, PAD_B = 8;
-  var SCALE = 3;
-  var canvas = document.getElementById('map');
-  var ctx = canvas.getContext('2d');
-  var W = 0, H = 0, ROWS = 0, COLS = 0;
+  var CELLPX = 13, PAD_L = 20, PAD_T = 18, PAD_R = 8, PAD_B = 8, SCALE = 3;
+
+  function splitCol() { return M.SPLIT_COL || 24; }
+  function own(c, half) { return M.sheetForCol(c) === half; }
 
   function cx(c) { return PAD_L + c * CELLPX; }
   function cy(r) { return PAD_T + r * CELLPX; }
   function wx(x) { return PAD_L + (x / M.CELL) * CELLPX; }
   function wy(z) { return PAD_T + (z / M.CELL) * CELLPX; }
 
-  function sizeCanvas() {
-    ROWS = M.ROWS();
-    COLS = M.COLS();
-    W = PAD_L + COLS * CELLPX + PAD_R;
-    H = PAD_T + ROWS * CELLPX + PAD_B;
-    canvas.width = W * SCALE;
-    canvas.height = H * SCALE;
-    canvas.style.width = W + 'px';
-    canvas.style.height = H + 'px';
-    ctx.setTransform(1, 0, 0, 1, 0, 0);
-    ctx.scale(SCALE, SCALE);
-  }
-
-  function disc(p, text, fill, square) {
-    if (!p) return;
-    var x = wx(p.x), y = wy(p.z);
-    var rad = CELLPX * 0.78;
-    ctx.beginPath();
-    if (square) ctx.rect(x - rad, y - rad, rad * 2, rad * 2);
-    else ctx.arc(x, y, rad, 0, Math.PI * 2);
-    ctx.fillStyle = fill;
-    ctx.fill();
-    ctx.lineWidth = 1.2;
-    ctx.strokeStyle = '#fff';
-    ctx.stroke();
-    ctx.lineWidth = 0.6;
-    ctx.strokeStyle = C.ink;
-    ctx.stroke();
-    ctx.fillStyle = '#fff';
-    ctx.font = 'bold ' + Math.round(CELLPX * 0.82) + 'px Consolas, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'middle';
-    ctx.fillText(text, x, y + 0.5);
-  }
-
-  function strokeTrip(L) {
-    ctx.lineCap = 'round';
-    ctx.setLineDash([]);
-    ctx.strokeStyle = C.ink;
-    ctx.lineWidth = CELLPX * 0.62;
-    ctx.beginPath();
-    ctx.moveTo(wx(L.x0), wy(L.z0));
-    ctx.lineTo(wx(L.x1), wy(L.z1));
-    ctx.stroke();
-    ctx.strokeStyle = C.trip;
-    ctx.lineWidth = CELLPX * 0.42;
-    ctx.beginPath();
-    ctx.moveTo(wx(L.x0), wy(L.z0));
-    ctx.lineTo(wx(L.x1), wy(L.z1));
-    ctx.stroke();
-  }
-
-  function drawMap() {
-    sizeCanvas();
-    var doorAt = {};
-    M.markers.doors.forEach(function (d) { doorAt[d.c + ',' + d.r] = d; });
-
-    ctx.fillStyle = '#fff';
-    ctx.fillRect(0, 0, W, H);
-
-    var r, c;
-    for (r = 0; r < ROWS; r++) {
-      for (c = 0; c < COLS; c++) {
-        if (M.isSolidCell(c, r) && !doorAt[c + ',' + r]) continue;
-        var fill = C.floor;
-        if (M.isSafeCell(c, r)) fill = C.harbor;
-        else if (M.isLzCell(c, r)) fill = C.lz;
-        ctx.fillStyle = fill;
-        ctx.fillRect(cx(c), cy(r), CELLPX, CELLPX);
-      }
-    }
-
-    ctx.strokeStyle = C.grid;
-    ctx.lineWidth = 0.5;
-    ctx.beginPath();
-    for (var gc = 0; gc <= COLS; gc++) { ctx.moveTo(cx(gc), cy(0)); ctx.lineTo(cx(gc), cy(ROWS)); }
-    for (var gr = 0; gr <= ROWS; gr++) { ctx.moveTo(cx(0), cy(gr)); ctx.lineTo(cx(COLS), cy(gr)); }
-    ctx.stroke();
-
-    ctx.fillStyle = C.wall;
-    for (r = 0; r < ROWS; r++) {
-      for (c = 0; c < COLS; c++) {
-        if (!M.isSolidCell(c, r) || doorAt[c + ',' + r]) continue;
-        ctx.fillRect(cx(c) - 0.25, cy(r) - 0.25, CELLPX + 0.5, CELLPX + 0.5);
-      }
-    }
-
-    ctx.fillStyle = C.rule;
-    ctx.font = '7px Consolas, monospace';
-    ctx.textAlign = 'center';
-    ctx.textBaseline = 'bottom';
-    for (c = 0; c < COLS; c += 5) ctx.fillText(String(c), cx(c) + CELLPX / 2, PAD_T - 3);
-    ctx.textAlign = 'right';
-    ctx.textBaseline = 'middle';
-    for (r = 0; r < ROWS; r += 5) ctx.fillText(String(r), PAD_L - 4, cy(r) + CELLPX / 2);
-
-    M.wallMarks().forEach(function (m) {
-      var ex = cx(m.c) + (m.faceC > 0 ? CELLPX : 0);
-      var ey = cy(m.r) + (m.faceR > 0 ? CELLPX : 0);
-      ctx.strokeStyle = C.code;
-      ctx.lineWidth = 1.6;
-      ctx.beginPath();
-      if (m.axis === 'X') {
-        ctx.moveTo(ex, cy(m.r) + CELLPX * 0.2);
-        ctx.lineTo(ex, cy(m.r) + CELLPX * 0.8);
-      } else {
-        ctx.moveTo(cx(m.c) + CELLPX * 0.2, ey);
-        ctx.lineTo(cx(m.c) + CELLPX * 0.8, ey);
-      }
-      ctx.stroke();
-
-      var tx = cx(m.c) + CELLPX / 2 + m.faceC * CELLPX * 0.18;
-      var ty = cy(m.r) + CELLPX / 2 + m.faceR * CELLPX * 0.18;
-      ctx.font = 'bold 8px Consolas, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = 3.2;
-      ctx.strokeStyle = '#fff';
-      ctx.strokeText(m.code, tx, ty);
-      ctx.fillStyle = C.code;
-      ctx.fillText(m.code, tx, ty);
-    });
-
-    (M.markers.lasers || []).forEach(function (L) { strokeTrip(L); });
-
-    M.markers.doors.forEach(function (d) {
-      ctx.fillStyle = C.door;
-      ctx.fillRect(cx(d.c), cy(d.r), CELLPX, CELLPX);
-      ctx.strokeStyle = C.ink;
-      ctx.lineWidth = 1;
-      ctx.strokeRect(cx(d.c) + 0.5, cy(d.r) + 0.5, CELLPX - 1, CELLPX - 1);
-
-      var spots = [[1, 0], [-1, 0], [0, 1], [0, -1]];
-      var lc = d.c, lr = d.r;
-      for (var i = 0; i < spots.length; i++) {
-        var nc = d.c + spots[i][0], nr = d.r + spots[i][1];
-        if (!M.isSolidCell(nc, nr)) { lc = nc; lr = nr; break; }
-      }
-      ctx.font = 'bold 9px Consolas, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.lineJoin = 'round';
-      ctx.lineWidth = 2.5;
-      ctx.strokeStyle = '#fff';
-      ctx.strokeText(d.id, cx(lc) + CELLPX / 2, cy(lr) + CELLPX / 2);
-      ctx.fillStyle = '#8a4408';
-      ctx.fillText(d.id, cx(lc) + CELLPX / 2, cy(lr) + CELLPX / 2);
-    });
-
-    (function () {
-      var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity, any = false;
-      for (var r2 = 0; r2 < ROWS; r2++) {
-        for (var c2 = 0; c2 < COLS; c2++) {
-          if (!M.isLzCell(c2, r2)) continue;
-          any = true;
-          minC = Math.min(minC, c2); maxC = Math.max(maxC, c2);
-          minR = Math.min(minR, r2); maxR = Math.max(maxR, r2);
-        }
-      }
-      if (!any) return;
-      ctx.setLineDash([3, 3]);
-      ctx.strokeStyle = '#a8791a';
-      ctx.lineWidth = 1.2;
-      ctx.strokeRect(cx(minC) + 0.5, cy(minR) + 0.5,
-        (maxC - minC + 1) * CELLPX - 1, (maxR - minR + 1) * CELLPX - 1);
-      ctx.setLineDash([]);
-    })();
-
-    M.markers.fuses.forEach(function (f, i) { disc(f, String(i + 1), C.key); });
-    disc(M.markers.G, 'G', C.core, true);
-    disc(M.markers.C, 'C', C.sec);
-    disc(M.markers.X, 'X', '#8a6100', true);
-    disc(M.markers.P, 'P', C.start);
-
-    (function () {
-      var s = M.markers.safes;
-      if (!s.length) return;
-      var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
-      s.forEach(function (p) {
-        minC = Math.min(minC, p.c); maxC = Math.max(maxC, p.c);
-        minR = Math.min(minR, p.r); maxR = Math.max(maxR, p.r);
-      });
-      ctx.fillStyle = '#2c6b45';
-      ctx.font = 'bold 7.5px Consolas, monospace';
-      ctx.textAlign = 'center';
-      ctx.textBaseline = 'middle';
-      ctx.fillText('FARADAY HARBOR', cx((minC + maxC + 1) / 2), cy(minR) + CELLPX * 0.9);
-    })();
-  }
-
-  function fillLegend() {
+  function fillLegend(el) {
     var legend = [
-      ['sw', C.wall, 'Wall'],
-      ['sw', C.floor, 'Floor'],
+      ['sw', C.wall, 'Wall (your half)'],
+      ['sw', C.fog, 'Other half — other navigator'],
       ['sw', C.harbor, 'Faraday harbor'],
       ['sw', C.lz, 'Landing pad'],
       ['sw', C.door, 'Blast door'],
@@ -393,49 +202,200 @@
       ['sq', C.core, 'G — AI core (jack-in)'],
       ['sq', '#8a6100', 'X — landing zone'],
       ['dot', C.sec, 'C — security start'],
-      ['sw', C.code, 'A1, B2 … — wall codes']
+      ['sw', C.code, 'Wall codes (3-person only)']
     ];
-    var legendEl = document.getElementById('legend');
-    legendEl.innerHTML = '';
+    el.innerHTML = '';
     legend.forEach(function (row) {
       var mark = document.createElement('span');
-      if (row[0] === 'sw') {
-        mark.className = 'sw';
-        mark.style.background = row[1];
-      } else {
-        mark.className = 'glyph' + (row[0] === 'sq' ? ' sq' : '');
-        mark.style.background = row[1];
-      }
+      if (row[0] === 'sw') { mark.className = 'sw'; mark.style.background = row[1]; }
+      else { mark.className = 'glyph' + (row[0] === 'sq' ? ' sq' : ''); mark.style.background = row[1]; }
       var text = document.createElement('span');
       text.textContent = row[2];
-      legendEl.appendChild(mark);
-      legendEl.appendChild(text);
+      el.appendChild(mark);
+      el.appendChild(text);
     });
   }
 
-  function fillStations() {
-    function gridRef(p) {
-      return Math.floor(p.x / M.CELL) + ',' + Math.floor(p.z / M.CELL);
+  function disc(ctx, p, text, fill, square) {
+    if (!p) return;
+    var x = wx(p.x), y = wy(p.z);
+    var rad = CELLPX * 0.78;
+    ctx.beginPath();
+    if (square) ctx.rect(x - rad, y - rad, rad * 2, rad * 2);
+    else ctx.arc(x, y, rad, 0, Math.PI * 2);
+    ctx.fillStyle = fill;
+    ctx.fill();
+    ctx.lineWidth = 1.2; ctx.strokeStyle = '#fff'; ctx.stroke();
+    ctx.lineWidth = 0.6; ctx.strokeStyle = C.ink; ctx.stroke();
+    ctx.fillStyle = '#fff';
+    ctx.font = 'bold ' + Math.round(CELLPX * 0.82) + 'px Consolas, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+    ctx.fillText(text, x, y + 0.5);
+  }
+
+  function drawMap(canvas, half, showCodes) {
+    var ctx = canvas.getContext('2d');
+    var ROWS = M.ROWS(), COLS = M.COLS();
+    var W = PAD_L + COLS * CELLPX + PAD_R;
+    var H = PAD_T + ROWS * CELLPX + PAD_B;
+    canvas.width = W * SCALE; canvas.height = H * SCALE;
+    canvas.style.width = W + 'px'; canvas.style.height = H + 'px';
+    ctx.setTransform(1, 0, 0, 1, 0, 0);
+    ctx.scale(SCALE, SCALE);
+
+    var doorAt = {};
+    M.markers.doors.forEach(function (d) { doorAt[d.c + ',' + d.r] = d; });
+    var split = splitCol();
+
+    ctx.fillStyle = '#fff';
+    ctx.fillRect(0, 0, W, H);
+
+    var r, c;
+    for (r = 0; r < ROWS; r++) {
+      for (c = 0; c < COLS; c++) {
+        if (M.isSolidCell(c, r) && !doorAt[c + ',' + r]) continue;
+        if (!own(c, half)) continue;
+        var fill = C.floor;
+        if (M.isSafeCell(c, r)) fill = C.harbor;
+        else if (M.isLzCell(c, r)) fill = C.lz;
+        ctx.fillStyle = fill;
+        ctx.fillRect(cx(c), cy(r), CELLPX, CELLPX);
+      }
     }
+
+    ctx.strokeStyle = C.grid; ctx.lineWidth = 0.5; ctx.beginPath();
+    for (var gc = 0; gc <= COLS; gc++) { ctx.moveTo(cx(gc), cy(0)); ctx.lineTo(cx(gc), cy(ROWS)); }
+    for (var gr = 0; gr <= ROWS; gr++) { ctx.moveTo(cx(0), cy(gr)); ctx.lineTo(cx(COLS), cy(gr)); }
+    ctx.stroke();
+
+    for (r = 0; r < ROWS; r++) {
+      for (c = 0; c < COLS; c++) {
+        if (!M.isSolidCell(c, r) || doorAt[c + ',' + r]) continue;
+        ctx.fillStyle = own(c, half) ? C.wall : C.fog;
+        ctx.fillRect(cx(c) - 0.25, cy(r) - 0.25, CELLPX + 0.5, CELLPX + 0.5);
+      }
+    }
+
+    ctx.strokeStyle = '#14181c'; ctx.lineWidth = 2; ctx.setLineDash([5, 4]);
+    ctx.beginPath(); ctx.moveTo(cx(split), cy(0)); ctx.lineTo(cx(split), cy(ROWS)); ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.fillStyle = C.ink; ctx.font = 'bold 8px Consolas, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'top';
+    ctx.fillText('SEAM — OTHER NAVIGATOR', cx(split), cy(0) + 4);
+
+    ctx.fillStyle = C.rule; ctx.font = '7px Consolas, monospace';
+    ctx.textAlign = 'center'; ctx.textBaseline = 'bottom';
+    for (c = 0; c < COLS; c += 5) ctx.fillText(String(c), cx(c) + CELLPX / 2, PAD_T - 3);
+    ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+    for (r = 0; r < ROWS; r += 5) ctx.fillText(String(r), PAD_L - 4, cy(r) + CELLPX / 2);
+
+    if (showCodes) {
+      M.wallMarks().forEach(function (m) {
+        if (!own(m.c, half)) return;
+        var ex = cx(m.c) + (m.faceC > 0 ? CELLPX : 0);
+        var ey = cy(m.r) + (m.faceR > 0 ? CELLPX : 0);
+        ctx.strokeStyle = C.code; ctx.lineWidth = 1.6; ctx.beginPath();
+        if (m.axis === 'X') { ctx.moveTo(ex, cy(m.r) + CELLPX * 0.2); ctx.lineTo(ex, cy(m.r) + CELLPX * 0.8); }
+        else { ctx.moveTo(cx(m.c) + CELLPX * 0.2, ey); ctx.lineTo(cx(m.c) + CELLPX * 0.8, ey); }
+        ctx.stroke();
+        var tx = cx(m.c) + CELLPX / 2 + m.faceC * CELLPX * 0.18;
+        var ty = cy(m.r) + CELLPX / 2 + m.faceR * CELLPX * 0.18;
+        ctx.font = 'bold 8px Consolas, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.lineJoin = 'round'; ctx.lineWidth = 3.2; ctx.strokeStyle = '#fff'; ctx.strokeText(m.code, tx, ty);
+        ctx.fillStyle = C.code; ctx.fillText(m.code, tx, ty);
+      });
+    }
+
+    (M.markers.lasers || []).forEach(function (L) {
+      var mc = Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL);
+      if (!own(mc, half)) return;
+      ctx.lineCap = 'round'; ctx.setLineDash([]);
+      ctx.strokeStyle = C.ink; ctx.lineWidth = CELLPX * 0.62;
+      ctx.beginPath(); ctx.moveTo(wx(L.x0), wy(L.z0)); ctx.lineTo(wx(L.x1), wy(L.z1)); ctx.stroke();
+      ctx.strokeStyle = C.trip; ctx.lineWidth = CELLPX * 0.42;
+      ctx.beginPath(); ctx.moveTo(wx(L.x0), wy(L.z0)); ctx.lineTo(wx(L.x1), wy(L.z1)); ctx.stroke();
+    });
+
+    M.markers.doors.forEach(function (d) {
+      if (!own(d.c, half)) return;
+      ctx.fillStyle = C.door; ctx.fillRect(cx(d.c), cy(d.r), CELLPX, CELLPX);
+      ctx.strokeStyle = C.ink; ctx.lineWidth = 1;
+      ctx.strokeRect(cx(d.c) + 0.5, cy(d.r) + 0.5, CELLPX - 1, CELLPX - 1);
+      var spots = [[1, 0], [-1, 0], [0, 1], [0, -1]];
+      var lc = d.c, lr = d.r;
+      for (var i = 0; i < spots.length; i++) {
+        var nc = d.c + spots[i][0], nr = d.r + spots[i][1];
+        if (!M.isSolidCell(nc, nr)) { lc = nc; lr = nr; break; }
+      }
+      ctx.font = 'bold 9px Consolas, monospace'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+      ctx.lineJoin = 'round'; ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff';
+      ctx.strokeText(d.id, cx(lc) + CELLPX / 2, cy(lr) + CELLPX / 2);
+      ctx.fillStyle = '#8a4408'; ctx.fillText(d.id, cx(lc) + CELLPX / 2, cy(lr) + CELLPX / 2);
+    });
+
+    (function () {
+      var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity, any = false;
+      for (var r2 = 0; r2 < ROWS; r2++) {
+        for (var c2 = 0; c2 < COLS; c2++) {
+          if (!M.isLzCell(c2, r2) || !own(c2, half)) continue;
+          any = true;
+          minC = Math.min(minC, c2); maxC = Math.max(maxC, c2);
+          minR = Math.min(minR, r2); maxR = Math.max(maxR, r2);
+        }
+      }
+      if (!any) return;
+      ctx.setLineDash([3, 3]); ctx.strokeStyle = '#a8791a'; ctx.lineWidth = 1.2;
+      ctx.strokeRect(cx(minC) + 0.5, cy(minR) + 0.5, (maxC - minC + 1) * CELLPX - 1, (maxR - minR + 1) * CELLPX - 1);
+      ctx.setLineDash([]);
+    })();
+
+    function markIf(p, label, fill, square) {
+      if (!p) return;
+      if (!own(Math.floor(p.x / M.CELL), half)) return;
+      disc(ctx, p, label, fill, square);
+    }
+    M.markers.fuses.forEach(function (f, i) { markIf(f, String(i + 1), C.key); });
+    markIf(M.markers.G, 'G', C.core, true);
+    markIf(M.markers.C, 'C', C.sec);
+    markIf(M.markers.X, 'X', '#8a6100', true);
+    markIf(M.markers.P, 'P', C.start);
+
+    if (half === 'WEST') {
+      var s = M.markers.safes;
+      if (s.length) {
+        var minC = Infinity, maxC = -Infinity, minR = Infinity, maxR = -Infinity;
+        s.forEach(function (p) {
+          minC = Math.min(minC, p.c); maxC = Math.max(maxC, p.c);
+          minR = Math.min(minR, p.r); maxR = Math.max(maxR, p.r);
+        });
+        ctx.fillStyle = '#2c6b45'; ctx.font = 'bold 7.5px Consolas, monospace';
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText('FARADAY HARBOR', cx((minC + maxC + 1) / 2), cy(minR) + CELLPX * 0.9);
+      }
+    }
+  }
+
+  function fillStations(body, half) {
+    function gridRef(p) { return Math.floor(p.x / M.CELL) + ',' + Math.floor(p.z / M.CELL); }
+    function keepP(p) { return p && own(Math.floor(p.x / M.CELL), half); }
     var stations = [];
-    if (M.markers.P) stations.push(['P', 'Infil / start', gridRef(M.markers.P)]);
+    if (keepP(M.markers.P)) stations.push(['P', 'Infil / start', gridRef(M.markers.P)]);
     M.markers.fuses.forEach(function (f, i) {
-      stations.push([String(i + 1), 'Access key', gridRef(f)]);
+      if (keepP(f)) stations.push([String(i + 1), 'Access key', gridRef(f)]);
     });
     M.markers.doors.forEach(function (d) {
+      if (!own(d.c, half)) return;
       stations.push([d.id, d.console ? 'Console door (3 keys)' : 'Blast door (1 key)', d.c + ',' + d.r]);
     });
-    if (M.markers.G) stations.push(['G', 'AI core / jack-in', gridRef(M.markers.G)]);
-    if (M.markers.X) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
-    if (M.markers.C) stations.push(['C', 'Security start', gridRef(M.markers.C)]);
+    if (keepP(M.markers.G)) stations.push(['G', 'AI core / jack-in', gridRef(M.markers.G)]);
+    if (keepP(M.markers.X)) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
+    if (keepP(M.markers.C)) stations.push(['C', 'Security start', gridRef(M.markers.C)]);
     (M.markers.lasers || []).forEach(function (L) {
-      stations.push([
-        'T',
-        'Tripwire ' + L.id.replace('L-', '').toLowerCase(),
-        Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL) + ',' + Math.floor(((L.z0 + L.z1) * 0.5) / M.CELL)
-      ]);
+      var mc = Math.floor(((L.x0 + L.x1) * 0.5) / M.CELL);
+      if (!own(mc, half)) return;
+      stations.push(['T', 'Tripwire ' + L.id.replace('L-', '').toLowerCase(),
+        mc + ',' + Math.floor(((L.z0 + L.z1) * 0.5) / M.CELL)]);
     });
-    var body = document.getElementById('stations');
     body.innerHTML = '';
     stations.forEach(function (s) {
       var tr = document.createElement('tr');
@@ -444,53 +404,122 @@
     });
   }
 
-  function updateChrome() {
-    var easy = sheetMode === 'easy';
-    document.getElementById('map-title').textContent = easy
-      ? 'HOLLOW — SITE C — EASY MAP'
-      : 'HOLLOW — SITE C — MED / HARD MAP';
-    document.getElementById('map-sub').textContent = easy
-      ? 'SUBLEVEL 2 · EMP BLACKOUT · EASY'
-      : 'SUBLEVEL 2 · EMP BLACKOUT · MEDIUM / HARD';
-    document.getElementById('map-tag').textContent = easy
-      ? 'EASY DIRECTOR SHEET'
-      : 'MED / HARD DIRECTOR SHEET';
-    document.title = easy ? 'HOLLOW — Easy Map (SOS)' : 'HOLLOW — Med / Hard Map (SOS)';
-    document.getElementById('fact-units').innerHTML = easy
-      ? '<b>4 security units</b> — 2 west half, 2 east half.'
-      : '<b>Medium 3 / Hard 4</b> security units.';
-    document.getElementById('fact-wires').innerHTML = easy
-      ? '<b>10 tripwires</b> — same walls as Med/Hard, plus 5 extra hallway beams.'
-      : '<b>5 tripwires</b> — storage, lab, mid, gen, exit.';
-    document.getElementById('tab-easy').classList.toggle('active', easy);
-    document.getElementById('tab-raid').classList.toggle('active', !easy);
-    document.getElementById('tab-easy').setAttribute('aria-selected', easy ? 'true' : 'false');
-    document.getElementById('tab-raid').setAttribute('aria-selected', easy ? 'false' : 'true');
+  function navFactsHtml(half) {
+    var other = half === 'WEST' ? 'EAST' : 'WEST';
+    var codes = team === 3
+      ? '<li>Wall codes on <b>your</b> walls only. Operator reads them; you place them.</li>'
+      : '<li>No wall codes on this sheet. The <b>Controller</b> looks them up and tells you when it is your talk.</li>';
+    return (
+      '<div><h2>YOUR JOB</h2><ul>' +
+      '<li>You only see the <b>' + half + '</b> half. Grey walls are the other navigator.</li>' +
+      '<li>Dashed line is the seam. Hand the Operator to <b>' + other + '</b> when they cross it.</li>' +
+      codes +
+      '</ul></div>' +
+      '<div><h2>SHARED</h2><ul>' +
+      '<li>3 keys → D3 (all 3) → jack-in at G (press X, clone writes itself) → POW or virus → yellow pad X.</li>' +
+      '<li>Blackout <b>10:00</b>. X does not paint on LiDAR.</li>' +
+      '<li>Harbor = they will not be killed there.</li>' +
+      '</ul></div>' +
+      '<div><h2>ROLES</h2><ul>' +
+      '<li><b>OPERATOR</b> — VR.</li>' +
+      '<li><b>WEST / EAST</b> — these two sheets.</li>' +
+      (team === 4 ? '<li><b>CONTROLLER</b> — clock + wall-code index. No map.</li>' : '<li>3-person: you two share the clock out loud.</li>') +
+      '</ul></div>'
+    );
   }
 
-  function setSheet(mode, skipHash) {
-    sheetMode = mode === 'raid' ? 'raid' : 'easy';
+  function wallName(m) {
+    if (m.faceR < 0) return 'N wall';
+    if (m.faceR > 0) return 'S wall';
+    if (m.faceC < 0) return 'W wall';
+    return 'E wall';
+  }
+
+  function fillCodeIndex() {
+    var host = document.getElementById('code-index');
+    var marks = M.wallMarks().slice().sort(function (a, b) {
+      return String(a.code).localeCompare(String(b.code), undefined, { numeric: true });
+    });
+    host.innerHTML = '';
+    marks.forEach(function (m) {
+      var el = document.createElement('div');
+      el.innerHTML = '<b>' + m.code + '</b> · ' + M.sheetForCol(m.c) + ' · ' + wallName(m) + ' · ' + m.c + ',' + m.r;
+      host.appendChild(el);
+    });
+  }
+
+  function setView(name) {
+    view = name;
+    document.getElementById('page-west').classList.toggle('visible', view === 'WEST');
+    document.getElementById('page-east').classList.toggle('visible', view === 'EAST');
+    document.getElementById('page-ctrl').classList.toggle('visible', view === 'CTRL');
+    document.getElementById('tab-west').classList.toggle('active', view === 'WEST');
+    document.getElementById('tab-east').classList.toggle('active', view === 'EAST');
+    document.getElementById('tab-ctrl').classList.toggle('active', view === 'CTRL');
+  }
+
+  function refresh() {
+    document.body.classList.toggle('team-3', team === 3);
+    document.body.classList.toggle('team-4', team === 4);
+    document.getElementById('tab-team3').classList.toggle('active', team === 3);
+    document.getElementById('tab-team4').classList.toggle('active', team === 4);
+    document.getElementById('tab-easy').classList.toggle('active', sheetMode === 'easy');
+    document.getElementById('tab-raid').classList.toggle('active', sheetMode !== 'easy');
+    document.getElementById('tab-ctrl').style.display = team === 4 ? '' : 'none';
+    if (team === 3 && view === 'CTRL') setView('WEST');
+
     M.loadLayout('mission', { lasers: sheetMode === 'easy' ? 'easy' : 'standard' });
-    updateChrome();
-    drawMap();
-    fillStations();
-    if (!skipHash) {
-      var next = sheetMode === 'easy' ? '#easy' : '#raid';
-      if (location.hash !== next) history.replaceState(null, '', next);
-    }
+    var showCodes = team === 3;
+    var easy = sheetMode === 'easy';
+    var pack = team === 3 ? '3-PERSON' : '4-PERSON';
+    var diff = easy ? 'EASY' : 'MED / HARD';
+
+    ['page-west', 'page-east'].forEach(function (id) {
+      var page = document.getElementById(id);
+      var half = page.getAttribute('data-half');
+      page.querySelector('.map-title').textContent = 'HOLLOW — ' + half + ' NAVIGATOR';
+      page.querySelector('.map-sub').textContent = showCodes
+        ? 'YOUR HALF + YOUR WALL CODES · HAND OFF AT THE SEAM'
+        : 'YOUR HALF · NO CODES — CONTROLLER LOOKS THEM UP';
+      page.querySelector('.map-tag').textContent = pack + ' · ' + diff + ' · ' + half;
+      drawMap(page.querySelector('.map-canvas'), half, showCodes);
+      fillLegend(page.querySelector('.legend'));
+      fillStations(page.querySelector('.stations'), half);
+      page.querySelector('.nav-facts').innerHTML = navFactsHtml(half);
+    });
+    fillCodeIndex();
+    document.getElementById('ctrl-tag').textContent = pack + ' · ' + diff;
+    document.title = 'HOLLOW — ' + pack + ' ' + diff;
   }
 
-  function modeFromHash() {
+  function applyHash() {
+    var q = new URLSearchParams(location.search);
+    var t = parseInt(q.get('team'), 10);
+    if (t === 4) team = 4; else team = 3;
     var h = (location.hash || '').toLowerCase();
-    if (h === '#raid' || h === '#med' || h === '#hard' || h === '#medium') return 'raid';
-    return 'easy';
+    if (h.indexOf('raid') >= 0 || h.indexOf('med') >= 0 || h.indexOf('hard') >= 0) sheetMode = 'raid';
+    else sheetMode = 'easy';
+    if (h.indexOf('east') >= 0) view = 'EAST';
+    else if (h.indexOf('ctrl') >= 0 || h.indexOf('controller') >= 0) view = 'CTRL';
+    else view = 'WEST';
+    setView(view);
+    refresh();
   }
 
-  fillLegend();
-  document.getElementById('tab-easy').addEventListener('click', function () { setSheet('easy'); });
-  document.getElementById('tab-raid').addEventListener('click', function () { setSheet('raid'); });
-  window.addEventListener('hashchange', function () { setSheet(modeFromHash(), true); });
-  setSheet(modeFromHash(), true);
+  function writeUrl() {
+    var hash = (sheetMode === 'easy' ? 'easy' : 'raid') + '-' + view.toLowerCase();
+    var next = '?team=' + team + '#' + hash;
+    if (location.search + location.hash !== next) history.replaceState(null, '', next);
+  }
+
+  document.getElementById('tab-team3').addEventListener('click', function () { team = 3; writeUrl(); refresh(); });
+  document.getElementById('tab-team4').addEventListener('click', function () { team = 4; writeUrl(); refresh(); });
+  document.getElementById('tab-easy').addEventListener('click', function () { sheetMode = 'easy'; writeUrl(); refresh(); });
+  document.getElementById('tab-raid').addEventListener('click', function () { sheetMode = 'raid'; writeUrl(); refresh(); });
+  document.getElementById('tab-west').addEventListener('click', function () { setView('WEST'); writeUrl(); });
+  document.getElementById('tab-east').addEventListener('click', function () { setView('EAST'); writeUrl(); });
+  document.getElementById('tab-ctrl').addEventListener('click', function () { team = 4; setView('CTRL'); writeUrl(); refresh(); });
+  applyHash();
 })();
 </script>
 </body>

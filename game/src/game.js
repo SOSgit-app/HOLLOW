@@ -75,8 +75,6 @@
   }
 
   var currentDifficulty = 'medium';
-  var CIRCUIT_DEFAULTS = { easy: 1, medium: 3, hard: 3 };
-  var circuitBoards = { easy: 1, medium: 3, hard: 3 };
   var DIFF_INFO = {
     easy: {
       label: 'EASY',
@@ -115,55 +113,6 @@
     return 2;
   }
 
-  function circuitQuota() {
-    if (tutorialMode) return 1;
-    var n = circuitBoards[currentDifficulty];
-    if (n == null) n = CIRCUIT_DEFAULTS[currentDifficulty] || 3;
-    n = n | 0;
-    if (n < 1) n = 1;
-    if (n > 3) n = 3;
-    return n;
-  }
-
-  function loadCircuitSettings() {
-    try {
-      var raw = localStorage.getItem('hollow_circuit_boards');
-      if (!raw) return;
-      var parsed = JSON.parse(raw);
-      ['easy', 'medium', 'hard'].forEach(function (k) {
-        var v = parsed && parsed[k];
-        v = v | 0;
-        if (v >= 1 && v <= 3) circuitBoards[k] = v;
-      });
-    } catch (e) { void e; }
-  }
-
-  function saveCircuitSettings() {
-    try {
-      localStorage.setItem('hollow_circuit_boards', JSON.stringify(circuitBoards));
-    } catch (e) { void e; }
-  }
-
-  function syncCircuitBoardButtons() {
-    var n = String(circuitBoards[currentDifficulty] || CIRCUIT_DEFAULTS[currentDifficulty] || 3);
-    var buttons = document.querySelectorAll('.ckt-btn');
-    for (var i = 0; i < buttons.length; i++) {
-      var b = buttons[i];
-      if (b.getAttribute('data-ckt') === n) b.classList.add('active');
-      else b.classList.remove('active');
-    }
-  }
-
-  function setCircuitBoards(count) {
-    var n = count | 0;
-    if (n < 1) n = 1;
-    if (n > 3) n = 3;
-    circuitBoards[currentDifficulty] = n;
-    saveCircuitSettings();
-    syncCircuitBoardButtons();
-    refreshDiffPanel(false);
-  }
-
   function showNoiseMeter() {
     return !tutorialMode && currentDifficulty !== 'easy';
   }
@@ -185,7 +134,6 @@
       else b.classList.remove('active');
     }
     refreshDiffPanel(changed);
-    syncCircuitBoardButtons();
   }
 
   function refreshDiffPanel(changed) {
@@ -195,10 +143,7 @@
     var panel = $('diff-panel');
     if (label) label.textContent = info.label;
     if (points) {
-      var boards = circuitBoards[currentDifficulty] || CIRCUIT_DEFAULTS[currentDifficulty] || 3;
-      var extra = '<b>' + boards + '</b> jack-in stage' + (boards === 1 ? '' : 's') +
-        (boards === 1 ? ' (handshake 1)' : '');
-      points.innerHTML = info.points.concat([extra]).map(function (p) {
+      points.innerHTML = info.points.map(function (p) {
         return '<li>' + p + '</li>';
       }).join('');
     }
@@ -357,7 +302,7 @@
 
   function init() {
     M = NS.map; R = NS.render; A = NS.audio; EN = NS.enemy; VR = NS.vr; math = NS.math;
-    CIR = NS.circuit; MK = NS.marks;
+    MK = NS.marks;
 
     el.canvas = $('glcanvas');
     el.hud = $('hud');
@@ -445,7 +390,7 @@
       if (e.code === 'KeyG' && state === 'PLAY') {
         if (e.repeat) return;
         if (pauseMenuOpen) return;
-        if (!(CIR && CIR.isActive()) && !cloneUiActive()) throwBeacon();
+        if (!cloneUiActive()) throwBeacon();
       }
       if ((e.code === 'Escape' || e.code === 'KeyY') && state === 'PLAY') {
         if (e.repeat) return;
@@ -455,8 +400,7 @@
       if (e.code === 'KeyE' && state === 'PLAY') {
         if (e.repeat) return;
         if (pauseMenuOpen) return;
-        if (CIR && CIR.isActive()) CIR.rotateSelected();
-        else if (!cloneUiActive()) {
+        if (!cloneUiActive()) {
           // Virus plant uses hold-E; don't spam interact while uploading
           if (missionBranch === 'VIRUS' && !virusDone &&
               near(M.markers.G.x, M.markers.G.z, interactRange() + 0.8)) {
@@ -676,7 +620,6 @@
 
     var savedDiff = 'medium';
     try { savedDiff = localStorage.getItem('hollow_difficulty') || 'medium'; } catch (err) { void err; }
-    loadCircuitSettings();
     applyDifficulty(savedDiff);
     loadComfortSettings();
 
@@ -697,14 +640,6 @@
         e.preventDefault();
         e.stopPropagation();
         applyDifficulty(e.currentTarget.getAttribute('data-diff'));
-      });
-    }
-    var cktButtons = document.querySelectorAll('.ckt-btn');
-    for (var ci = 0; ci < cktButtons.length; ci++) {
-      cktButtons[ci].addEventListener('click', function (e) {
-        e.preventDefault();
-        e.stopPropagation();
-        setCircuitBoards(e.currentTarget.getAttribute('data-ckt'));
       });
     }
   }
@@ -804,7 +739,7 @@
   // run lifecycle
   // ------------------------------------------------------------------
   var tutorialMode = false;
-  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 circuit, 4 virus, 5 tripwire, 6 throw, 7 exfil
+  var tutorialStation = 0; // 0 move, 1 key, 2 door, 3 jack-in, 4 virus, 5 tripwire, 6 throw, 7 exfil
   var tutorialMoveDist = 0;
   var tutorialTripHit = false;
   var tutorialSecTimer = 0;
@@ -836,13 +771,13 @@
     },
     {
       title: 'JACK INTO THE CONSOLE',
-      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'Point laser + X to press pads in the order shown.'],
-      buttons: ['X — jack in / press pad', 'POINT CONTROLLER — aim laser', 'CLEAR 1 HANDSHAKE TO CONTINUE'],
-      msg: 'TUTORIAL: JACK IN · PRESS THE THREE PADS SHOWN'
+      lines: ['Stand at the amber console pyramid.', 'Press X to jack in.', 'The AI copies onto your drive — no board, no pads.'],
+      buttons: ['X — jack in', 'THEN HOLD X — upload virus', 'RIGHT TRIGGER — scan console'],
+      msg: 'TUTORIAL: PRESS X AT CONSOLE — JACK IN'
     },
     {
       title: 'UPLOAD THE VIRUS',
-      lines: ['Puzzle clear — return to the console.', 'Hold X to upload the virus.', 'Tripwire is armed at the entrance.'],
+      lines: ['Jack-in is done — stay at the console.', 'Hold X to upload the virus.', 'Tripwire is armed at the entrance.'],
       buttons: ['HOLD X — upload virus', 'RIGHT TRIGGER — scan console', 'STAY QUIET — no sprint if close'],
       msg: 'TUTORIAL: HOLD X AT CONSOLE — UPLOAD VIRUS'
     },
@@ -950,12 +885,8 @@
       clearCoachPanel();
       return;
     }
-    // Keep chasing the player even while hidden (circuit) so it never teleports back
+    // Keep chasing the player even while hidden so it never teleports back
     updateCoachFollow(dt);
-    if (CIR && CIR.isActive()) {
-      clearCoachPanel();
-      return;
-    }
     R.setCoachPanel({
       title: step.title,
       lines: flashlightMode
@@ -1203,7 +1134,6 @@
     beaconsLeft = beaconsMax;
     uplinkDone = false;
     jackInCooldownUntil = 0;
-    if (CIR && CIR.resetRun) CIR.resetRun();
     exfilPhase = 'NONE'; exfilTimer = 0;
     missionBranch = 'NONE';
     clonePhase = 'NONE'; cloneTimer = 0; clonePct = 0; cloneChoiceIdx = 0;
@@ -1488,8 +1418,7 @@
     pauseHoverIdx = -1;
     hidePauseOverlay();
     if (inVR()) {
-      if (CIR && CIR.isActive()) syncCircuitPanel();
-      else if (cloneUiActive()) syncClonePanel();
+      if (cloneUiActive()) syncClonePanel();
       else if (R.setCircuitPanel) R.setCircuitPanel(null, null);
     } else if (state === 'PLAY') {
       try { el.canvas.requestPointerLock(); } catch (err) { void err; }
@@ -1619,9 +1548,8 @@
     if (cloneUiActive() && inVR()) {
       drawClonePanel();
       R.setCircuitPanel(cloneCanvas, buildCircuitModel());
-    } else if (!(CIR && CIR.isActive() && inVR())) {
-      // leave circuit panel alone when circuit owns it
-      if (!CIR || !CIR.isActive()) R.setCircuitPanel(null, null);
+    } else {
+      R.setCircuitPanel(null, null);
     }
   }
 
@@ -1806,56 +1734,17 @@
     EN.forceInvestigate(player.x, player.z, 1);
   }
 
-  function onCircuitStageClear(clearedStage, total) {
-    if (tutorialMode) {
-      if (CIR) CIR.close();
-      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-      // Arm tripwire + unlock virus path — virus is next (not gated on the wire)
-      uplinkDone = true;
-      missionBranch = 'VIRUS';
-      virusProgress = 0;
-      virusDone = false;
-      virusHolding = false;
-      virusWristActive = false;
-      tutorialTripHit = false;
-      armTutorialTripwire();
-      queueMsg('HANDSHAKE CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
-      advanceTutorial(4);
-      return;
-    }
-    queueMsg('HANDSHAKE STAGE ' + clearedStage + '/' + total + ' CLEAR — NEXT SEQUENCE', 'amber', 3);
-  }
-
-  function onCircuitTimeout() {
-    if (tutorialMode) {
-      jackInCooldownUntil = now + JACKIN_RETRY_S;
-      queueMsg('LOCKOUT — TRY AGAIN. PRESS THE PADS IN THE ORDER SHOWN.', 'amber', 4);
-      return;
-    }
-    jackInCooldownUntil = now + JACKIN_RETRY_S;
-    queueMsg('HANDSHAKE LOCKOUT — RETRY IN ' + JACKIN_RETRY_S + 's · ASK SOLVER TO RECHECK', 'red', 4);
-    A.securityAlarm();
-    // Loud trip at the core — nearest two rush the console room
-    EN.hear(M.markers.G.x, M.markers.G.z, NOISE_LASER, now, true);
-    EN.forceInvestigate(M.markers.G.x, M.markers.G.z, 2);
-    EN.addAgitationFloor(25);
-  }
-
-  function onJackInSuccess() {
-    if (tutorialMode) {
-      if (CIR) CIR.close();
-      if (R.setCircuitPanel) R.setCircuitPanel(null, null);
-      uplinkDone = true;
-      missionBranch = 'VIRUS';
-      virusProgress = 0;
-      virusDone = false;
-      tutorialTripHit = false;
-      armTutorialTripwire();
-      queueMsg('HANDSHAKE CLEAR — UPLOAD VIRUS AT CONSOLE', 'amber', 4);
-      advanceTutorial(4);
-      return;
-    }
-    beginCloneSequence();
+  function tutorialJackIn() {
+    uplinkDone = true;
+    missionBranch = 'VIRUS';
+    virusProgress = 0;
+    virusDone = false;
+    virusHolding = false;
+    virusWristActive = false;
+    tutorialTripHit = false;
+    armTutorialTripwire();
+    queueMsg('UPLINK CONFIRMED — HOLD X TO UPLOAD VIRUS', 'amber', 4);
+    advanceTutorial(4);
   }
 
   // ------------------------------------------------------------------
@@ -2277,24 +2166,12 @@
       pushMsg('CONSOLE SEALED — OPEN CONSOLE DOOR (NEEDS 3 KEYS)', 'red');
       return;
     }
-    if (CIR && CIR.isActive()) return;
-    if (now < jackInCooldownUntil) {
-      var wait = Math.ceil(jackInCooldownUntil - now);
-      pushMsg('CORE LOCKED OUT — RETRY IN ' + wait + 's', 'amber');
+    if (tutorialMode) {
+      tutorialJackIn();
       return;
     }
-    var boards = circuitQuota();
-    var boardWord = boards === 1 ? '1 STAGE' : (boards + ' STAGES');
-    var matrixWord = boards === 1 ? 'ONE HANDSHAKE' : (boards + ' HANDSHAKE STAGES');
-    pushMsg(inVR()
-      ? (tutorialMode
-        ? 'PRACTICE JACK-IN — PRESS THE THREE PADS SHOWN'
-        : 'JACK-IN — ' + boardWord + ' · 60s EACH · READ SERIAL · POINT AND PRESS')
-      : (tutorialMode
-        ? 'PRACTICE JACK-IN — PRESS THE THREE PADS SHOWN'
-        : 'JACK-IN — ' + matrixWord + ' · CALL THE SERIAL'), 'amber');
-    CIR.open(onJackInSuccess, onCircuitTimeout, onCircuitStageClear,
-      tutorialMode ? { tutorial: true } : { stageCount: boards });
+    queueMsg('JACK-IN — CLONING MODEL TO DRIVE', 'amber', 3);
+    beginCloneSequence();
   }
 
   function powSpheres() {
@@ -2576,7 +2453,7 @@
   }
 
   function throwBeacon(origin, dir) {
-    if (state !== 'PLAY' || (CIR && CIR.isActive()) || cloneUiActive() || pauseMenuOpen) return;
+    if (state !== 'PLAY' || cloneUiActive() || pauseMenuOpen) return;
     if (tutorialMode && tutorialStation !== 6) {
       if (tutorialStation < 6) {
         queueMsg('HOLD THE BEACON — THROW AFTER THE TRIPWIRE', 'amber', 2);
@@ -2656,7 +2533,6 @@
 
   function interact() {
     if (pauseMenuOpen) return;
-    if (CIR && CIR.isActive()) { CIR.rotateSelected(); return; }
     if (cloneUiActive()) return;
     var range = interactRange();
 
@@ -2791,7 +2667,7 @@
     }
 
     // interact hints
-    if (!curMsg && !(CIR && CIR.isActive()) && !cloneUiActive()) {
+    if (!curMsg && !cloneUiActive()) {
       var hint = '';
       var hintRange = inVR() ? INTERACT_RANGE_VR : INTERACT_RANGE;
       var btn = inVR() ? '[X]' : '[E]';
@@ -2846,8 +2722,6 @@
       if (near(M.markers.G.x, M.markers.G.z, hintRange + 0.5) && !uplinkDone) {
         if (M.isConsoleSealed()) {
           hint = 'CONSOLE SEALED — OPEN D3 (3 KEYS)';
-        } else if (now < jackInCooldownUntil) {
-          hint = 'CORE LOCKED OUT — RETRY IN ' + Math.ceil(jackInCooldownUntil - now) + 's';
         } else {
           hint = btn + ' JACK INTO CORE';
         }
@@ -2895,7 +2769,6 @@
   // ------------------------------------------------------------------
   var strideAcc = 0;
   function updatePlayer(dt, vrInput) {
-    if (CIR && CIR.isActive()) return; // locked into jack-in
     if (cloneUiActive()) return; // locked into clone / choice
     var crouch = !vrInput && (keys['ControlLeft'] || keys['ControlRight']);
     var wantSprint = vrInput
@@ -3185,32 +3058,6 @@
         }
         updateMsg(dt);
         updateHUD(dt);
-      } else if (CIR && CIR.isActive()) {
-        if (vrInput) {
-          syncCircuitPanel();
-          handleCircuitLaser(vrInput);
-          if (vrInput.navX) CIR.moveSelection(vrInput.navX, 0);
-          if (vrInput.navY) CIR.moveSelection(0, vrInput.navY);
-          if (vrInput.interactPressed) CIR.rotateSelected();
-          else if (vrInput.tricklePressed) CIR.rotateSelected();
-          if (vrInput.secondaryPressed && CIR.clearSequence) CIR.clearSequence();
-          if (R.setWristModel) {
-            R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
-          }
-        } else {
-          syncCircuitPanel();
-        }
-        CIR.update(dt);
-        if (inVR()) syncCircuitPanel();
-        updateCoachFollow(dt); // keep tracking while circuit hides the card
-        clearCoachPanel();
-        updateExfil(dt);
-        updateMsg(dt);
-        updateHUD(dt);
-        vrHudHint = 'SERIAL ' + (CIR.getSerial ? CIR.getSerial() : '') +
-          ' · STAGE ' + (CIR.getStage ? CIR.getStage() : 1) + '/' +
-          (CIR.getStageCount ? CIR.getStageCount() : 3) +
-          ' · POINT LASER · X TO PRESS';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));
@@ -3374,7 +3221,6 @@
         lastFrame = performance.now();
         return;
       }
-      if (CIR && CIR.isActive()) CIR.close();
       clonePhase = 'NONE';
       if (R.setCircuitPanel) R.setCircuitPanel(null, null);
       clearCoachPanel();

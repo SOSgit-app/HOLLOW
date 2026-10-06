@@ -1,47 +1,27 @@
-/* Headless check: core handshake intercepts reduce to the nine true sequences. */
+/* Headless check: mission map splits west/east and wall marks exist for the Controller index. */
 'use strict';
-require('../game/src/circuit.js');
-var CIR = global.HOLLOW.circuit;
-var C = CIR.debug;
-var data = CIR.getSheetData();
+require('../game/src/math.js');
+require('../game/src/map.js');
+var M = global.HOLLOW.map;
+M.loadLayout('mission', { lasers: 'standard' });
 
-var genuine = data.intercepts.filter(CIR.isGenuine);
-if (genuine.length !== 9) {
-  throw new Error('expected 9 genuine intercepts, got ' + genuine.length);
-}
+if (M.SPLIT_COL !== 24) throw new Error('SPLIT_COL should be 24');
+if (M.sheetForCol(0) !== 'WEST') throw new Error('col 0 should be WEST');
+if (M.sheetForCol(24) !== 'EAST') throw new Error('col 24 should be EAST');
 
-var seen = {};
-genuine.forEach(function (row) {
-  var key = row.band + '-' + row.stage;
-  if (seen[key]) throw new Error('duplicate genuine strip for ' + key);
-  seen[key] = true;
-  var want = data.solutions[row.band][row.stage - 1].join(',');
-  var got = row.pads.join(',');
-  if (want !== got) {
-    throw new Error(key + ' pads ' + got + ' !== solution ' + want);
-  }
+var marks = M.wallMarks();
+if (!marks.length) throw new Error('expected wall marks for controller index');
+var west = 0, east = 0;
+marks.forEach(function (m) {
+  if (M.sheetForCol(m.c) === 'WEST') west++;
+  else east++;
 });
+if (!west || !east) throw new Error('wall marks must exist on both halves');
 
-['WEST', 'EAST', 'CORE'].forEach(function (band) {
-  for (var s = 1; s <= 3; s++) {
-    if (!seen[band + '-' + s]) throw new Error('missing genuine ' + band + ' stage ' + s);
-  }
-});
+var p = M.markers.P, g = M.markers.G, x = M.markers.X;
+if (!p || !g || !x) throw new Error('missing P/G/X');
+if (M.sheetForCol(Math.floor(p.x / M.CELL)) !== 'WEST') throw new Error('start should be WEST');
+if (M.sheetForCol(Math.floor(g.x / M.CELL)) !== 'EAST') throw new Error('core G should be EAST');
+if (M.sheetForCol(Math.floor(x.x / M.CELL)) !== 'WEST') throw new Error('LZ X should be WEST');
 
-['WEST', 'EAST', 'CORE'].forEach(function (band) {
-  C.start({ band: band, serial: '111', stageCount: 3 });
-  for (var i = 0; i < 3; i++) {
-    C.setStage(i);
-    if (C.connected()) throw new Error(band + ' stage ' + (i + 1) + ' starts solved');
-    C.solve();
-    if (!C.connected()) throw new Error(band + ' stage ' + (i + 1) + ' solution rejected');
-  }
-});
-
-C.start({ tutorial: true, band: 'EAST', serial: '4B7', stageCount: 1 });
-if (C.stageCount() !== 1) throw new Error('tutorial should be 1 stage');
-if (C.serial() !== '4B7') throw new Error('tutorial serial');
-C.solve();
-if (!C.connected()) throw new Error('tutorial solution rejected');
-
-console.log('9 genuine intercepts match solutions; all bands solvable. HANDSHAKE OK');
+console.log(marks.length + ' wall marks, west ' + west + ' / east ' + east + '. SPLIT MAP OK');

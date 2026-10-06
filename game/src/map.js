@@ -49,7 +49,7 @@
   ];
 
   // Compact tutorial arena: harbor → key room → keyed door → console · south LZ
-  // Stations: move → key → door → circuit → tripwire → virus → exfil
+  // Stations: move → key → door → jack-in → virus → tripwire → exfil
   var TUTORIAL_ASCII = [
     "########################",
     "#SSSSSS#.......#.......#",
@@ -83,6 +83,7 @@
   // printed map. See buildWallMarks().
   var wallMarks = [];
   var wallMarkByCell = [];  // openR * COLS + openC -> mark (at most one per cell)
+  var SPLIT_COL = 24;       // west sheet is c < 24; east is c >= 24
   var MARK_SPACING = 6;     // cells between marks along a wall run
   var MARK_PX = 0.048;      // stencil pixel size, metres (2x glyphs, 15 rows)
   var MARK_H = MARK_PX * 15;
@@ -208,7 +209,7 @@
       for (var sr = 1; sr <= 4; sr++) {
         for (var sc = 1; sc <= 6; sc++) placeSafe(sc, sr);
       }
-      // Tripwire armed only after circuit (see armTutorialTripwire in game.js)
+      // Tripwire armed only after jack-in (see armTutorialTripwire in game.js)
       markers.lasers = [];
       markers.lasersEasy = [];
       markers.doors = [
@@ -763,6 +764,8 @@
     consoleDoor: consoleDoor, isConsoleSealed: isConsoleSealed,
     wallMarks: function () { return wallMarks; },
     wallMarkFor: wallMarkFor, wallMarkBox: wallMarkBox,
+    SPLIT_COL: SPLIT_COL,
+    sheetForCol: function (c) { return c < SPLIT_COL ? 'WEST' : 'EAST'; },
     loadLayout: loadLayout, layout: function () { return currentLayout; },
     buildWorldMesh: buildWorldMesh
   };
