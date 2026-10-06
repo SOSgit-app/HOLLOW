@@ -148,7 +148,7 @@
       laserV(15.5, 15, 16, 'L-MID'),
       laserV(31.5, 23, 24, 'L-GEN'),
       laserV(5.5, 34, 35, 'L-EXIT'),
-      // E/L hall 1-cell doors Watch can call (east Faraday is now the F-code room)
+      // E/L hall 1-cell doors Watch can call (east safe space is the F3–F5/M1 alcove)
       laserV(30.5, 6, 7, 'L-EWEST'),     // west → E room
       laserV(37.5, 6, 7, 'L-KEY3'),      // E room → key 3
       laserH(34, 35, 10.5, 'L-EAST'),    // E room south → L hall
@@ -223,9 +223,9 @@
         { id: 'D1', c: 15, r: 2, locked: true, keysRequired: 1, console: true }
       ];
     } else {
-      // Two safe spaces: infil (around P) and the F-code room (key 3 wing)
+      // Two safe spaces: infil (around P) and the F-room inner alcove (F3–F5 / M1)
       placeHarbor('S1', 'Infil safe space', 8, 19, 20, 25);
-      placeHarbor('S2', 'East safe space', 38, 46, 1, 9);
+      placeHarbor('S2', 'East safe space', 41, 42, 5, 9);
       markers.lasers = missionLasers();
       markers.doors = [
         { id: 'D1', c: 17, r: 10, locked: true, keysRequired: 1 },

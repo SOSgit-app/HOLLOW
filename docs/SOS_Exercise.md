@@ -17,7 +17,7 @@ Fictional enemy C2 node raid. No real unit OPSEC.
 | Role | Packet | Has | Missing |
 |---|---|---|---|
 | **Operator** | Quest headset | LiDAR, the live site | Map |
-| **Watch** | Full map + wall codes | Tripwires, safe spaces (infil + F-code east), patrol posts U1–U6 | Keys, doors, core, LZ |
+| **Watch** | Full map + wall codes | Tripwires, safe spaces (infil + F alcove F3–F5/M1), patrol posts U1–U6 | Keys, doors, core, LZ |
 | **Access** | Full map + wall codes | Keys 1–3, blast doors, core G, LZ X, infil P | Tripwires, safe spaces, patrol posts |
 
 Both can place the Operator from a wall code. Watch calls wires before a hall. Access calls keys, doors, and extract. Share the clock out loud. Each navigator sheet has its **own color legend** (there is no Controller).
@@ -56,7 +56,7 @@ Watch keeps them off yellow beams the whole time.
 
 ## Systems
 
-- **Safe space (green)** — Watch sheet. Infil (S1) and F-code room (S2). Security will not kill/chase inside
+- **Safe space (green)** — Watch sheet. Infil (S1) and F alcove (S2, F3–F5 / M1). Security will not kill/chase inside
 - **Patrol posts U1–U6** — Watch sheet. Units start there, then they walk. Easy staffs U1–U4; Medium and Hard also staff U5–U6
 - **Blast doors** — Access sheet. D3 is the 3-key console seal. The rest are 1-key optional cuts
 - **Yellow tripwires** — Watch sheet. Alarm + force investigate

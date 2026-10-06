@@ -33,7 +33,12 @@ var ids = M.markers.lasers.map(function (L) { return L.id; });
   if (ids.indexOf(id) < 0) throw new Error('missing tripwire ' + id);
 });
 if (M.isSafeCell(31, 2)) throw new Error('east harbor should leave the E room');
-if (M.isSafeCell(40, 2) !== true) throw new Error('east harbor should cover the F room');
+if (M.isSafeCell(40, 2)) throw new Error('F north / key 3 should stay outside east safe space');
+if (!M.isSafeCell(42, 5) || !M.isSafeCell(41, 6) || !M.isSafeCell(42, 6) || !M.isSafeCell(42, 9)) {
+  throw new Error('east safe space should be the F3–F5/M1 alcove');
+}
+if (M.isSafeCell(42, 1) || M.isSafeCell(42, 3)) throw new Error('F1/F2 should stay outside alcove');
+if (M.isSafeCell(39, 6) || M.isSafeCell(44, 6)) throw new Error('E4/F6 should stay outside alcove');
 if (M.isSafeCell(37, 6)) throw new Error('F west door should stay outside harbor');
 if (M.isSafeCell(35, 9)) throw new Error('U2 spawn must stay outside east harbor');
 if (M.isSafeCell(22, 8) || M.isSafeCell(32, 34)) throw new Error('U5/U6 must stay outside harbors');

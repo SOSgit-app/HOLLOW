@@ -38,7 +38,10 @@
   section + section { margin-top: 10px; }
   .nav-legend { margin-bottom: 10px; }
   body.team-4 .nav-legend { display: none; }
-  .legend canvas { display: block; width: 18px; height: 18px; }
+  .legend { display: flex; flex-direction: column; gap: 3px; }
+  .legend-row { display: flex; align-items: center; gap: 6px; }
+  .legend canvas { display: block; width: 18px; height: 18px; flex: none; }
+  .legend-row span { line-height: 1.2; }
   table { border-collapse: collapse; width: 100%; font-size: 9px; }
   th, td { text-align: left; padding: 0.5px 4px 0.5px 0; vertical-align: top; }
   th { color: #5a6570; font-weight: normal; letter-spacing: .08em; }
@@ -172,7 +175,7 @@
         <div class="pow-box" id="pow-box">POW: Operator hears the wall code.</div>
         <h2>WHO HAS WHAT</h2>
         <ul>
-          <li><b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6. No keys, no doors, no LZ.</li>
+          <li id="ctrl-watch-who"><b>Watch</b> — tripwires, safe spaces, patrol posts. No keys, no doors, no LZ.</li>
           <li><b>Access</b> — keys, blast doors, core G, landing zone X, infil P. No tripwires.</li>
           <li><b>You</b> — clock, checklist, both map legends. POW wall code comes from the Operator.</li>
         </ul>
@@ -181,7 +184,7 @@
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=114"></script>
+<script src="src/map.js?v=115"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -200,6 +203,10 @@
     WATCH: { codes: true, trips: true, harbor: true, security: true },
     ACCESS: { codes: true, keys: true, doors: true, core: true, lz: true, start: true }
   };
+
+  function staffedPosts() {
+    return M.securityPosts(sheetMode === 'easy' ? 'easy' : 'medium');
+  }
 
   var CELLPX = 13, PAD_L = 20, PAD_T = 18, PAD_R = 8, PAD_B = 8, SCALE = 3;
 
@@ -252,7 +259,11 @@
     if (L.keys) items.push(['dot', C.key, '1–3 — access keys', '1']);
     if (L.core) items.push(['sq', C.core, 'G — AI core (jack-in)', 'G']);
     if (L.lz) items.push(['sq', '#8a6100', 'X — landing zone', 'X']);
-    if (L.security) items.push(['dot', C.sec, 'U1–U6 — patrol posts (start)', '1']);
+    if (L.security) {
+      items.push(['dot', C.sec, sheetMode === 'easy'
+        ? 'U1–U4 — patrol posts (start)'
+        : 'U1–U6 — patrol posts (start)', '1']);
+    }
     el.innerHTML = '';
     items.forEach(function (row) {
       var kind = row[0], fill = row[1], label = row[2], letter = row[3];
@@ -294,8 +305,11 @@
       });
       var text = document.createElement('span');
       text.textContent = label;
-      el.appendChild(mark);
-      el.appendChild(text);
+      var rowEl = document.createElement('div');
+      rowEl.className = 'legend-row';
+      rowEl.appendChild(mark);
+      rowEl.appendChild(text);
+      el.appendChild(rowEl);
     });
   }
 
@@ -411,7 +425,7 @@
     if (L.keys) M.markers.fuses.forEach(function (f, i) { disc(ctx, f, String(i + 1), C.key); });
     if (L.core) disc(ctx, M.markers.G, 'G', C.core, true);
     if (L.security) {
-      (M.markers.security || []).forEach(function (p) {
+      staffedPosts().forEach(function (p) {
         disc(ctx, p, p.id.replace('U', ''), C.sec);
       });
     }
@@ -422,9 +436,14 @@
       var harbors = M.markers.harbors;
       if (harbors && harbors.length) {
         harbors.forEach(function (h) {
+          var wide = (h.c1 - h.c0) >= 4;
           ctx.fillStyle = '#2c6b45'; ctx.font = 'bold 7.5px Consolas, monospace';
           ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-          ctx.fillText(h.label.toUpperCase(), cx((h.c0 + h.c1 + 1) / 2), cy(h.r0) + CELLPX * 0.9);
+          ctx.fillText(
+            wide ? h.label.toUpperCase() : 'SAFE',
+            cx((h.c0 + h.c1 + 1) / 2),
+            cy((h.r0 + h.r1 + 1) / 2)
+          );
         });
       }
     }
@@ -448,9 +467,8 @@
     if (L.core && M.markers.G) stations.push(['G', 'AI core / jack-in', gridRef(M.markers.G)]);
     if (L.lz && M.markers.X) stations.push(['X', 'Landing zone', gridRef(M.markers.X)]);
     if (L.security) {
-      (M.markers.security || []).forEach(function (p) {
-        var extra = (p.id === 'U5' || p.id === 'U6') ? ' (not on Easy)' : '';
-        stations.push([p.id, p.label + extra, p.c + ',' + p.r]);
+      staffedPosts().forEach(function (p) {
+        stations.push([p.id, p.label, p.c + ',' + p.r]);
       });
     }
     if (L.trips) {
@@ -480,7 +498,9 @@
       ? 'You do <b>not</b> have keys, doors, the core, or the LZ. Ask Access.'
       : 'You do <b>not</b> have tripwires, the safe spaces, or patrol posts. Ask Watch.';
     var yours = role === 'WATCH'
-      ? 'You have tripwires, two safe spaces (infil + F-code east), and patrol posts U1–U6. Units <b>start</b> at the posts, then they walk. Easy staffs U1–U4; Medium and Hard also staff U5–U6. Call wires before they walk a hall.'
+      ? (sheetMode === 'easy'
+        ? 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), and patrol posts <b>U1–U4</b>. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.'
+        : 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), and patrol posts <b>U1–U6</b>. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.')
       : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, and infil P.';
     return (
       '<div><h2>YOUR JOB</h2><ul>' +
@@ -553,6 +573,12 @@
     fillLegend(document.getElementById('legend-access'), 'ACCESS');
     fillPow();
     document.getElementById('ctrl-tag').textContent = pack + ' · ' + diff;
+    var watchWho = document.getElementById('ctrl-watch-who');
+    if (watchWho) {
+      watchWho.innerHTML = easy
+        ? '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U4. No keys, no doors, no LZ.'
+        : '<b>Watch</b> — tripwires, safe spaces, patrol posts U1–U6. No keys, no doors, no LZ.';
+    }
     document.title = 'HOLLOW — ' + pack + ' ' + diff;
   }
 
