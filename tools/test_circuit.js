@@ -53,6 +53,10 @@ if (!M.markers.shutoffs || M.markers.shutoffs.length !== 3) throw new Error('nee
 var shutSec = {};
 M.markers.shutoffs.forEach(function (p) {
   if (!p.section || !p.pin || !/^\d{3}$/.test(p.pin)) throw new Error(p.id + ' needs section + 3-digit pin');
+  if (p.faceC == null || p.faceR == null) throw new Error(p.id + ' needs a wall face');
+  var wc = p.c + p.faceC, wr = p.r + p.faceR;
+  if (!M.isSolidCell(wc, wr)) throw new Error(p.id + ' is not mounted on a wall');
+  if (p.minX == null || p.maxX == null) throw new Error(p.id + ' missing box bounds');
   if (shutSec[p.section]) throw new Error('duplicate shutoff section ' + p.section);
   shutSec[p.section] = p.pin;
 });

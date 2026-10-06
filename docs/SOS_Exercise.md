@@ -60,7 +60,7 @@ Watch keeps them off yellow beams the whole time.
 - **Patrol posts U1–U6** — Watch sheet. Units start there, then they walk. Easy staffs U1–U4; Medium and Hard also staff U5–U6
 - **Blast doors** — Access sheet. D3 is the 3-key console seal. The rest are 1-key optional cuts
 - **Yellow tripwires** — Watch sheet. Alarm + force investigate
-- **Shutoff boxes (N / C / T)** — Watch sheet has the boxes. Press X and enter a 3-digit code. All tripwires off for 15s. Each box is one-shot. **4-person:** Controller has the codes. **3-person:** Access sheet has the codes. Watch calls the wall-code section (N, C, or T).
+- **Shutoff boxes (N / C / T)** — Watch sheet has the boxes on the walls. Press X and enter a 3-digit code. All tripwires off for 15s. EXIT leaves the pad; the box stays live and can be used again. **4-person:** Controller has the codes. **3-person:** Access sheet has the codes. Watch calls the wall-code section (N, C, or T).
 - **Beacon refills (B)** — Access sheet. Press X. +1 fault beacon. Three on the map
 - **Headset mic** — Hard only. Guards hear voice and footsteps from farther than Easy close-range sight
 - **Yellow LZ** — Access sheet. Paints yellow on LiDAR. Stand on it when the chopper is on station

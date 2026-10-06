@@ -335,6 +335,7 @@
     el.btnRescue = $('btn-rescue');
     el.btnVirus = $('btn-virus');
     el.pausePrompt = $('pause-prompt');
+    el.pinOverlay = $('pin-overlay');
     el.end = $('end-screen');
     el.endKicker = $('end-kicker');
     el.endTitle = $('end-title');
@@ -392,6 +393,7 @@
       if (pinUiActive() && state === 'PLAY') {
         if (e.code === 'Backspace') {
           pinUi.buf = pinUi.buf.slice(0, -1);
+          if (inVR()) syncPinPanel(); else syncPinDesktop();
           return;
         }
         var digit = null;
@@ -1154,7 +1156,11 @@
       return { x: p.x, z: p.z, taken: false, id: p.id };
     });
     shutBoxes = (M.markers.shutoffs || []).map(function (p) {
-      return { x: p.x, z: p.z, used: false, id: p.id, section: p.section || '?', pin: p.pin || '' };
+      return {
+        x: p.x, z: p.z, id: p.id, section: p.section || '?', pin: p.pin || '',
+        minX: p.minX, maxX: p.maxX, minY: p.minY, maxY: p.maxY, minZ: p.minZ, maxZ: p.maxZ,
+        faceC: p.faceC || 0, faceR: p.faceR || 0
+      };
     });
     laserShutoffLeft = 0;
     closePinUi();
@@ -1855,6 +1861,45 @@
     return tca - Math.sqrt(r2 - d2);
   }
 
+  function rayAABB(ox, oy, oz, dx, dy, dz, b) {
+    var tmin = 0.0001, tmax = SCAN_RANGE;
+    var i, o, d, mn, mx, t1, t2;
+    var orig = [ox, oy, oz], dir = [dx, dy, dz];
+    var minB = [b.minX, b.minY, b.minZ], maxB = [b.maxX, b.maxY, b.maxZ];
+    for (i = 0; i < 3; i++) {
+      o = orig[i]; d = dir[i]; mn = minB[i]; mx = maxB[i];
+      if (Math.abs(d) < 1e-8) {
+        if (o < mn || o > mx) return -1;
+      } else {
+        t1 = (mn - o) / d;
+        t2 = (mx - o) / d;
+        if (t1 > t2) { var tmp = t1; t1 = t2; t2 = tmp; }
+        tmin = Math.max(tmin, t1);
+        tmax = Math.min(tmax, t2);
+        if (tmax < tmin) return -1;
+      }
+    }
+    return tmin;
+  }
+
+  function sprayShutBox(box) {
+    var n = 5, s, u, v, px, py, pz, face;
+    for (s = 0; s < n; s++) {
+      u = math.rand();
+      v = math.rand();
+      py = box.minY + v * (box.maxY - box.minY);
+      face = (s === 0) ? 1 : 0;
+      if (box.faceC !== 0) {
+        px = (box.faceC > 0) ? (face ? box.minX : box.maxX) : (face ? box.maxX : box.minX);
+        pz = box.minZ + u * (box.maxZ - box.minZ);
+      } else {
+        pz = (box.faceR > 0) ? (face ? box.minZ : box.maxZ) : (face ? box.maxZ : box.minZ);
+        px = box.minX + u * (box.maxX - box.minX);
+      }
+      R.addPoint(px, py, pz, C_SHUT[0], C_SHUT[1], C_SHUT[2], now, ITEM_LIFE);
+    }
+  }
+
   // An access key should read as a key, not a blob. It is built from
   // overlapping beads: a ring bow, a shaft, and two bits. The bow is two
   // crossed rings so the silhouette holds up from any side, and nothing
@@ -2013,10 +2058,17 @@
       t = raySphere(ox, oy, oz, dx, dy, dz, { x: beaconPacks[i].x, y: 0.7, z: beaconPacks[i].z, r: 0.28 });
       if (t > 0 && t < bestT) { bestT = t; color = C_CYAN; life = ITEM_LIFE; }
     }
+    var shutHit = null, shutHitT = 0;
     for (i = 0; i < shutBoxes.length; i++) {
-      if (shutBoxes[i].used) continue;
-      t = raySphere(ox, oy, oz, dx, dy, dz, { x: shutBoxes[i].x, y: 0.85, z: shutBoxes[i].z, r: 0.32 });
-      if (t > 0 && t < bestT) { bestT = t; color = C_SHUT; life = ITEM_LIFE; }
+      if (shutBoxes[i].minX == null) {
+        t = raySphere(ox, oy, oz, dx, dy, dz, { x: shutBoxes[i].x, y: 1.2, z: shutBoxes[i].z, r: 0.32 });
+      } else {
+        t = rayAABB(ox, oy, oz, dx, dy, dz, shutBoxes[i]);
+      }
+      if (t > 0 && t < bestT) {
+        bestT = t; color = C_SHUT; life = ITEM_LIFE;
+        shutHit = shutBoxes[i]; shutHitT = t;
+      }
     }
     // locked blast doors — dark blue slab (also fills gaps if ray grazes)
     if (!skipArch) {
@@ -2053,6 +2105,7 @@
     if (color === null || bestT > SCAN_RANGE) return;
 
     if (keyHit && bestT === keyHitT) sprayKey(keyHit.x, KEY_Y, keyHit.z, ox, oy, oz, bestT);
+    if (shutHit && bestT === shutHitT) sprayShutBox(shutHit);
 
     var j = 0.02; // sensor jitter (GDD §8.2)
     R.addPoint(
@@ -2200,7 +2253,6 @@
       if (dot >= bestDot) { bestDot = dot; best = { kind: 'refill', i: i, dist: dist }; }
     }
     for (i = 0; i < shutBoxes.length; i++) {
-      if (shutBoxes[i].used) continue;
       tfx = shutBoxes[i].x - ox; tfz = shutBoxes[i].z - oz;
       dist = Math.sqrt(tfx * tfx + tfz * tfz);
       if (dist > VR_AIM_MAX) continue;
@@ -2272,19 +2324,27 @@
     pinUi.hover = -1;
     pinUi.pointerU = -1;
     pinUi.pointerV = -1;
+    if (el.pinOverlay) el.pinOverlay.classList.remove('visible');
     if (!cloneUiActive() && !pauseMenuOpen && R.setCircuitPanel) R.setCircuitPanel(null, null);
+    if (!inVR() && state === 'PLAY' && !pauseMenuOpen && el.canvas) {
+      try { el.canvas.requestPointerLock(); } catch (err) { void err; }
+    }
   }
 
   function openPinUi(i) {
-    if (!shutBoxes[i] || shutBoxes[i].used) return;
+    if (!shutBoxes[i]) return;
     pinUi.open = true;
     pinUi.idx = i;
     pinUi.buf = '';
     pinUi.hover = -1;
     pinUi.pointerU = -1;
     pinUi.pointerV = -1;
-    queueMsg('SHUTOFF ' + shutBoxes[i].section + ' — ENTER 3-DIGIT CODE', 'amber', 3);
+    queueMsg('SHUTOFF ' + shutBoxes[i].section + ' — ENTER 3-DIGIT CODE · EXIT TO LEAVE', 'amber', 3);
     if (inVR()) syncPinPanel();
+    else {
+      document.exitPointerLock();
+      syncPinDesktop();
+    }
   }
 
   function pinKeyLabel(i) {
@@ -2295,21 +2355,27 @@
   function pinPressKey(i) {
     if (!pinUi.open) return;
     if (i >= 0 && i <= 8) pinTypeDigit(String(i + 1));
-    else if (i === 9) pinUi.buf = '';
+    else if (i === 9) { pinUi.buf = ''; if (inVR()) syncPinPanel(); else syncPinDesktop(); }
     else if (i === 10) pinTypeDigit('0');
-    else if (i === 11) pinUi.buf = pinUi.buf.slice(0, -1);
+    else if (i === 11) {
+      pinUi.buf = pinUi.buf.slice(0, -1);
+      if (inVR()) syncPinPanel(); else syncPinDesktop();
+    }
+    else if (i === 12) closePinUi();
   }
 
   function pinTypeDigit(d) {
     if (!pinUi.open || pinUi.buf.length >= 3) return;
     pinUi.buf += d;
     if (pinUi.buf.length === 3) submitPin();
+    else if (inVR()) syncPinPanel();
+    else syncPinDesktop();
   }
 
   function submitPin() {
     if (!pinUi.open) return;
     var box = shutBoxes[pinUi.idx];
-    if (!box || box.used) { closePinUi(); return; }
+    if (!box) { closePinUi(); return; }
     if (pinUi.buf === box.pin) {
       var idx = pinUi.idx;
       closePinUi();
@@ -2319,12 +2385,14 @@
     pinUi.buf = '';
     if (A.clunk) A.clunk(0);
     queueMsg('WRONG CODE — ASK FOR SECTION ' + box.section, 'amber', 3);
+    if (inVR()) syncPinPanel(); else syncPinDesktop();
   }
 
   function pinKeyAtUv(u, v) {
-    if (u < 0.12 || u > 0.88 || v < 0.32 || v > 0.92) return -1;
+    if (u >= 0.12 && u <= 0.88 && v >= 0.79 && v <= 0.96) return 12;
+    if (u < 0.12 || u > 0.88 || v < 0.26 || v > 0.78) return -1;
     var c = Math.floor((u - 0.12) / 0.76 * 3);
-    var r = Math.floor((v - 0.32) / 0.60 * 4);
+    var r = Math.floor((v - 0.26) / 0.52 * 4);
     if (c < 0 || c > 2 || r < 0 || r > 3) return -1;
     return r * 3 + c;
   }
@@ -2335,6 +2403,16 @@
     pinCanvas.width = 360;
     pinCanvas.height = 480;
     pinCtx = pinCanvas.getContext('2d');
+    pinCanvas.addEventListener('click', function (e) {
+      if (!pinUi.open || inVR()) return;
+      var r = pinCanvas.getBoundingClientRect();
+      if (!r.width || !r.height) return;
+      var u = (e.clientX - r.left) / r.width;
+      var v = (e.clientY - r.top) / r.height;
+      var k = pinKeyAtUv(u, v);
+      if (k >= 0) pinPressKey(k);
+    });
+    if (el.pinOverlay) el.pinOverlay.insertBefore(pinCanvas, el.pinOverlay.firstChild);
   }
 
   function drawPinPanel() {
@@ -2350,18 +2428,18 @@
     ctx.fillStyle = '#7cff9b';
     ctx.font = '18px monospace';
     ctx.textAlign = 'center';
-    ctx.fillText('SHUTOFF ' + (box && box.section ? box.section : ''), w / 2, 40);
+    ctx.fillText('SHUTOFF ' + (box && box.section ? box.section : ''), w / 2, 36);
     ctx.fillStyle = '#b8e0c8';
     ctx.font = '13px monospace';
-    ctx.fillText('ENTER 3-DIGIT CODE', w / 2, 64);
+    ctx.fillText('ENTER 3-DIGIT CODE', w / 2, 58);
     ctx.fillStyle = '#7cff9b';
-    ctx.font = '36px monospace';
-    ctx.fillText(shown, w / 2, 118);
-    var i, c, r, x, y, bw = 88, bh = 52, selected;
+    ctx.font = '34px monospace';
+    ctx.fillText(shown, w / 2, 102);
+    var i, c, r, x, y, bw = 88, bh = 48, selected;
     for (i = 0; i < 12; i++) {
       c = i % 3; r = (i / 3) | 0;
       x = 42 + c * 96;
-      y = 150 + r * 70;
+      y = 122 + r * 62;
       selected = pinUi.hover === i;
       ctx.fillStyle = selected ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
       ctx.fillRect(x, y, bw, bh);
@@ -2369,8 +2447,16 @@
       ctx.strokeRect(x, y, bw, bh);
       ctx.fillStyle = selected ? '#7cff9b' : '#8aa';
       ctx.font = '20px monospace';
-      ctx.fillText(pinKeyLabel(i), x + bw / 2, y + 34);
+      ctx.fillText(pinKeyLabel(i), x + bw / 2, y + 32);
     }
+    selected = pinUi.hover === 12;
+    ctx.fillStyle = selected ? 'rgba(255,70,70,0.28)' : 'rgba(40,0,0,0.45)';
+    ctx.fillRect(42, 380, 280, 52);
+    ctx.strokeStyle = selected ? '#ff6a6a' : '#844';
+    ctx.strokeRect(42, 380, 280, 52);
+    ctx.fillStyle = selected ? '#ff8a8a' : '#c88';
+    ctx.font = '20px monospace';
+    ctx.fillText('EXIT', w / 2, 414);
     if (pinUi.pointerU >= 0 && pinUi.pointerV >= 0) {
       var px = pinUi.pointerU * w, py = pinUi.pointerV * h;
       ctx.strokeStyle = '#ff2a2a';
@@ -2387,6 +2473,16 @@
     if (!R.setCircuitPanel || !inVR() || !pinUi.open) return;
     drawPinPanel();
     R.setCircuitPanel(pinCanvas, buildPauseModel());
+  }
+
+  function syncPinDesktop() {
+    if (!el.pinOverlay) return;
+    if (pinUi.open && !inVR()) {
+      drawPinPanel();
+      el.pinOverlay.classList.add('visible');
+    } else {
+      el.pinOverlay.classList.remove('visible');
+    }
   }
 
   function handlePinLaser(vrInput) {
@@ -2410,12 +2506,10 @@
   }
 
   function useShutoff(i) {
-    if (!shutBoxes[i] || shutBoxes[i].used) return;
-    shutBoxes[i].used = true;
+    if (!shutBoxes[i]) return;
     laserShutoffLeft = SHUTOFF_S;
     A.clunk && A.clunk(0);
     emitNoise(NOISE_INTERACT);
-    if (R.expirePointsNear) R.expirePointsNear(shutBoxes[i].x, shutBoxes[i].z, 1.4, now);
     queueMsg('TRIPWIRES DOWN — 15 SECONDS', 'amber', 4);
   }
 
@@ -2898,7 +2992,7 @@
       }
     }
     for (i = 0; i < shutBoxes.length; i++) {
-      if (!shutBoxes[i].used && near(shutBoxes[i].x, shutBoxes[i].z, range)) {
+      if (near(shutBoxes[i].x, shutBoxes[i].z, range)) {
         openPinUi(i);
         return;
       }
@@ -3042,7 +3136,7 @@
         }
       }
       for (i = 0; i < shutBoxes.length; i++) {
-        if (!shutBoxes[i].used && near(shutBoxes[i].x, shutBoxes[i].z, hintRange)) {
+        if (near(shutBoxes[i].x, shutBoxes[i].z, hintRange)) {
           hint = btn + ' SHUTOFF ' + (shutBoxes[i].section || '') + ' — ENTER CODE';
         }
       }
@@ -3266,7 +3360,7 @@
       if (pinUiActive()) {
         var pb = shutBoxes[pinUi.idx];
         var dots = (pinUi.buf + '___').slice(0, 3);
-        return '<span class="energized">CODE ' + (pb && pb.section ? pb.section : '') + ' ' + dots + '</span>';
+        return '<span class="energized">CODE ' + (pb && pb.section ? pb.section : '') + ' ' + dots + ' · EXIT</span>';
       }
       if (laserShutoffLeft > 0) {
         return '<span class="energized">WIRES DOWN ' + Math.ceil(laserShutoffLeft) + 's</span>';
@@ -3389,7 +3483,10 @@
     if (state === 'PLAY') {
       var vrInput = xrData ? xrData.input : null;
       if (vrInput && typeof vrInput.bodyYaw === 'number') lastVrBodyYaw = vrInput.bodyYaw;
-      if (vrInput && vrInput.menuPressed) togglePauseMenu();
+      if (vrInput && vrInput.menuPressed) {
+        if (pinUiActive() && !pauseMenuOpen) closePinUi();
+        else togglePauseMenu();
+      }
 
       if (pauseMenuOpen) {
         if (vrInput && R.setWristModel) {
@@ -3422,12 +3519,13 @@
           }
         }
         if (inVR()) syncPinPanel();
+        else syncPinDesktop();
         EN.update(dt, player, now, { onKill: onKill, onEnemyClick: onEnemyClick });
         updateLasers(dt);
         updateMsg(dt);
         updateHUD(dt);
         vrHudHint = 'SECTION ' + ((shutBoxes[pinUi.idx] && shutBoxes[pinUi.idx].section) || '') +
-          ' · POINT LASER AT DIGITS · TRIGGER';
+          ' · EXIT ON PAD · Y TO LEAVE · POINT LASER';
       } else if (cloneUiActive()) {
         if (vrInput && R.setWristModel) {
           R.setWristModel(buildWristModel(vrInput.wrist, vrInput.bodyYaw));

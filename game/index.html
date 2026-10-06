@@ -199,6 +199,19 @@
     text-align:center; box-shadow:0 0 24px rgba(124,255,155,0.18);
   }
   .pause-card .menu-btn{ display:block; width:100%; max-width:320px; margin:10px auto; }
+  #pin-overlay{
+    position:absolute; inset:0; z-index:11; display:none;
+    align-items:center; justify-content:center;
+    background:rgba(0,0,0,0.45); pointer-events:auto;
+  }
+  #pin-overlay.visible{ display:flex; flex-direction:column; gap:10px; }
+  #pin-overlay canvas{
+    width:270px; height:360px;
+    border:1px solid var(--ph);
+    background:#020a06;
+    cursor:pointer;
+  }
+  #pin-overlay .dim{ text-align:center; }
 
 </style>
 </head>
@@ -363,10 +376,14 @@
   </div>
 </div>
 
+<div id="pin-overlay">
+  <p class="dim">CLICK EXIT TO LEAVE · Y / ESC ALSO CLOSES · BOX STAYS LIVE</p>
+</div>
+
 <div id="view-frame"></div>
 
 <script src="src/math.js?v=102"></script>
-<script src="src/map.js?v=117"></script>
+<script src="src/map.js?v=118"></script>
 <script src="src/marks.js?v=102"></script>
 <script src="src/render.js?v=106"></script>
 <script src="src/audio.js?v=103"></script>
@@ -375,6 +392,6 @@
 <script src="src/xr-controllers.js?v=101"></script>
 <script src="src/vr.js?v=107"></script>
 <script src="src/intro.js?v=102"></script>
-<script src="src/game.js?v=127"></script>
+<script src="src/game.js?v=128"></script>
 </body>
 </html>

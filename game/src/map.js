@@ -321,7 +321,39 @@
     post('U6', 32, 34, 'E', 'South hall');
   }
 
-  // Access: beacon refills (B). Watch: one-shot tripwire shutoffs (K).
+  // Access: beacon refills (B). Watch: wall-mounted tripwire shutoffs (K).
+  function mountShutoff(item, faceC, faceR) {
+    var wc = item.c + faceC, wr = item.r + faceR;
+    if (wc < 0 || wr < 0 || wc >= COLS || wr >= ROWS || !grid[wr][wc]) {
+      throw new Error('HOLLOW shutoff ' + item.id + ' face is not a wall');
+    }
+    var depth = 0.2, halfW = 0.32, y0 = 0.95, y1 = 1.68;
+    var plane, along;
+    item.faceC = faceC;
+    item.faceR = faceR;
+    item.minY = y0;
+    item.maxY = y1;
+    if (faceC !== 0) {
+      plane = (faceC > 0 ? item.c + 1 : item.c) * CELL;
+      along = (item.r + 0.5) * CELL;
+      item.minX = Math.min(plane, plane - faceC * depth);
+      item.maxX = Math.max(plane, plane - faceC * depth);
+      item.minZ = along - halfW;
+      item.maxZ = along + halfW;
+      item.x = (item.minX + item.maxX) / 2;
+      item.z = along;
+    } else {
+      plane = (faceR > 0 ? item.r + 1 : item.r) * CELL;
+      along = (item.c + 0.5) * CELL;
+      item.minZ = Math.min(plane, plane - faceR * depth);
+      item.maxZ = Math.max(plane, plane - faceR * depth);
+      item.minX = along - halfW;
+      item.maxX = along + halfW;
+      item.x = along;
+      item.z = (item.minZ + item.maxZ) / 2;
+    }
+  }
+
   function placeWorldPickups() {
     markers.refills = [];
     markers.shutoffs = [];
@@ -343,10 +375,14 @@
     put(markers.refills, 'B1', 12, 12);
     put(markers.refills, 'B2', 10, 32);
     put(markers.refills, 'B3', 43, 16);
-    // One box per wall-code section. Pins are fixed so the printed packet matches live play.
-    put(markers.shutoffs, 'K1', 3, 20, { section: 'N', pin: '417' });
-    put(markers.shutoffs, 'K2', 20, 4, { section: 'C', pin: '862' });
-    put(markers.shutoffs, 'K3', 40, 26, { section: 'T', pin: '305' });
+    // One box per wall-code section, bolted to a wall face. Pins stay fixed.
+    function putShut(id, c, r, faceC, faceR, extra) {
+      put(markers.shutoffs, id, c, r, extra);
+      mountShutoff(markers.shutoffs[markers.shutoffs.length - 1], faceC, faceR);
+    }
+    putShut('K1', 1, 20, -1, 0, { section: 'N', pin: '417' });
+    putShut('K2', 20, 4, 1, 0, { section: 'C', pin: '862' });
+    putShut('K3', 40, 26, 0, -1, { section: 'T', pin: '305' });
   }
 
   function securityPosts(diff) {
@@ -856,6 +892,7 @@
     var WALL = [0.30, 0.34, 0.40];
     var CEIL = [0.11, 0.12, 0.14];
     var DOOR = [0.16, 0.26, 0.70];
+    var SHUT = [0.52, 0.10, 0.34];
     var dirs = [
       { dc: 1, dr: 0 }, { dc: -1, dr: 0 },
       { dc: 0, dr: 1 }, { dc: 0, dr: -1 }
@@ -889,6 +926,17 @@
         }
       }
     }
+
+    (markers.shutoffs || []).forEach(function (b) {
+      if (b.minX == null) return;
+      var x0 = b.minX, x1 = b.maxX, y0 = b.minY, y1 = b.maxY, z0 = b.minZ, z1 = b.maxZ;
+      quad([x0, y0, z0], [x1, y0, z0], [x1, y1, z0], [x0, y1, z0], 0, 0, -1, SHUT[0], SHUT[1], SHUT[2]);
+      quad([x1, y0, z1], [x0, y0, z1], [x0, y1, z1], [x1, y1, z1], 0, 0, 1, SHUT[0], SHUT[1], SHUT[2]);
+      quad([x0, y0, z1], [x0, y0, z0], [x0, y1, z0], [x0, y1, z1], -1, 0, 0, SHUT[0], SHUT[1], SHUT[2]);
+      quad([x1, y0, z0], [x1, y0, z1], [x1, y1, z1], [x1, y1, z0], 1, 0, 0, SHUT[0], SHUT[1], SHUT[2]);
+      quad([x0, y1, z0], [x1, y1, z0], [x1, y1, z1], [x0, y1, z1], 0, 1, 0, SHUT[0], SHUT[1], SHUT[2]);
+      quad([x0, y0, z1], [x1, y0, z1], [x1, y0, z0], [x0, y0, z0], 0, -1, 0, SHUT[0], SHUT[1], SHUT[2]);
+    });
 
     return { data: new Float32Array(verts), count: verts.length / 9, stride: 9 };
   }

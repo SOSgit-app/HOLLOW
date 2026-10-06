@@ -5,20 +5,20 @@
 <title>HOLLOW — Team Map Packet</title>
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <style>
-  @page { size: landscape; margin: 8mm; }
+  @page { size: letter landscape; margin: 6mm; }
   * { box-sizing: border-box; }
   html, body { background: #fff; }
   body {
-    margin: 0; padding: 18px;
+    margin: 0; padding: 12px;
     font-family: Consolas, "Lucida Console", monospace;
     color: #14181c;
     -webkit-print-color-adjust: exact; print-color-adjust: exact;
   }
-  header { display: flex; align-items: baseline; gap: 14px; border-bottom: 2px solid #14181c; padding-bottom: 6px; }
-  h1 { font-size: 16px; letter-spacing: .16em; margin: 0; }
-  header .sub { font-size: 10px; letter-spacing: .1em; color: #5a6570; }
-  header .tag { margin-left: auto; font-size: 10px; letter-spacing: .14em; color: #5a6570; }
-  .actions { margin: 12px 0 14px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  header { display: flex; align-items: baseline; gap: 12px; border-bottom: 2px solid #14181c; padding-bottom: 4px; }
+  h1 { font-size: 14px; letter-spacing: .16em; margin: 0; }
+  header .sub { font-size: 9px; letter-spacing: .1em; color: #5a6570; }
+  header .tag { margin-left: auto; font-size: 9px; letter-spacing: .14em; color: #5a6570; }
+  .actions { margin: 8px 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
   .actions button, .actions a {
     font: inherit; font-size: 12px; padding: 8px 12px; margin: 0;
     border: 1px solid #14181c; background: #f2f4f6; color: #14181c;
@@ -28,48 +28,56 @@
   .tabs button { border: none; margin: 0; background: #fff; letter-spacing: .12em; font-size: 11px; }
   .tabs button + button { border-left: 1px solid #14181c; }
   .tabs button.active { background: #14181c; color: #fff; }
-  .sheet { display: flex; gap: 14px; align-items: flex-start; margin-top: 12px; }
+  .page { display: none; }
+  .page.visible { display: flex; flex-direction: column; }
+  .sheet { display: flex; gap: 10px; align-items: flex-start; margin-top: 8px; flex: 1; min-height: 0; }
   canvas { border: 1px solid #14181c; display: block; }
-  aside { width: 268px; flex: none; font-size: 10px; line-height: 1.45; }
+  aside { width: 220px; flex: none; font-size: 9px; line-height: 1.3; }
   body.team-4 aside { display: none; }
   h2 {
-    font-size: 10px; letter-spacing: .16em; margin: 0 0 6px;
-    padding-bottom: 3px; border-bottom: 1px solid #c3cad1;
+    font-size: 9px; letter-spacing: .16em; margin: 0 0 4px;
+    padding-bottom: 2px; border-bottom: 1px solid #c3cad1;
   }
-  .nav-legend { margin-bottom: 0; }
+  .nav-legend { margin-bottom: 8px; }
   body.team-4 .nav-legend { display: none; }
-  .legend { display: flex; flex-direction: column; gap: 6px; }
-  .legend-row { display: flex; align-items: flex-start; gap: 8px; }
-  .legend canvas { display: block; width: 18px; height: 18px; flex: none; margin-top: 1px; }
-  .legend-copy { display: flex; flex-direction: column; gap: 1px; min-width: 0; }
-  .legend-copy .name { font-weight: 700; line-height: 1.25; }
-  .legend-copy .hint { color: #3a4450; line-height: 1.3; }
-  .facts { display: flex; gap: 18px; margin-top: 12px; font-size: 10px; line-height: 1.5; }
+  .legend { display: flex; flex-direction: column; gap: 3px; }
+  .legend-row { display: flex; align-items: flex-start; gap: 6px; }
+  .legend canvas { display: block; width: 14px; height: 14px; flex: none; margin-top: 1px; }
+  .legend-copy { display: flex; flex-direction: row; flex-wrap: wrap; gap: 0 6px; min-width: 0; align-items: baseline; }
+  .legend-copy .name { font-weight: 700; line-height: 1.2; }
+  .legend-copy .name:not(:only-child)::after { content: ' —'; }
+  .legend-copy .hint { color: #3a4450; line-height: 1.2; }
+  .facts { display: flex; gap: 12px; margin-top: 6px; font-size: 8.5px; line-height: 1.3; }
   .facts > div { flex: 1; }
-  ul { margin: 0; padding-left: 14px; }
-  li { margin-bottom: 4px; }
-  .page { display: none; }
-  .page.visible { display: block; }
-  .ctrl-grid { display: grid; grid-template-columns: 1.15fr 0.95fr; gap: 18px 36px; margin-top: 14px; }
-  .ctrl-col h2 { margin-top: 14px; }
+  .facts h2 { margin-bottom: 2px; }
+  ul { margin: 0; padding-left: 12px; }
+  li { margin-bottom: 2px; }
+  .ctrl-grid { display: grid; grid-template-columns: 1.1fr 0.9fr; gap: 8px 20px; margin-top: 8px; }
+  .ctrl-col h2 { margin-top: 8px; }
   .ctrl-col h2:first-child { margin-top: 0; }
   .ctrl-legends {
-    display: grid; grid-template-columns: 1fr 1fr; gap: 16px 40px;
-    margin-top: 18px; padding-top: 14px; border-top: 2px solid #14181c;
+    display: grid; grid-template-columns: 1fr 1fr; gap: 8px 24px;
+    margin-top: 8px; padding-top: 8px; border-top: 2px solid #14181c;
   }
-  .ctrl-legends .legend { gap: 8px; }
-  .check { border: 1px solid #14181c; padding: 10px 12px; margin-top: 12px; }
-  .check label { display: block; margin: 5px 0; }
-  .note { font-size: 10.5px; line-height: 1.5; margin: 0 0 2px; }
-  .pow-box { border: 2px solid #14181c; padding: 10px 12px; margin: 8px 0 4px; font-size: 13px; }
-  .pin-box { border: 2px solid #14181c; padding: 10px 14px; margin: 8px 0 4px; font-size: 20px; letter-spacing: .18em; line-height: 1.55; }
-  .pin-box div { margin: 3px 0; }
+  .ctrl-legends .legend { gap: 3px; }
+  .check { border: 1px solid #14181c; padding: 6px 8px; margin-top: 6px; }
+  .check label { display: block; margin: 2px 0; }
+  .note { font-size: 9px; line-height: 1.3; margin: 0 0 2px; }
+  .pow-box { border: 2px solid #14181c; padding: 6px 8px; margin: 4px 0 2px; font-size: 11px; }
+  .pin-box { border: 2px solid #14181c; padding: 6px 10px; margin: 4px 0 2px; font-size: 16px; letter-spacing: .16em; line-height: 1.35; }
+  .pin-box div { margin: 1px 0; }
   body.team-4 .access-pins { display: none; }
+  .access-pins .note { margin-bottom: 4px; }
   @media print {
-    .actions { display: none; }
+    .actions { display: none !important; }
     body { padding: 0; }
-    .page { display: block !important; page-break-after: always; }
-    .page:last-child { page-break-after: auto; }
+    .page {
+      display: flex !important; flex-direction: column;
+      height: 203mm; max-height: 203mm; overflow: hidden;
+      page-break-after: always; page-break-inside: avoid;
+      break-after: page; break-inside: avoid;
+    }
+    .page:last-child, .team-3 .page:nth-last-child(2) { page-break-after: auto; break-after: auto; }
     .team-3 .ctrl-page { display: none !important; }
     body.team-4 .nav-legend { display: none !important; }
     body.team-4 aside { display: none !important; }
@@ -128,7 +136,7 @@
         </section>
         <section class="access-pins">
           <h2>SHUTOFF CODES</h2>
-          <p class="note">Watch has the boxes in wall-code sections N, C, and T. They call a section — you read the digits. 3-person only (no Controller).</p>
+          <p class="note">Watch calls N, C, or T. You read the digits. 3-person only.</p>
           <div class="pin-box" id="access-pins"></div>
         </section>
       </aside>
@@ -145,16 +153,14 @@
     <div class="ctrl-grid">
       <div class="ctrl-col">
         <h2>YOUR JOB</h2>
-        <p class="note">Watch and Access both have the full map and wall codes. You do <b>not</b>. Run the 10:00 clock, tick the objectives, and hold both legends. Do not grab a navigator sheet.</p>
+        <p class="note">Watch and Access have the map and wall codes. You do <b>not</b>. Run the 10:00 clock, tick objectives, hold both legends. Do not grab a navigator sheet.</p>
         <h2>RADIO</h2>
-        <p class="note">Operator lost? Tell them to read a wall code. <b>Both</b> navigators can place it. Then ask Watch “is that hall wired?” and Access “keys / door / LZ from here?”</p>
+        <p class="note">Operator lost? Have them read a wall code — <b>both</b> navigators can place it. Ask Watch “wired?” and Access “keys / door / LZ?”</p>
         <h2>CLOCK &amp; RULES</h2>
         <ul>
-          <li>Blackout <b>10:00</b>, then power returns.</li>
-          <li>3 keys → open <b>D3</b> (needs all 3) → jack-in at <b>G</b> (press X, hold X to download) → POW <b>or</b> virus → yellow pad <b>X</b>.</li>
-          <li>When the chopper is <b>on station</b>, walk onto the yellow <b>X</b> pad to extract.</li>
+          <li>Blackout <b>10:00</b>. 3 keys → <b>D3</b> → jack-in at <b>G</b> (press X, hold X) → POW or virus → yellow <b>X</b>.</li>
+          <li>Walk onto <b>X</b> when the chopper is on station. After clone: inbound, then <b>1:30</b> on pad.</li>
           <li>Safe spaces are on the Watch sheet. Security will not kill them there.</li>
-          <li>After clone: chopper inbound, then <b>1:30</b> on station.</li>
         </ul>
         <div class="check">
           <b>TICK OFF</b>
@@ -166,10 +172,10 @@
       </div>
       <div class="ctrl-col">
         <h2>POW</h2>
-        <p class="note">Not on Watch or Access. One of three holds, picked when they choose rescue. The Operator hears the wall code — ask them to read it. Both navigators can place it. POW paints dark green on LiDAR.</p>
+        <p class="note">Not on Watch or Access. Operator hears the wall code on rescue — ask them to read it. Both navigators can place it. POW paints dark green.</p>
         <div class="pow-box" id="pow-box">POW: Operator hears the wall code.</div>
         <h2>SHUTOFF CODES</h2>
-        <p class="note">Watch has the boxes. They call wall-code section <b>N</b>, <b>C</b>, or <b>T</b>. Read the three digits. Do not hand Watch this card.</p>
+        <p class="note">Watch calls section <b>N</b>, <b>C</b>, or <b>T</b>. Read the digits. Do not hand Watch this card.</p>
         <div class="pin-box" id="ctrl-pins"></div>
         <h2>WHO HAS WHAT</h2>
         <ul>
@@ -192,7 +198,7 @@
   </div>
 
 <script src="src/math.js?v=101"></script>
-<script src="src/map.js?v=117"></script>
+<script src="src/map.js?v=118"></script>
 <script>
 (function () {
   var M = window.HOLLOW.map;
@@ -217,7 +223,7 @@
     return M.securityPosts(sheetMode === 'easy' ? 'easy' : 'medium');
   }
 
-  var CELLPX = 18, PAD_L = 24, PAD_T = 20, PAD_R = 10, PAD_B = 10, SCALE = 3;
+  var CELLPX = 15, PAD_L = 22, PAD_T = 16, PAD_R = 8, PAD_B = 8, SCALE = 3;
 
   function cx(c) { return PAD_L + c * CELLPX; }
   function cy(r) { return PAD_T + r * CELLPX; }
@@ -244,7 +250,7 @@
   }
 
   function legendIcon(draw) {
-    var size = 18, scale = 2;
+    var size = 14, scale = 2;
     var c = document.createElement('canvas');
     c.width = size * scale; c.height = size * scale;
     c.style.width = size + 'px'; c.style.height = size + 'px';
@@ -279,7 +285,7 @@
     if (L.shutoffs) items.push({
       kind: 'sq', fill: C.shut, letter: 'N',
       name: 'Shutoff N / C / T',
-      hint: 'Call the section. Get the 3-digit code. Press X — all wires off 15s, once'
+      hint: 'Ask for the 3-digit code. Press X — wires off 15s. Can use again'
     });
     el.innerHTML = '';
     items.forEach(function (row) {
@@ -317,7 +323,7 @@
           ctx.strokeText('A1', 6, mid);
           ctx.fillStyle = C.code; ctx.fillText('A1', 6, mid);
         } else {
-          stamp(ctx, mid, mid, letter, fill, kind === 'sq', 7.2);
+          stamp(ctx, mid, mid, letter, fill, kind === 'sq', 5.6);
         }
       });
       var copy = document.createElement('div');
@@ -481,36 +487,31 @@
   }
 
   function navFactsHtml(role) {
-    var missing = role === 'WATCH'
-      ? 'You do <b>not</b> have keys, doors, the core, the LZ, beacon refills, or shutoff codes.'
-      : (team === 3
-        ? 'You do <b>not</b> have tripwires, the safe spaces, patrol posts, or the shutoff boxes. Ask Watch. You have the codes.'
-        : 'You do <b>not</b> have tripwires, the safe spaces, patrol posts, or shutoff boxes. Ask Watch. Shutoff codes are on the Controller card.');
+    var posts = sheetMode === 'easy' ? 'U1–U4' : 'U1–U6';
     var yours = role === 'WATCH'
-      ? (sheetMode === 'easy'
-        ? 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U4</b>, and three shutoff boxes in wall-code sections <b>N, C, T</b>. They need a 3-digit code — ask Controller (4-person) or Access (3-person). Press X, enter the code, wires off 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.'
-        : 'You have tripwires, two safe spaces (infil + F alcove at F3–F5/M1), patrol posts <b>U1–U6</b>, and three shutoff boxes in wall-code sections <b>N, C, T</b>. They need a 3-digit code — ask Controller (4-person) or Access (3-person). Press X, enter the code, wires off 15s, once. Units <b>start</b> at the posts, then they walk. Call wires before they walk a hall.')
+      ? 'Wires, two safe spaces, patrol posts <b>' + posts + '</b>, shutoff boxes <b>N/C/T</b> (ask for the 3-digit code). Call wires before a hall.'
       : (team === 3
-        ? 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, infil P, three beacon refills <b>B</b> (+1 throw each), and the <b>shutoff codes</b> for sections N, C, and T. Watch has the boxes — they call a section, you read the digits.'
-        : 'You have keys 1–3, blast doors D1–D9 (only D3 needs all 3), core G, landing zone X, infil P, and three beacon refills <b>B</b> (+1 throw each). Shutoff codes are on the Controller card.');
+        ? 'Keys 1–3, doors D1–D9 (D3 needs all 3), G, LZ X, P, beacon refills B, and shutoff codes N/C/T.'
+        : 'Keys 1–3, doors D1–D9 (D3 needs all 3), G, LZ X, P, beacon refills B. Shutoff codes are on the Controller card.');
+    var missing = role === 'WATCH'
+      ? 'No keys, doors, core, LZ, or refill packs.'
+      : (team === 3
+        ? 'No wires, safe spaces, patrol posts, or shutoff boxes. You have the codes.'
+        : 'No wires, safe spaces, patrol posts, or shutoff boxes. Codes are on the Controller card.');
     return (
       '<div><h2>YOUR JOB</h2><ul>' +
-      '<li>Full floor. Wall codes. You can place the Operator anywhere they call.</li>' +
+      '<li>Full floor + wall codes. Place the Operator from a call.</li>' +
       '<li>' + yours + '</li>' +
       '<li>' + missing + '</li>' +
-      (team === 4
-        ? '<li>Color legend is on the <b>Controller</b> card. Ask them what a mark means.</li>'
-        : '<li>Your color legend is on this sheet.</li>') +
       '</ul></div>' +
       '<div><h2>SHARED</h2><ul>' +
-      '<li>3 keys → D3 (all 3) → jack-in at G (press X, hold X to download) → POW or virus → yellow pad X.</li>' +
-      '<li>Blackout <b>10:00</b>. Walk onto yellow <b>X</b> when the chopper is on station.</li>' +
+      '<li>3 keys → D3 → jack-in at G (press X, hold X) → POW or virus → yellow X.</li>' +
+      '<li>Blackout <b>10:00</b>. Walk onto X when the chopper is on station.</li>' +
       '</ul></div>' +
       '<div><h2>ROLES</h2><ul>' +
-      '<li><b>OPERATOR</b> — VR.</li>' +
-      '<li><b>WATCH</b> — wires / safe spaces / patrol posts / shutoffs.</li>' +
-      '<li><b>ACCESS</b> — keys / doors / G / X / beacon refills.</li>' +
-      (team === 4 ? '<li><b>CONTROLLER</b> — clock, ticks, both legends, shutoff codes N/C/T. No map. POW code comes from the Operator.</li>' : '<li>3-person: you two share the clock out loud. Access has shutoff codes. POW code comes from the Operator.</li>') +
+      '<li><b>OPERATOR</b> VR · <b>WATCH</b> wires / safe / posts / shutoffs · <b>ACCESS</b> keys / doors / G / X / B' +
+      (team === 4 ? ' · <b>CONTROLLER</b> clock, legends, N/C/T codes. No map.' : ' · 3-person: share the clock. Access has shutoff codes.') +
+      '</li>' +
       '</ul></div>'
     );
   }
