@@ -12,6 +12,8 @@ Three- or four-person experiential for **Squadron Officer School**-style mission
 
 Fictional enemy C2 node raid. No real unit OPSEC.
 
+Student read-ahead (one landscape page, no map secrets): [brief-print.html](../game/brief-print.html). Print this first. Then hand Watch / Access / Controller their packets.
+
 ## 3-person team
 
 | Role | Packet | Has | Missing |
@@ -49,7 +51,7 @@ Watch keeps them off yellow beams the whole time.
 
 ## Setup
 
-1. Print the packet for the team size (2 or 3 landscape pages).
+1. Print the [student brief](../game/brief-print.html) (1 page). Print the map packet for the team size (2 or 3 landscape pages).
 2. Operator opens the game in Quest Browser.
 3. On Hard, allow microphone (speech raises signature). Easy and Medium ignore operator noise.
 4. State intent. Operator backbriefs first route from the safe space. Watch: first wires. Access: first key.

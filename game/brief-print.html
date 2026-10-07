@@ -1,0 +1,188 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<title>HOLLOW — Student Mission Brief</title>
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<style>
+  @page { size: letter landscape; margin: 7mm; }
+  * { box-sizing: border-box; }
+  html, body { background: #fff; }
+  body {
+    margin: 0; padding: 12px;
+    font-family: Consolas, "Lucida Console", monospace;
+    color: #14181c;
+    -webkit-print-color-adjust: exact; print-color-adjust: exact;
+  }
+  .actions { margin: 0 0 10px; display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+  .actions button, .actions a {
+    font: inherit; font-size: 12px; padding: 8px 12px; margin: 0;
+    border: 1px solid #14181c; background: #f2f4f6; color: #14181c;
+    cursor: pointer; text-decoration: none;
+  }
+  .sheet { display: flex; flex-direction: column; gap: 7px; }
+  header {
+    display: flex; align-items: baseline; gap: 12px;
+    border-bottom: 2px solid #14181c; padding-bottom: 4px;
+  }
+  h1 { font-size: 15px; letter-spacing: .18em; margin: 0; }
+  header .sub { font-size: 9px; letter-spacing: .1em; color: #5a6570; }
+  header .tag { margin-left: auto; font-size: 9px; letter-spacing: .14em; color: #5a6570; }
+  h2 {
+    font-size: 9px; letter-spacing: .16em; margin: 0 0 4px;
+    padding-bottom: 2px; border-bottom: 1px solid #c3cad1;
+  }
+  p, li, .note { font-size: 10px; line-height: 1.35; margin: 0; }
+  ul { margin: 0; padding-left: 14px; }
+  li { margin-bottom: 2px; }
+  .intent {
+    border: 2px solid #14181c; padding: 8px 10px;
+  }
+  .intent p { font-size: 11px; line-height: 1.4; }
+  .row2 { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+  .row4 { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 7px; }
+  .box { border: 1px solid #14181c; padding: 6px 8px; min-height: 0; }
+  .box.win { background: #f3f8f4; }
+  .box.fail { background: #faf4f4; }
+  .role b.who { display: block; letter-spacing: .12em; font-size: 10px; margin-bottom: 3px; }
+  .role .has { color: #3a4450; margin-top: 4px; }
+  .seq {
+    display: grid; grid-template-columns: repeat(4, 1fr); gap: 7px;
+  }
+  .step { border: 1px solid #14181c; padding: 6px 8px; }
+  .step .n {
+    font-size: 9px; letter-spacing: .14em; color: #5a6570; margin-bottom: 3px;
+  }
+  .foot {
+    display: grid; grid-template-columns: 1.15fr 0.85fr; gap: 8px;
+  }
+  @media print {
+    .actions { display: none !important; }
+    body { padding: 0; }
+    .sheet {
+      height: 202mm; max-height: 202mm; overflow: hidden;
+    }
+  }
+</style>
+</head>
+<body>
+  <div class="actions">
+    <button type="button" onclick="window.print()">PRINT BRIEF</button>
+    <a href="map-print.html?team=3#easy-watch">3-PERSON MAPS</a>
+    <a href="map-print.html?team=4#easy-watch">4-PERSON PACKET</a>
+    <a href="index.html">BACK TO GAME</a>
+  </div>
+
+  <div class="sheet">
+    <header>
+      <h1>HOLLOW — MISSION BRIEF</h1>
+      <span class="sub">STUDENT READ-AHEAD · ROLES · HOW YOU WIN</span>
+      <span class="tag">ONE PAGE · SHARE BEFORE MAPS</span>
+    </header>
+
+    <section class="intent">
+      <h2>COMMANDER’S INTENT</h2>
+      <p>
+        Infiltrate the blackout node, recover <b>three access keys</b>, open the
+        <b>console-room door (D3)</b>, jack into the core, and extract on the
+        chopper when it is on station. Nobody has the whole picture — same floor,
+        different sheets. Talk. Minimize emissions. If you get lost, read a
+        <b>wall code</b> out loud. Success is the clone on the drive <b>and</b>
+        the Operator on the pad.
+      </p>
+    </section>
+
+    <div class="row2">
+      <section class="box win">
+        <h2>HOW YOU WIN</h2>
+        <ul>
+          <li>Clone the core onto the drive, then extract.</li>
+          <li><b>Rescue:</b> POW follows the Operator. Both stand on the yellow <b>X</b> while the chopper is <b>on station</b>.</li>
+          <li><b>Virus:</b> plant at the console, then the Operator stands on the yellow <b>X</b> while it is on station.</li>
+          <li>Walk onto the pad. Do not board until the chopper is on station.</li>
+        </ul>
+      </section>
+      <section class="box fail">
+        <h2>HOW YOU FAIL</h2>
+        <ul>
+          <li><b>Caught</b> — security reaches the Operator.</li>
+          <li><b>Left behind</b> — chopper leaves and you are not on the pad.</li>
+          <li><b>Blackout ends</b> — power returns at <b>10:00</b>.</li>
+          <li>Rescue without the POW on the pad does not count. Virus without the plant does not count.</li>
+        </ul>
+      </section>
+    </div>
+
+    <section>
+      <h2>ROLES — DO NOT TRADE SHEETS</h2>
+      <div class="row4">
+        <div class="box role">
+          <b class="who">OPERATOR</b>
+          <p>Headset. You are the only person in the site. You have LiDAR — no paper map.</p>
+          <p class="has">Scan quiet (trigger). Interact / download / POW follow: <b>X</b>. Hold X to download, then to plant virus. Stay close to the POW or they slow down.</p>
+        </div>
+        <div class="box role">
+          <b class="who">WATCH</b>
+          <p>Full floor + wall codes. You keep them alive in the halls.</p>
+          <p class="has">You have: tripwires, safe spaces, patrol posts, shutoff boxes N/C/T (no digits). You do <b>not</b> have keys, doors, core, or LZ.</p>
+        </div>
+        <div class="box role">
+          <b class="who">ACCESS</b>
+          <p>Full floor + wall codes. You get them to the core and home.</p>
+          <p class="has">You have: keys 1–3, blast doors, core <b>G</b>, LZ <b>X</b>, infil <b>P</b>, beacon refills. You do <b>not</b> have tripwires. <b>3-person:</b> you also have shutoff codes.</p>
+        </div>
+        <div class="box role">
+          <b class="who">CONTROLLER · 4-PERSON ONLY</b>
+          <p>No map. Run the clock and the radio. Do not take a navigator sheet.</p>
+          <p class="has">You have: 10:00 clock, objective ticks, both legends, shutoff codes N/C/T. POW location comes from the Operator after they choose rescue.</p>
+        </div>
+      </div>
+    </section>
+
+    <section>
+      <h2>MISSION ORDER</h2>
+      <div class="seq">
+        <div class="step">
+          <div class="n">1 · KEYS</div>
+          <p>Access calls amber keys. Recover all <b>three</b>. Optional 1-key doors are shortcuts — D3 is not optional.</p>
+        </div>
+        <div class="step">
+          <div class="n">2 · CONSOLE</div>
+          <p>Open <b>D3</b> (needs all 3 keys). Jack in at <b>G</b>: press X, then <b>hold X</b> until the download finishes.</p>
+        </div>
+        <div class="step">
+          <div class="n">3 · FORK</div>
+          <p>Choose <b>Rescue POW</b> or <b>Plant the Virus</b>. Rescue: Operator reads the wall code, then <b>I UNDERSTAND</b> starts the clock. Press X on the POW. Stay close.</p>
+        </div>
+        <div class="step">
+          <div class="n">4 · EXTRACT</div>
+          <p>Chopper inbound, then on station. Access calls the yellow <b>X</b>. Watch keeps them off tripwires the whole way.</p>
+        </div>
+      </div>
+    </section>
+
+    <div class="foot">
+      <section class="box">
+        <h2>RADIO</h2>
+        <ul>
+          <li>Operator lost? They read a wall code. <b>Both</b> Watch and Access can place it.</li>
+          <li>Before a hall, Watch answers: “wired?” Access answers: “keys / door / LZ?”</li>
+          <li>Safe space (Watch) — security will not kill them there. Break, reorient, leave quiet.</li>
+          <li>Shutoff: Watch finds the wall box and calls <b>N, C, or T</b>. Whoever has the codes reads the digits. All tripwires off for 15 seconds. You can use a box more than once.</li>
+        </ul>
+      </section>
+      <section class="box">
+        <h2>WHAT THE OPERATOR SEES</h2>
+        <ul>
+          <li><b>Amber</b> — access keys</li>
+          <li><b>Yellow beams</b> — tripwires (Watch)</li>
+          <li><b>Green rooms</b> — safe space (Watch)</li>
+          <li><b>Red</b> — security</li>
+          <li><b>Bright green person</b> — POW</li>
+          <li><b>Yellow pad</b> — LZ. Walk on it when the chopper is on station</li>
+        </ul>
+      </section>
+    </div>
+  </div>
+</body>
+</html>

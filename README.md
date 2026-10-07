@@ -31,6 +31,7 @@ HOLLOW is a Squadron Officer School-style exercise: one **Operator** in VR,
 floor and wall codes but different overlays, and (in a 4-person team) a
 **Controller** with the clock — no maze. POW wall code is spoken by the Operator.
 
+- Student mission brief: [`game/brief-print.html`](game/brief-print.html)
 - Exercise guide: [`docs/SOS_Exercise.md`](docs/SOS_Exercise.md)
 - 3-person maps: [`game/map-print.html?team=3`](game/map-print.html?team=3#easy-watch)
 - 4-person packet: [`game/map-print.html?team=4`](game/map-print.html?team=4#easy-watch)
