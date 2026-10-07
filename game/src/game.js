@@ -1350,8 +1350,12 @@
       path: null,
       pathIdx: 0,
       repath: 0,
-      code: site.code || '??'
+      code: site.code || '??',
+      animT: 0,
+      facing: 0,
+      bodyCache: null
     };
+    pow.bodyCache = buildPowBody(0);
   }
 
   function isCloneHold(vrInput) {
@@ -2638,23 +2642,77 @@
     openClonePrompt();
   }
 
+  // Same gaunt security silhouette, ~18% shorter. Bright green via C_POW.
+  function buildPowBody(dt) {
+    if (!pow) return [];
+    pow.animT = (pow.animT || 0) + dt;
+    var t = pow.animT;
+    var out = [];
+    var bx = pow.x, bz = pow.z;
+    var facing = pow.facing || 0;
+    var ca = Math.cos(facing), sa = Math.sin(facing);
+    var SH = 0.82, SW = 0.9, SR = 0.95;
+    function add(lx, y, lz, r) {
+      out.push({
+        x: bx + (lx * SW) * ca + (lz * SW) * sa,
+        y: y * SH,
+        z: bz - (lx * SW) * sa + (lz * SW) * ca,
+        r: r * SR
+      });
+    }
+    function chain(x0, y0, z0, x1, y1, z1, n, r0, r1) {
+      var c, f;
+      for (c = 0; c < n; c++) {
+        f = n === 1 ? 0 : c / (n - 1);
+        add(x0 + (x1 - x0) * f,
+            y0 + (y1 - y0) * f,
+            z0 + (z1 - z0) * f,
+            r0 + (r1 - r0) * f);
+      }
+    }
+    var walking = !!(pow.freed && pow.path);
+    var lean = walking ? 0.16 : 0.28;
+    var gait = walking ? 3.4 : 0;
+    var bob = gait > 0 ? Math.abs(Math.sin(t * gait)) * 0.05 : 0;
+    var sway = Math.sin(t * 1.1) * 0.04;
+    function fwd(y) { return Math.max(0, y - 1.0) * lean; }
+
+    chain(sway, 1.0 + bob, 0,
+          sway * 0.4, 1.92 + bob, fwd(1.92), 6, 0.27, 0.2);
+    add(0.36, 1.9 + bob, fwd(1.9), 0.14);
+    add(-0.36, 1.9 + bob, fwd(1.9), 0.14);
+
+    var tilt = Math.sin(t * 0.45) * 0.12 + 0.08;
+    var hy = 2.42 + bob;
+    chain(0, 1.98 + bob, fwd(1.98),
+          tilt, hy - 0.06, fwd(hy) + 0.16, 4, 0.11, 0.08);
+    add(tilt, hy, fwd(hy) + 0.2, 0.16);
+    add(tilt * 1.3, hy - 0.13, fwd(hy) + 0.33, 0.08);
+
+    var armB = 0.04;
+    var swing = gait > 0 ? Math.sin(t * gait) * 0.14 : Math.sin(t * 0.8) * 0.04;
+    var side, sgn, sw, st;
+    for (side = 0; side < 2; side++) {
+      sgn = side === 0 ? 1 : -1;
+      sw = swing * sgn;
+      chain(sgn * 0.36, 1.9 + bob, fwd(1.9),
+            sgn * 0.5, 0.2, armB + 0.12 + sw * 1.3, 7, 0.12, 0.06);
+      add(sgn * 0.56, 0.07, armB + 0.24 + sw * 1.3, 0.035);
+      add(sgn * 0.42, 0.06, armB + 0.26 + sw * 1.3, 0.035);
+    }
+    for (side = 0; side < 2; side++) {
+      sgn = side === 0 ? 1 : -1;
+      st = gait > 0 ? Math.sin(t * gait + (side === 0 ? 0 : Math.PI)) * 0.18 : 0;
+      chain(sgn * 0.13, 0.95 + bob * 0.5, 0,
+            sgn * 0.16, 0.07, st * 0.4 + 0.08, 5, 0.12, 0.08);
+    }
+    return out;
+  }
+
   function powSpheres() {
     if (!pow || missionBranch !== 'RESCUE') return [];
-    var bx = pow.x, bz = pow.z;
-    var crouch = !pow.freed;
-    if (crouch) {
-      return [
-        { x: bx, y: 0.32, z: bz, r: 0.30 },
-        { x: bx, y: 0.72, z: bz, r: 0.24 },
-        { x: bx + 0.12, y: 0.95, z: bz, r: 0.16 }
-      ];
-    }
-    return [
-      { x: bx, y: 0.45, z: bz, r: 0.28 },
-      { x: bx, y: 1.05, z: bz, r: 0.24 },
-      { x: bx, y: 1.55, z: bz, r: 0.18 },
-      { x: bx, y: 1.85, z: bz, r: 0.14 }
-    ];
+    if (!pow.bodyCache || !pow.bodyCache.length) pow.bodyCache = buildPowBody(0);
+    return pow.bodyCache;
   }
 
   function tryFreePow() {
@@ -2747,12 +2805,24 @@
     return POW_SPEED_MAX + (POW_SPEED_MIN - POW_SPEED_MAX) * t;
   }
 
+  function facePowToward(dx, dz) {
+    if (dx * dx + dz * dz > 0.0004) pow.facing = Math.atan2(dx, dz);
+  }
+
   function updatePow(dt) {
-    if (!pow || missionBranch !== 'RESCUE' || !pow.freed) return;
+    if (!pow || missionBranch !== 'RESCUE') return;
+    if (!pow.freed) {
+      facePowToward(player.x - pow.x, player.z - pow.z);
+      pow.bodyCache = buildPowBody(dt);
+      return;
+    }
+    var ox = pow.x, oz = pow.z;
     var dx = player.x - pow.x, dz = player.z - pow.z;
     var dist = Math.sqrt(dx * dx + dz * dz);
     if (dist <= POW_STOP_DIST) {
       pow.path = null;
+      facePowToward(dx, dz);
+      pow.bodyCache = buildPowBody(dt);
       return;
     }
     var followSpeed = powFollowSpeed(dist);
@@ -2763,28 +2833,29 @@
       pow.repath = 0.45;
     }
     if (!pow.path || !pow.path.length) {
-      // fallback direct steer
       var inv = dist > 0.001 ? 1 / dist : 0;
       var nx = pow.x + dx * inv * followSpeed * dt;
       var nz = pow.z + dz * inv * followSpeed * dt;
       var moved = M.moveWithCollision(pow.x, pow.z, nx, nz, POW_RADIUS);
       pow.x = moved.x; pow.z = moved.z;
-      return;
+    } else {
+      var stepBudget = followSpeed * dt;
+      while (stepBudget > 0 && pow.path && pow.pathIdx < pow.path.length) {
+        var wp = pow.path[pow.pathIdx];
+        var wx = wp.x - pow.x, wz = wp.z - pow.z;
+        var wl = Math.sqrt(wx * wx + wz * wz);
+        if (wl < 0.15) { pow.pathIdx++; continue; }
+        var take = Math.min(stepBudget, wl);
+        var mx2 = pow.x + (wx / wl) * take;
+        var mz2 = pow.z + (wz / wl) * take;
+        var mv = M.moveWithCollision(pow.x, pow.z, mx2, mz2, POW_RADIUS);
+        pow.x = mv.x; pow.z = mv.z;
+        stepBudget -= take;
+        if (Math.hypot(pow.x - wp.x, pow.z - wp.z) < 0.2) pow.pathIdx++;
+      }
     }
-    var stepBudget = followSpeed * dt;
-    while (stepBudget > 0 && pow.path && pow.pathIdx < pow.path.length) {
-      var wp = pow.path[pow.pathIdx];
-      var wx = wp.x - pow.x, wz = wp.z - pow.z;
-      var wl = Math.sqrt(wx * wx + wz * wz);
-      if (wl < 0.15) { pow.pathIdx++; continue; }
-      var take = Math.min(stepBudget, wl);
-      var mx2 = pow.x + (wx / wl) * take;
-      var mz2 = pow.z + (wz / wl) * take;
-      var mv = M.moveWithCollision(pow.x, pow.z, mx2, mz2, POW_RADIUS);
-      pow.x = mv.x; pow.z = mv.z;
-      stepBudget -= take;
-      if (Math.hypot(pow.x - wp.x, pow.z - wp.z) < 0.2) pow.pathIdx++;
-    }
+    facePowToward(pow.x - ox, pow.z - oz);
+    pow.bodyCache = buildPowBody(dt);
   }
 
   // After X, the POW stays painted — no more LiDAR spray required to see them.
@@ -2794,7 +2865,7 @@
     var i, k, s, u, ph, sr, nx, ny, nz;
     for (i = 0; i < sph.length; i++) {
       s = sph[i];
-      for (k = 0; k < 14; k++) {
+      for (k = 0; k < 4; k++) {
         u = math.rand() * 2 - 1;
         ph = math.rand() * Math.PI * 2;
         sr = Math.sqrt(Math.max(0, 1 - u * u));
