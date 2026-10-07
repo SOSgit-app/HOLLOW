@@ -165,7 +165,9 @@
   }
   #clone-fill{ height:100%; width:0%; background:var(--ph); box-shadow:0 0 12px rgba(124,255,155,.45); transition:width .05s linear; }
   #clone-pct{ letter-spacing:.2em; margin-bottom:18px; }
-  #clone-choice .menu-btn{ display:block; width:100%; max-width:420px; margin:10px auto; text-align:left; }
+  #clone-choice .menu-btn, #clone-brief .menu-btn{
+    display:block; width:100%; max-width:420px; margin:10px auto; text-align:center;
+  }
   #clone-intel{ text-align:left; max-width:520px; margin:0 auto 16px; white-space:pre-wrap; font-size:13px; line-height:1.45; }
 
   /* ---------- Camcorder OSD ---------- */
@@ -333,14 +335,19 @@
 <div class="screen" id="clone-screen">
   <div class="screen-inner">
     <div class="sub" id="clone-title">CORE UPLINK</div>
-    <pre id="clone-status">PRESS AND HOLD X TO BEGIN THE DOWNLOAD ONTO THE HARD DRIVE</pre>
-    <div class="clone-bar"><div id="clone-fill"></div></div>
-    <div id="clone-pct">0%</div>
+    <div id="clone-download">
+      <pre id="clone-status">PRESS AND HOLD X TO BEGIN THE DOWNLOAD ONTO THE HARD DRIVE</pre>
+      <div class="clone-bar"><div id="clone-fill"></div></div>
+      <div id="clone-pct">0%</div>
+    </div>
     <div id="clone-choice" style="display:none">
+      <p class="dim" style="margin-bottom:18px">CLONE COMPLETE. CHOOSE ONE PATH.</p>
+      <button type="button" class="menu-btn primary" id="btn-rescue">RESCUE POW</button>
+      <button type="button" class="menu-btn" id="btn-virus">PLANT THE VIRUS</button>
+    </div>
+    <div id="clone-brief" style="display:none">
       <pre id="clone-intel"></pre>
-      <button type="button" class="menu-btn primary" id="btn-rescue">RESCUE POW — PRESS X, THEY FOLLOW</button>
-      <button type="button" class="menu-btn" id="btn-virus">PLANT VIRUS — CORRUPT LOCAL AI</button>
-      <p class="dim" style="margin-top:14px">ONE PATH ONLY. CHOPPER CLOCK STARTS ON CONFIRM.</p>
+      <button type="button" class="menu-btn primary" id="btn-understand">I UNDERSTAND</button>
     </div>
   </div>
 </div>
@@ -385,13 +392,13 @@
 <script src="src/math.js?v=102"></script>
 <script src="src/map.js?v=118"></script>
 <script src="src/marks.js?v=102"></script>
-<script src="src/render.js?v=106"></script>
+<script src="src/render.js?v=107"></script>
 <script src="src/audio.js?v=103"></script>
 <script src="src/mic.js?v=102"></script>
 <script src="src/enemy.js?v=113"></script>
 <script src="src/xr-controllers.js?v=101"></script>
 <script src="src/vr.js?v=107"></script>
 <script src="src/intro.js?v=102"></script>
-<script src="src/game.js?v=128"></script>
+<script src="src/game.js?v=129"></script>
 </body>
 </html>

@@ -697,11 +697,11 @@
       var chasing = c.state === 'CHASE';
       var dormant = c.state === 'DORMANT';
       if (isPow) {
-        ctx.fillStyle = 'rgba(60,220,90,' + (0.75 + 0.25 * pulse) + ')';
+        ctx.fillStyle = 'rgba(90,255,130,' + (0.88 + 0.12 * pulse) + ')';
         ctx.beginPath();
         ctx.arc(bx, by, c.state === 'POW_FREE' ? 6 : 5, 0, Math.PI * 2);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(180,255,190,0.95)';
+        ctx.strokeStyle = 'rgba(220,255,230,1)';
         ctx.lineWidth = 1.5;
         ctx.beginPath();
         ctx.arc(bx, by, c.state === 'POW_FREE' ? 8 : 7, 0, Math.PI * 2);

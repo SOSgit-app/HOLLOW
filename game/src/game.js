@@ -166,7 +166,7 @@
   var C_CYAN = [0.43, 0.91, 0.91];
   var C_SHUT = [0.92, 0.22, 0.58];
   var C_RED = [1.0, 0.27, 0.27];
-  var C_POW = [0.08, 0.45, 0.18];   // rescued POW — dark green LiDAR
+  var C_POW = [0.42, 1.0, 0.52];   // rescued POW — bright green LiDAR
   var C_DOOR = [0.12, 0.28, 0.72];   // locked blast doors — dark blue
   var NOISE_LASER = 32;
   var LASER_COOLDOWN = 10;
@@ -180,7 +180,10 @@
   var JACKIN_RETRY_S = 10; // lockout cool-down before another jack-in attempt
   var CLONE_DURATION_S = 4.5;
   var VIRUS_DURATION_S = 11;
-  var POW_FOLLOW_SPEED = 2.05;
+  var POW_SPEED_MAX = 3.05;
+  var POW_SPEED_MIN = 0.85;
+  var POW_NEAR = 4.5;
+  var POW_FAR = 11;
   var POW_STOP_DIST = 1.25;
   var POW_RADIUS = 0.4;
 
@@ -212,17 +215,6 @@
     "",
     "( END TRANSMISSION )"
   ];
-
-  var CLONE_INTEL =
-    "CLONE COMPLETE.\n\n" +
-    "FLASH TRAFFIC: POSSIBLE POW ON-SITE.\n" +
-    "CHOOSE RESCUE — YOU GET THEIR WALL CODE.\n" +
-    "READ THE CODE TO WATCH / ACCESS.\n" +
-    "WALK TO THEM. PRESS X. THEY FOLLOW YOU TO THE CHOPPER.\n" +
-    "LiDAR: POW PAINTS GREEN.\n\n" +
-    "ALTERNATE: REMAIN AT CONSOLE. PLANT VIRUS.\n" +
-    "WHEN THEIR MAINFRAME WAKES, YOU OWN THE STACK.\n\n" +
-    "ONE PATH ONLY. CHOPPER CLOCK STARTS ON CONFIRM.";
 
   var FAIL_LEFT_LINES = [
     "CHOPPER DEPARTED. LZ COLD.",
@@ -263,7 +255,7 @@
   var exfilPhase = 'NONE'; // NONE | INBOUND | ON_STATION | GONE
   var exfilTimer = 0;
   var missionBranch = 'NONE'; // NONE | RESCUE | VIRUS
-  var clonePhase = 'NONE'; // NONE | CLONING | CHOICE | DONE
+  var clonePhase = 'NONE'; // NONE | PROMPT | CLONING | CHOICE | BRIEF | DONE
   var cloneTimer = 0;
   var clonePct = 0;
   var cloneChoiceIdx = 0; // 0 rescue, 1 virus (desktop / last hover)
@@ -276,6 +268,7 @@
   var virusHolding = false;
   var virusWristActive = false; // show upload UI on wrist while at console on virus path
   var pow = null; // { x, z, freed, path, pathIdx, repath }
+  var pendingPow = null;
   var cloneCanvas = null;
   var cloneCtx = null;
   var pauseMenuOpen = false;
@@ -330,10 +323,13 @@
     el.cloneStatus = $('clone-status');
     el.cloneFill = $('clone-fill');
     el.clonePct = $('clone-pct');
+    el.cloneDownload = $('clone-download');
     el.cloneChoice = $('clone-choice');
+    el.cloneBrief = $('clone-brief');
     el.cloneIntel = $('clone-intel');
     el.btnRescue = $('btn-rescue');
     el.btnVirus = $('btn-virus');
+    el.btnUnderstand = $('btn-understand');
     el.pausePrompt = $('pause-prompt');
     el.pinOverlay = $('pin-overlay');
     el.end = $('end-screen');
@@ -388,6 +384,9 @@
         else if (state === 'WIN') { startVrFromEnd(); }
         else if (clonePhase === 'CHOICE' && !inVR()) {
           confirmCloneChoice(cloneChoiceIdx === 0 ? 'RESCUE' : 'VIRUS');
+        }
+        else if (clonePhase === 'BRIEF' && !inVR()) {
+          confirmPowBrief();
         }
       }
       if (pinUiActive() && state === 'PLAY') {
@@ -522,6 +521,12 @@
       el.btnVirus.addEventListener('click', function (e) {
         e.stopPropagation();
         if (clonePhase === 'CHOICE') confirmCloneChoice('VIRUS');
+      });
+    }
+    if (el.btnUnderstand) {
+      el.btnUnderstand.addEventListener('click', function (e) {
+        e.stopPropagation();
+        if (clonePhase === 'BRIEF') confirmPowBrief();
       });
     }
     var btnPauseResume = $('btn-pause-resume');
@@ -1174,6 +1179,7 @@
     missionBranch = 'NONE';
     clonePhase = 'NONE'; cloneTimer = 0; clonePct = 0; cloneChoiceIdx = 0;
     cloneHoverIdx = -1; clonePointerU = -1; clonePointerV = -1;
+    pendingPow = null;
     pauseMenuOpen = false; pauseHoverIdx = -1; pausePointerU = -1; pausePointerV = -1;
     pendingPauseExit = null;
     pausedFromVR = false;
@@ -1295,7 +1301,57 @@
   }
 
   function cloneUiActive() {
-    return clonePhase === 'PROMPT' || clonePhase === 'CLONING' || clonePhase === 'CHOICE';
+    return clonePhase === 'PROMPT' || clonePhase === 'CLONING' ||
+      clonePhase === 'CHOICE' || clonePhase === 'BRIEF';
+  }
+
+  function setCloneDesktopMode(mode) {
+    if (el.cloneDownload) el.cloneDownload.style.display = mode === 'download' ? '' : 'none';
+    if (el.cloneChoice) el.cloneChoice.style.display = mode === 'choice' ? 'block' : 'none';
+    if (el.cloneBrief) el.cloneBrief.style.display = mode === 'brief' ? 'block' : 'none';
+  }
+
+  function powBriefLines() {
+    var code = (pendingPow && pendingPow.code) || 'WALL CODE';
+    return [
+      'RESCUE PATH.',
+      '',
+      'POW IS NEAR ' + code + '.',
+      'READ THAT CODE TO WATCH / ACCESS.',
+      'WALK TO THEM. PRESS X. THEY FOLLOW YOU.',
+      'STAY CLOSE OR THEY SLOW DOWN.',
+      'THEY PAINT BRIGHT GREEN ON LiDAR.',
+      '',
+      'CHOPPER CLOCK STARTS WHEN YOU CONFIRM.'
+    ];
+  }
+
+  function powBriefText() {
+    return powBriefLines().join('\n');
+  }
+
+  function pickPowSite() {
+    var sites = (M.powSites && M.powSites()) || [];
+    var site = sites.length
+      ? sites[Math.floor(math.rand() * sites.length)]
+      : (M.markers.W ? {
+          x: M.markers.W.x, z: M.markers.W.z,
+          code: (M.nearestWallMark && M.nearestWallMark(M.markers.W.x, M.markers.W.z) || {}).code
+        } : null);
+    if (!site) throw new Error('HOLLOW: no POW site on this layout');
+    return site;
+  }
+
+  function spawnPowAtSite(site) {
+    pow = {
+      x: site.x,
+      z: site.z,
+      freed: false,
+      path: null,
+      pathIdx: 0,
+      repath: 0,
+      code: site.code || '??'
+    };
   }
 
   function isCloneHold(vrInput) {
@@ -1547,52 +1603,75 @@
       ctx.font = '13px monospace';
       ctx.fillText(clonePct > 0 && clonePct < 100 ? 'KEEP HOLDING X' : 'HOLD X TO DOWNLOAD', w / 2, 300);
     } else if (clonePhase === 'CHOICE') {
+      ctx.fillStyle = '#cfe';
+      ctx.font = '18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText('CLONE COMPLETE.', w / 2, 92);
+      ctx.font = '16px monospace';
       ctx.fillStyle = '#b8e0c8';
-      ctx.font = '13px monospace';
-      ctx.textAlign = 'left';
-      var lines = CLONE_INTEL.split('\n');
-      var y = 70;
-      for (var i = 0; i < lines.length; i++) {
-        ctx.fillText(lines[i], 36, y);
-        y += 18;
-      }
-      var opts = ['RESCUE POW — PRESS X, THEY FOLLOW', 'PLANT VIRUS — CORRUPT LOCAL AI'];
+      ctx.fillText('CHOOSE ONE PATH.', w / 2, 122);
+      var opts = ['RESCUE POW', 'PLANT THE VIRUS'];
+      var i;
       for (i = 0; i < opts.length; i++) {
         var selected = cloneHoverIdx === i;
         ctx.fillStyle = selected ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
-        ctx.fillRect(40, 290 + i * 48, w - 80, 40);
+        ctx.fillRect(40, 148 + i * 78, w - 80, 62);
         ctx.strokeStyle = selected ? '#7cff9b' : '#355';
-        ctx.strokeRect(40, 290 + i * 48, w - 80, 40);
+        ctx.strokeRect(40, 148 + i * 78, w - 80, 62);
         ctx.fillStyle = selected ? '#7cff9b' : '#8aa';
-        ctx.font = '15px monospace';
+        ctx.font = '20px monospace';
         ctx.textAlign = 'center';
-        ctx.fillText((selected ? '> ' : '  ') + opts[i], w / 2, 316 + i * 48);
+        ctx.fillText((selected ? '> ' : '  ') + opts[i], w / 2, 188 + i * 78);
       }
       ctx.fillStyle = '#6a8';
       ctx.font = '12px monospace';
       ctx.fillText('POINT LASER AT A PATH · TRIGGER TO CONFIRM', w / 2, 400);
-      if (clonePointerU >= 0 && clonePointerV >= 0) {
-        var px = clonePointerU * w, py = clonePointerV * h;
-        ctx.strokeStyle = '#ff2a2a';
-        ctx.fillStyle = 'rgba(255,40,40,0.35)';
-        ctx.lineWidth = 2.5;
-        ctx.beginPath();
-        ctx.arc(px, py, 12, 0, Math.PI * 2);
-        ctx.fill();
-        ctx.stroke();
-        ctx.beginPath();
-        ctx.arc(px, py, 3.5, 0, Math.PI * 2);
-        ctx.fillStyle = '#ffeeee';
-        ctx.fill();
-        ctx.beginPath();
-        ctx.moveTo(px - 16, py); ctx.lineTo(px - 6, py);
-        ctx.moveTo(px + 6, py); ctx.lineTo(px + 16, py);
-        ctx.moveTo(px, py - 16); ctx.lineTo(px, py - 6);
-        ctx.moveTo(px, py + 6); ctx.lineTo(px, py + 16);
-        ctx.strokeStyle = '#ff4444';
-        ctx.lineWidth = 2;
-        ctx.stroke();
+    } else if (clonePhase === 'BRIEF') {
+      ctx.fillStyle = '#b8e0c8';
+      ctx.font = '14px monospace';
+      ctx.textAlign = 'left';
+      var lines = powBriefLines();
+      var y = 68;
+      var li;
+      for (li = 0; li < lines.length; li++) {
+        ctx.fillText(lines[li], 40, y);
+        y += 20;
       }
+      var understandSel = cloneHoverIdx === 0;
+      ctx.fillStyle = understandSel ? 'rgba(124,255,155,0.25)' : 'rgba(0,0,0,0.35)';
+      ctx.fillRect(40, 318, w - 80, 50);
+      ctx.strokeStyle = understandSel ? '#7cff9b' : '#355';
+      ctx.strokeRect(40, 318, w - 80, 50);
+      ctx.fillStyle = understandSel ? '#7cff9b' : '#8aa';
+      ctx.font = '18px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText((understandSel ? '> ' : '  ') + 'I UNDERSTAND', w / 2, 350);
+      ctx.fillStyle = '#6a8';
+      ctx.font = '12px monospace';
+      ctx.fillText('POINT LASER AT I UNDERSTAND · TRIGGER TO BEGIN', w / 2, 400);
+    }
+    if ((clonePhase === 'CHOICE' || clonePhase === 'BRIEF') &&
+        clonePointerU >= 0 && clonePointerV >= 0) {
+      var px = clonePointerU * w, py = clonePointerV * h;
+      ctx.strokeStyle = '#ff2a2a';
+      ctx.fillStyle = 'rgba(255,40,40,0.35)';
+      ctx.lineWidth = 2.5;
+      ctx.beginPath();
+      ctx.arc(px, py, 12, 0, Math.PI * 2);
+      ctx.fill();
+      ctx.stroke();
+      ctx.beginPath();
+      ctx.arc(px, py, 3.5, 0, Math.PI * 2);
+      ctx.fillStyle = '#ffeeee';
+      ctx.fill();
+      ctx.beginPath();
+      ctx.moveTo(px - 16, py); ctx.lineTo(px - 6, py);
+      ctx.moveTo(px + 6, py); ctx.lineTo(px + 16, py);
+      ctx.moveTo(px, py - 16); ctx.lineTo(px, py - 6);
+      ctx.moveTo(px, py + 6); ctx.lineTo(px, py + 16);
+      ctx.strokeStyle = '#ff4444';
+      ctx.lineWidth = 2;
+      ctx.stroke();
     }
   }
 
@@ -1628,7 +1707,7 @@
     queueMsg('HOLD X — DOWNLOAD AI ONTO HARD DRIVE', 'amber', 4);
     if (!inVR()) {
       document.exitPointerLock();
-      if (el.cloneChoice) el.cloneChoice.style.display = 'none';
+      setCloneDesktopMode('download');
       if (el.cloneStatus) {
         el.cloneStatus.textContent = 'PRESS AND HOLD X TO BEGIN THE DOWNLOAD ONTO THE HARD DRIVE';
       }
@@ -1672,52 +1751,61 @@
     clonePointerU = -1;
     clonePointerV = -1;
     if (!inVR()) {
-      if (el.cloneStatus) el.cloneStatus.textContent = 'DOWNLOAD COMPLETE';
-      if (el.cloneFill) el.cloneFill.style.width = '100%';
-      if (el.clonePct) el.clonePct.textContent = '100%';
-      if (el.cloneIntel) el.cloneIntel.textContent = CLONE_INTEL;
-      if (el.cloneChoice) el.cloneChoice.style.display = 'block';
+      setCloneDesktopMode('choice');
       updateCloneDesktopChoice();
       showScreen('clone');
     }
-    queueMsg('FLASH TRAFFIC — POW INTEL · CHOOSE PATH', 'amber', 4);
+    queueMsg('CHOOSE — RESCUE POW OR PLANT THE VIRUS', 'amber', 4);
+  }
+
+  function closeCloneUi() {
+    clonePhase = 'DONE';
+    if (el.clone) el.clone.classList.remove('visible');
+    showScreen(null);
+    if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+    if (!inVR()) {
+      try { el.canvas.requestPointerLock(); } catch (err) { void err; }
+    }
+  }
+
+  function enterPowBrief() {
+    clonePhase = 'BRIEF';
+    cloneHoverIdx = -1;
+    clonePointerU = -1;
+    clonePointerV = -1;
+    if (!inVR()) {
+      if (el.cloneIntel) el.cloneIntel.textContent = powBriefText();
+      setCloneDesktopMode('brief');
+      showScreen('clone');
+    }
+    queueMsg('POW INTEL — READ THE CODE TO THE TABLE', 'amber', 6);
+  }
+
+  function confirmPowBrief() {
+    if (clonePhase !== 'BRIEF') return;
+    if (!pendingPow) return;
+    missionBranch = 'RESCUE';
+    spawnPowAtSite(pendingPow);
+    pendingPow = null;
+    closeCloneUi();
+    startExfil();
   }
 
   function confirmCloneChoice(branch) {
     if (clonePhase !== 'CHOICE') return;
     if (branch !== 'RESCUE' && branch !== 'VIRUS') return;
-    missionBranch = branch;
-    clonePhase = 'DONE';
     if (branch === 'RESCUE') {
-      var sites = (M.powSites && M.powSites()) || [];
-      var site = sites.length
-        ? sites[Math.floor(math.rand() * sites.length)]
-        : (M.markers.W ? {
-            x: M.markers.W.x, z: M.markers.W.z,
-            code: (M.nearestWallMark && M.nearestWallMark(M.markers.W.x, M.markers.W.z) || {}).code
-          } : null);
-      if (!site) throw new Error('HOLLOW: no POW site on this layout');
-      pow = {
-        x: site.x,
-        z: site.z,
-        freed: false,
-        path: null,
-        pathIdx: 0,
-        repath: 0,
-        code: site.code || '??'
-      };
-    } else {
-      pow = null;
-      virusProgress = 0;
-      virusDone = false;
+      pendingPow = pickPowSite();
+      enterPowBrief();
+      return;
     }
-    if (el.clone) el.clone.classList.remove('visible');
-    showScreen(null);
-    if (R.setCircuitPanel) R.setCircuitPanel(null, null);
+    pendingPow = null;
+    pow = null;
+    virusProgress = 0;
+    virusDone = false;
+    missionBranch = 'VIRUS';
+    closeCloneUi();
     startExfil();
-    if (!inVR()) {
-      try { el.canvas.requestPointerLock(); } catch (err) { void err; }
-    }
   }
 
   function cloneOptionAtUv(u, v) {
@@ -1725,9 +1813,15 @@
     var w = cloneCanvas ? cloneCanvas.width : 640;
     var h = cloneCanvas ? cloneCanvas.height : 420;
     var x = u * w, y = v * h;
-    var i, bx = 40, bw = w - 80, bh = 40, by;
+    var bx = 40, bw = w - 80, bh, by, i;
+    if (clonePhase === 'BRIEF') {
+      by = 318; bh = 50;
+      if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return 0;
+      return -1;
+    }
     for (i = 0; i < 2; i++) {
-      by = 290 + i * 48;
+      by = 148 + i * 78;
+      bh = 62;
       if (x >= bx && x <= bx + bw && y >= by && y <= by + bh) return i;
     }
     return -1;
@@ -1737,7 +1831,7 @@
     cloneHoverIdx = -1;
     clonePointerU = -1;
     clonePointerV = -1;
-    if (clonePhase !== 'CHOICE') return;
+    if (clonePhase !== 'CHOICE' && clonePhase !== 'BRIEF') return;
     if (!circuitPanelModel) buildCircuitModel();
     var aim = worldAimFromVr(vrInput);
     if (!aim || !circuitPanelModel) return;
@@ -1771,10 +1865,11 @@
       } else {
         syncCloneDesktopBar();
       }
-    } else if (clonePhase === 'CHOICE' && vrInput) {
+    } else if ((clonePhase === 'CHOICE' || clonePhase === 'BRIEF') && vrInput) {
       handleCloneLaser(vrInput);
       if ((vrInput.interactPressed || vrInput.tricklePressed) && cloneHoverIdx >= 0) {
-        confirmCloneChoice(cloneHoverIdx === 0 ? 'RESCUE' : 'VIRUS');
+        if (clonePhase === 'BRIEF') confirmPowBrief();
+        else confirmCloneChoice(cloneHoverIdx === 0 ? 'RESCUE' : 'VIRUS');
       }
     }
     if (cloneUiActive() && inVR()) syncClonePanel();
@@ -2041,7 +2136,7 @@
     var ps = powSpheres();
     for (i = 0; i < ps.length; i++) {
       t = raySphere(ox, oy, oz, dx, dy, dz, ps[i]);
-      if (t > 0 && t < bestT) { bestT = t; color = C_POW; life = ENEMY_POINT_LIFE; }
+      if (t > 0 && t < bestT) { bestT = t; color = C_POW; life = ITEM_LIFE; }
     }
     // items — access keys only (no memo/message orbs)
     var keyHit = null, keyHitT = 0;
@@ -2645,6 +2740,13 @@
     }
   }
 
+  function powFollowSpeed(dist) {
+    if (dist <= POW_NEAR) return POW_SPEED_MAX;
+    if (dist >= POW_FAR) return POW_SPEED_MIN;
+    var t = (dist - POW_NEAR) / (POW_FAR - POW_NEAR);
+    return POW_SPEED_MAX + (POW_SPEED_MIN - POW_SPEED_MAX) * t;
+  }
+
   function updatePow(dt) {
     if (!pow || missionBranch !== 'RESCUE' || !pow.freed) return;
     var dx = player.x - pow.x, dz = player.z - pow.z;
@@ -2653,6 +2755,7 @@
       pow.path = null;
       return;
     }
+    var followSpeed = powFollowSpeed(dist);
     pow.repath -= dt;
     if (!pow.path || pow.pathIdx >= pow.path.length || pow.repath <= 0) {
       pow.path = M.astar(pow.x, pow.z, player.x, player.z);
@@ -2662,13 +2765,13 @@
     if (!pow.path || !pow.path.length) {
       // fallback direct steer
       var inv = dist > 0.001 ? 1 / dist : 0;
-      var nx = pow.x + dx * inv * POW_FOLLOW_SPEED * dt;
-      var nz = pow.z + dz * inv * POW_FOLLOW_SPEED * dt;
+      var nx = pow.x + dx * inv * followSpeed * dt;
+      var nz = pow.z + dz * inv * followSpeed * dt;
       var moved = M.moveWithCollision(pow.x, pow.z, nx, nz, POW_RADIUS);
       pow.x = moved.x; pow.z = moved.z;
       return;
     }
-    var stepBudget = POW_FOLLOW_SPEED * dt;
+    var stepBudget = followSpeed * dt;
     while (stepBudget > 0 && pow.path && pow.pathIdx < pow.path.length) {
       var wp = pow.path[pow.pathIdx];
       var wx = wp.x - pow.x, wz = wp.z - pow.z;
@@ -2691,7 +2794,7 @@
     var i, k, s, u, ph, sr, nx, ny, nz;
     for (i = 0; i < sph.length; i++) {
       s = sph[i];
-      for (k = 0; k < 10; k++) {
+      for (k = 0; k < 14; k++) {
         u = math.rand() * 2 - 1;
         ph = math.rand() * Math.PI * 2;
         sr = Math.sqrt(Math.max(0, 1 - u * u));
@@ -3096,8 +3199,11 @@
       var i;
       if (missionBranch === 'RESCUE' && pow && !pow.freed && near(pow.x, pow.z, hintRange + 0.5)) {
         hint = inVR() ? '[X] PRESS X — THEY FOLLOW YOU TO THE CHOPPER' : '[E] PRESS E — THEY FOLLOW YOU TO THE CHOPPER';
-      } else if (missionBranch === 'RESCUE' && pow && pow.freed && near(pow.x, pow.z, hintRange)) {
-        hint = 'POW FOLLOWING — LEAD THEM TO THE CHOPPER';
+      } else if (missionBranch === 'RESCUE' && pow && pow.freed) {
+        var pd = Math.hypot(player.x - pow.x, player.z - pow.z);
+        hint = pd > POW_NEAR
+          ? 'STAY CLOSE — POW SLOWS WHEN YOU PULL AWAY'
+          : 'POW FOLLOWING — LEAD THEM TO THE CHOPPER';
       } else if (missionBranch === 'VIRUS' && !virusDone && near(M.markers.G.x, M.markers.G.z, hintRange + 0.5)) {
         hint = virusHolding
           ? ('UPLOADING VIRUS ' + Math.floor(virusProgress * 100) + '%')
@@ -3336,7 +3442,10 @@
         return '<span class="energized">DOWNLOADING ' + Math.floor(clonePct) + '%</span>';
       }
       if (clonePhase === 'CHOICE') {
-        return '<span class="energized">CHOOSE: RESCUE OR VIRUS</span>';
+        return '<span class="energized">CHOOSE: RESCUE POW OR PLANT THE VIRUS</span>';
+      }
+      if (clonePhase === 'BRIEF') {
+        return '<span class="energized">POW INTEL — CONFIRM TO BEGIN RESCUE</span>';
       }
       if (exfilPhase === 'ON_STATION') {
         return '<span class="energized">LZ ON STATION T-' + pad(Math.max(0, Math.ceil(exfilTimer)), 2) + '</span>';
@@ -3539,7 +3648,9 @@
           ? 'PRESS AND HOLD X — DOWNLOAD TO HARD DRIVE'
           : (clonePhase === 'CLONING'
             ? 'HOLD X — DOWNLOADING ' + Math.floor(clonePct) + '%'
-            : 'POINT LASER AT A PATH · TRIGGER TO CONFIRM');
+            : (clonePhase === 'BRIEF'
+              ? 'POINT LASER AT I UNDERSTAND · TRIGGER TO BEGIN'
+              : 'POINT LASER AT A PATH · TRIGGER TO CONFIRM'));
       } else {
         if (R.setCircuitPanel) R.setCircuitPanel(null, null);
         updatePlayer(dt, vrInput);

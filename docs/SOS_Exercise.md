@@ -42,7 +42,7 @@ Print: [map-print.html?team=4](../game/map-print.html?team=4#easy-watch) — **P
 
 1. Recover **3 access keys** (amber) — Access has the marks
 2. Open **console door D3** (all 3 keys) — Access has the doors. D1–D2 and D4–D9 are optional 1-key cuts
-3. **Jack-in** at G — press X, then **hold X** to download onto the drive. When it finishes: POW (Operator hears a wall code, then **press X** on the POW so they follow to the chopper) **or** virus
+3. **Jack-in** at G — press X, then **hold X** to download onto the drive. Choice is POW or plant the virus. If POW: Operator gets the wall code, then **I UNDERSTAND** starts rescue. **Press X** on the POW; stay close or they slow down. They paint bright green on LiDAR.
 4. **Chopper inbound**, then **on station** — Operator walks onto the yellow X pad
 
 Watch keeps them off yellow beams the whole time.
